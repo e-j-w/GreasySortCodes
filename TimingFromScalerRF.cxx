@@ -264,26 +264,27 @@ double GetPhaseNsForTimestamp(ULong64_t timestamp, int numRFFrags)
 double GetPhaseRadForTimestamp(ULong64_t timestamp, int numRFFrags, bool below)
 {
    // printf("ts: %llu\n",timestamp);
-   double T, numTinterp, interpPhaseShift;
+   //double T;
+   double numTinterp, interpPhaseShift;
    double interpPhase = -100;
    int    i           = 0;
    for(i = 0; i < numRFFrags; i++) {
       if((i > 0) && (timestampBuffer[i] > timestamp) &&
          (timestampBuffer[i - 1] <= timestamp)) { // ignoring rollover for now
-         if(below) {
-            T                = 1.34217728E9 / freqBuffer[i - 1]; // period in ns
-            numTinterp       = (timestamp - timestampBuffer[i - 1]) / T;
-            interpPhaseShift = (numTinterp - (int)numTinterp) * (2 * TMath::Pi());
+         if(below) { //interpolate from previous RF event
+            //T                = 1.34217728E9 / freqBuffer[i - 1]; // period in ns
+            numTinterp       = (timestamp - timestampBuffer[i - 1]) * freqBuffer[i - 1] / 1.34217728E9; //number of periods to interpolate
+            interpPhaseShift = (numTinterp - (int)numTinterp) * (2 * TMath::Pi()); //phase shift needed
             // set phase, wrapping around so that it ranges from 0 to 2pi
             if((phaseBuffer[i - 1] + interpPhaseShift) < (2 * TMath::Pi()))
                interpPhase = phaseBuffer[i - 1] + interpPhaseShift;
             else
                interpPhase = phaseBuffer[i - 1] + interpPhaseShift - (2 * TMath::Pi());
             break;
-         } else {
-            T                = 1.34217728E9 / freqBuffer[i]; // period in ns
-            numTinterp       = (timestampBuffer[i] - timestamp) / T;
-            interpPhaseShift = (numTinterp - (int)numTinterp) * (2 * TMath::Pi());
+         } else { //interpolate from RF event after
+            //T                = 1.34217728E9 / freqBuffer[i]; // period in ns
+            numTinterp       = (timestampBuffer[i] - timestamp) * freqBuffer[i] / 1.34217728E9; //number of periods to interpolate
+            interpPhaseShift = (numTinterp - (int)numTinterp) * (2 * TMath::Pi()); //phase shift needed
             // set phase, wrapping around so that it ranges from 0 to 2pi
             if((phaseBuffer[i] - interpPhaseShift) < (2 * TMath::Pi()))
                interpPhase = phaseBuffer[i] - interpPhaseShift;
@@ -294,9 +295,9 @@ double GetPhaseRadForTimestamp(ULong64_t timestamp, int numRFFrags, bool below)
       }
    }
    // re-center phase to range from -pi to pi rather than 0 to 2pi
-   /*if(interpPhase>TMath::Pi()){
+   if(interpPhase>TMath::Pi()){
        interpPhase-=2*TMath::Pi();
-   }*/
+   }
    // printf("numTinterp: %f, i: %i, interpPhaseShift: %f, interpPhase: %f\n",numTinterp, i, interpPhaseShift,
    // interpPhase);
    return interpPhase;
@@ -409,6 +410,7 @@ void MapPhaseProgressionTest(TTree* ftree, int numRFFrags, TH2D* interpHist, int
 
    int FragsIn = 0;
 
+
    for(int i = 0; i < entries; i++) {
 
       if(i % 100 == 0) printf("Entry %i / %i\r", i, entries);
@@ -419,18 +421,20 @@ void MapPhaseProgressionTest(TTree* ftree, int numRFFrags, TH2D* interpHist, int
       FragsIn++;
 
       if(currentFrag->GetChannelNumber() == chan1) {
-         // printf("channel address: %u\n",currentFrag->GetChannelNumber());
-         ts = currentFrag->GetTime();
-         //printf("ts: %llu\n",ts);
-         //printf("tsunit: %i\n",currentFrag->GetTimeStampUnit());
-         double time = (((double)ts)/1000000000.0);
-         //printf("time: %f\n",(((double)ts)/1000000000.0));
-         double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true);
-         //printf("phase: %f\n",phase);
-         interpHist->Fill(phase, time);
-         /*if((time > 7.16)&&(time < 7.18)){
-             printf("ts: %llu, phase: %f\n",ts,phase);
-         }*/
+         //if(currentFrag->GetEnergy() > 59000)
+            //if(currentFrag->GetEnergy() < 62500)
+               //{
+                  // printf("channel address: %u\n",currentFrag->GetChannelNumber());
+                  ts = currentFrag->GetTime(); //CFD time
+                  //printf("ts: %llu\n",ts);
+                  //printf("tsunit: %i\n",currentFrag->GetTimeStampUnit());
+                  double time = (((double)ts)/1000000000.0); //CFD time in seconds
+                  //printf("time: %f\n",(((double)ts)/1000000000.0));
+                  double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
+                  //printf("phase: %f\n",phase);
+                  interpHist->Fill(phase, currentFrag->GetEnergy());
+               //}
+         
       }
 
       // currentFrag->Print();
@@ -584,7 +588,7 @@ int main(int argc, char** argv)
 
    TH1D* interpHist = new TH1D("Timing", "Timing", 5000, 0, 2048);
    interpHist->Reset();
-   TH2D* interpHist2 = new TH2D("Timing", "Timing", 70, (0 * TMath::Pi()), (2 * TMath::Pi()), 10000, 0, 120);
+   TH2D* interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,70000);
    interpHist2->Reset();
    /*TH2D* tsdiffvst = new TH2D("Timestamp difference vs timestamp", "Timestamp difference vs timestamp", 10000, 0, 1000000, 200, 0, 20);
    tsdiffvst->Reset();
@@ -659,8 +663,8 @@ int main(int argc, char** argv)
    TCanvas* c1 = new TCanvas("c1", "c1", 800, 600);
    interpHist->GetXaxis()->SetTitle("ts diff(ms)");
    //interpHist->Draw();
-   interpHist2->GetXaxis()->SetTitle("phase 1 (rad)");
-   interpHist2->GetYaxis()->SetTitle("time (s)");
+   interpHist2->GetXaxis()->SetTitle("phase (rad)");
+   interpHist2->GetYaxis()->SetTitle("Energy (keV)");
    interpHist2->Draw("colz");
    /*tsdiffvst->GetXaxis()->SetTitle("timestamp (ms)");
    tsdiffvst->GetYaxis()->SetTitle("timestamp diff (ms)");*/
