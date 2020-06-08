@@ -86,31 +86,41 @@ int BuildRFTimeTable(TTree* stree)
 
       timestampBuffer.push_back(currentFrag->GetTimeStamp());
 
-      if(currentFrag->GetTimeStamp() < mints) mints = currentFrag->GetTimeStamp();
-      if(currentFrag->GetTimeStamp() > maxts) maxts = currentFrag->GetTimeStamp();
 
-      for(int j = 0; j < currentFrag->fName.size(); j++) {
-         val = currentFrag->GetData(j);
-         // printf("%s: %f\n",currentFrag->fName[j].c_str(),val);
-         if(j < currentFrag->fData.size()) {
-            if(strcmp(currentFrag->fName[j].c_str(), "RF Frequency") == 0) {
-               freqBuffer.push_back(val);
-               fe = true;
-            } else if(strcmp(currentFrag->fName[j].c_str(), "RF par 0") == 0) {
-               parBuffer[0].push_back(val);
-               p0e = true;
-            } else if(strcmp(currentFrag->fName[j].c_str(), "RF par 1") == 0) {
-               parBuffer[1].push_back(val);
-               p1e = true;
-            } else if(strcmp(currentFrag->fName[j].c_str(), "RF par 2") == 0) {
-               parBuffer[2].push_back(val);
-               p2e = true;
-            } else if(strcmp(currentFrag->fName[j].c_str(), "RF Determinant") == 0) {
-               parBuffer[3].push_back(val);
-               de = true;
-            }
-         }
-      }
+        //enforce a desired sampling rate
+/*printf("size: %i, ts1: %llu, ts2: %llu, diff: %llu\n",timestampBuffer.size(),timestampBuffer[timestampBuffer.size()-1], timestampBuffer[timestampBuffer.size()-2], timestampBuffer[timestampBuffer.size()-1]-timestampBuffer[timestampBuffer.size()-2]);*/
+		if((i==0)||((timestampBuffer[timestampBuffer.size()-1]-timestampBuffer[timestampBuffer.size()-2]) > 5000000000)){
+		  //printf("kept!\n");
+
+		  if(currentFrag->GetTimeStamp() < mints) mints = currentFrag->GetTimeStamp();
+		  if(currentFrag->GetTimeStamp() > maxts) maxts = currentFrag->GetTimeStamp();
+
+		  for(int j = 0; j < currentFrag->fName.size(); j++) {
+			 val = currentFrag->GetData(j);
+			 // printf("%s: %f\n",currentFrag->fName[j].c_str(),val);
+			 if(j < currentFrag->fData.size()) {
+			    if(strcmp(currentFrag->fName[j].c_str(), "RF Frequency") == 0) {
+			       freqBuffer.push_back(val);
+			       fe = true;
+			    } else if(strcmp(currentFrag->fName[j].c_str(), "RF par 0") == 0) {
+			       parBuffer[0].push_back(val);
+			       p0e = true;
+			    } else if(strcmp(currentFrag->fName[j].c_str(), "RF par 1") == 0) {
+			       parBuffer[1].push_back(val);
+			       p1e = true;
+			    } else if(strcmp(currentFrag->fName[j].c_str(), "RF par 2") == 0) {
+			       parBuffer[2].push_back(val);
+			       p2e = true;
+			    } else if(strcmp(currentFrag->fName[j].c_str(), "RF Determinant") == 0) {
+			       parBuffer[3].push_back(val);
+			       de = true;
+			    }
+			 }
+		  }
+
+		}
+
+ 
 
       if(fe && p0e && p1e && p2e && de) {
          RFFragsIn++;
@@ -140,7 +150,7 @@ int BuildRFTimeTable(TTree* stree)
       }
    }
 
-   printf("%i RF fragment(s) read in.\n", FragsIn);
+   printf("%i RF fragment(s) read in.\n", RFFragsIn);
 
    double t0, T, A, s, c;
    double par[3];
@@ -398,14 +408,16 @@ void MapPhaseTest2D(TTree* ftree, int numRFFrags, TH2D* interpHist, int chan1, i
    // getc(stdin);
 }
 
-void MapPhaseProgressionTest(TTree* atree, int numRFFrags, TH2D* interpHist, int hitType, bool append)
+void MapPhaseEnergyTest(TTree* atree, int numRFFrags, TH2D* interpHist, int hitType, bool append)
 {
 
    if(!append) interpHist->Reset();
 
    ULong64_t ts;
-   int entries = atree->GetEntries();
-   //int entries = 200000;
+   //int entries = atree->GetEntries();
+   int entries = 600000;
+   if(entries > atree->GetEntries())
+     entries = atree->GetEntries();
    int entriesIn = 0;
 
    if(hitType==1){
@@ -616,7 +628,7 @@ int main(int argc, char** argv)
 
    TH1D* interpHist = new TH1D("Timing", "Timing", 5000, 0, 2048);
    interpHist->Reset();
-   TH2D* interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,70000);
+   TH2D* interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,4000);
    interpHist2->Reset();
    /*TH2D* tsdiffvst = new TH2D("Timestamp difference vs timestamp", "Timestamp difference vs timestamp", 10000, 0, 1000000, 200, 0, 20);
    tsdiffvst->Reset();
@@ -714,7 +726,7 @@ int main(int argc, char** argv)
       // PhaseConsistencyTest(inptree, numRFFrags, interpHist, chan1, chan2, true);
       // MapPhaseTest(inptree, numRFFrags, interpHist, chan1, chan2, true);
       // MapPhaseTest2D(inptree, numRFFrags, interpHist2, chan1, chan2, true);
-      MapPhaseProgressionTest(inptree, numRFFrags, interpHist2, hitType, true);
+      MapPhaseEnergyTest(inptree, numRFFrags, interpHist2, hitType, true);
       // MapPhase2DTest(inptree,numRFFrags,hist,true);
 
       ffile->Close();
