@@ -89,9 +89,9 @@ void SortCode::Initialise() {
   //TIGRESS-TIGRESS
   addT_addT = new TH1F("addT_addT","Tigress-Tigress_time",4096,-2048,2048); 
   tigtigList->Add(addT_addT);
-  addE_addE = new TH2F("addE_addE", "Addback_Gamma_Gamma", 8192, 0, 4096, 8192, 0, 4096);
+  addE_addE = new TH2F("addE_addE", "Addback_Gamma_Gamma", 4096, 0, 8192, 4096, 0, 8192);
   tigtigList->Add(addE_addE);
-  addE_addE_tg = new TH2F("addE_addE_tg", "Addback_Gamma_Gamma_Time_Gated", 4096, 0, 4096, 4096, 0, 4096);
+  addE_addE_tg = new TH2F("addE_addE_tg", "Addback_Gamma_Gamma_Time_Gated", 4096, 0, 8192, 4096, 0, 8192);
   tigtigList->Add(addE_addE_tg);
 
   //TIGRESS-S3
@@ -188,7 +188,7 @@ void SortCode::Initialise() {
   tgList->Add(addDopp_ANum_tg);
   addDopp_exc_tg = new TH2F("addDopp_Exc_tg", "Addback_Doppler_Energy_V_Excitation_Energy_Time_Gated", 8192, 0, 8192, 2800, -2., 12.);
   tgList->Add(addDopp_exc_tg);
-  addDopp_addDopp_tg = new TH2F("addDopp_addDopp_tg", "Addback_Gamma_Gamma_Time_Gated", 4096, 0, 4096, 4096, 0, 4096);
+  addDopp_addDopp_tg = new TH2F("addDopp_addDopp_tg", "Addback_Gamma_Gamma_Time_Gated", 4096, 0, 8192, 4096, 0, 8192);
   tgList->Add(addDopp_addDopp_tg);
   s3_E_theta_gated = new TH2F("s3_E_theta_gated","s3_E_theta_gated",180,0,180, 820, 0, 16384); 
   tgList->Add(s3_E_theta_gated);

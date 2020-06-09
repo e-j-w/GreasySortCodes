@@ -3,6 +3,8 @@
 // SortCode.cxx
 // S. A. Gillespie
 // 12/12/2019
+// E. J. Williams
+// 6/9/2020
 
 #define Sortcode_cxx
 #include "SortCode.h"
@@ -79,7 +81,8 @@ double tempICArray[4];
 double tempIC2D[5][4];
 double s3_x_offset = -2.65; // S3 x offset (mm) will need to be recalculated with beam
 double s3_y_offset = -0.05; // S3 y offset (mm) will need to be recalculated with beam
-double s3_z_offset = -4.52; // S3 z offset (mm) will need to be calculated.
+//double s3_z_offset = -4.52; // S3 z offset (mm) will need to be calculated.
+double s3_z_offset = 0.0; // S3 z offset (mm) will need to be calculated.
 double beta;
 double thetalab;
 double exc;
@@ -460,7 +463,7 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
                     recoiltheta = o17->ConvertThetaCmToLab(thetacm, 3);
                     recoil_vec.SetMagThetaPhi(1., recoiltheta, s3pos.Phi() - TMath::Pi());
 
-                    s3emmatof->Fill(add_hit->GetTime() - em_hit->GetTime());
+                    s3emmatof->Fill(s3hit->GetTime() - em_hit->GetTime());
                     addemmatof->Fill(add_hit->GetTime() - em_hit->GetTime());
                     addE_tof->Fill((add_hit->GetTime() - em_hit->GetTime()), add_hit->GetEnergy());
 
