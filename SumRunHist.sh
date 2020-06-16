@@ -32,25 +32,26 @@ for run in `seq $firstrun $lastrun` ; do
     continue 
   fi 
 
+  NUMSUBRUNS=0
   echo "::: Summing subruns for $run ... "
   echo ""
-  for file in "$HIST_DIR"/Hist_"$run"_*
-    do 
-    FILE_LIST=(${FILE_LIST[@]} "$file")
-    done
+  for file in "$HIST_DIR"/Hist_"$run"_* ; do 
+    FILE_LIST="$FILE_LIST $file"
+    NUMSUBRUNS=$((NUMSUBRUNS + 1))
+  done
+  echo "run $run file list: $FILE_LIST"
 
   # sum all subruns into single .root file
-if [ ${#FILE_LIST[@]} -eq 0 ]; then
-#echo "${#FILE_LIST[@]}   "
-  echo "hadd -f $HIST_DIR/Sum_$run.root ${FILE_LIST[@]}"
-  hadd -f $HIST_DIR/Sum_$run.root ${FILE_LIST[@]}
-
-else
-  if [ -e ${FILE_LIST[0]} ] ; then
-  echo "cp ${FILE_LIST[0]} $HIST_DIR/Sum_$run.root"
-  cp ${FILE_LIST[0]} $HIST_DIR/Sum_$run.root
+  if [ $NUMSUBRUNS -gt 1 ]; then
+  #echo "${#FILE_LIST[@]}   "
+    echo "hadd -f $HIST_DIR/Sum_$run.root ${FILE_LIST[@]}"
+    hadd -f $HIST_DIR/Sum_$run.root ${FILE_LIST[@]}
+  else
+    if [ $NUMSUBRUNS -eq 1 ] ; then
+    echo "cp ${FILE_LIST[0]} $HIST_DIR/Sum_$run.root"
+    cp ${FILE_LIST[0]} $HIST_DIR/Sum_$run.root
+    fi
   fi
-fi
   # need to clear array after each loop 
 
   unset FILE_LIST
