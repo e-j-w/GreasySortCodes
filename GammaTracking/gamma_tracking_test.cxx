@@ -40,6 +40,51 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
 
   TList * list = new TList;
 
+  //setup density functions for the real spatial coordinates r, angle, and z in cylindrical coordinates
+  //these are rough guesses, and would be better replaced by simulated distributions
+  //for r, assume proportional to r^2 (crystal radius 30mm)
+  TH1D *rDistHist = new TH1D("radius distribution","radius distribution",6,0,30);
+  for(int i=0;i<6;i++){
+    double rVal = rDistHist->GetBinCenter(i+1);
+    rDistHist->SetBinContent(i+1,rVal*rVal);
+  }
+  rDistHist->Scale(1.0/rDistHist->Integral());
+  list->Add(rDistHist);
+  //for angle, assume flat distribution
+  TH1D *angleDistHist = new TH1D("angle distribution","angle distribution",6,0,90);
+  for(int i=0;i<6;i++){
+    angleDistHist->SetBinContent(i+1,1.0);
+  }
+  angleDistHist->Scale(1.0/angleDistHist->Integral());
+  list->Add(angleDistHist);
+  //for z, assume exponential, decreasing with depth (what is the decay constant?)
+  //lateral segmentation is 30mm from crystal front, crystals are 90mm long, 
+  //so need 2 distributions corresponding to front and back segments
+  TH1D *zDistHistFront = new TH1D("z distribution front","z distribution front",6,0,30);
+  for(int i=0;i<6;i++){
+    double decConst = 0.01;
+    double zVal = zDistHistFront->GetBinCenter(i+1);
+    zDistHistFront->SetBinContent(i+1,exp(-decConst*zVal));
+  }
+  zDistHistFront->Scale(1.0/zDistHistFront->Integral());
+  list->Add(zDistHistFront);
+  TH1D *zDistHistBack = new TH1D("z distribution back","z distribution back",6,30,90);
+  for(int i=0;i<6;i++){
+    double decConst = 0.01;
+    double zVal = zDistHistBack->GetBinCenter(i+1);
+    zDistHistBack->SetBinContent(i+1,exp(-decConst*zVal));
+  }
+  zDistHistBack->Scale(1.0/zDistHistBack->Integral());
+  list->Add(zDistHistBack);
+  TH1 *rDistHistC = rDistHist->GetCumulative();
+  TH1 *angleDistHistC = angleDistHist->GetCumulative();
+  TH1 *zDistHistFrontC = zDistHistFront->GetCumulative();
+  TH1 *zDistHistBackC = zDistHistBack->GetCumulative();
+  list->Add(rDistHistC);
+  list->Add(angleDistHistC);
+  list->Add(zDistHistFrontC);
+  list->Add(zDistHistBackC);
+
   //setup histograms for the ordering parameters
   //ROOT histograms are used to store this data since ROOT provides useful
   //methods such as GetCumulative() and GetQuantiles() which will be used later
@@ -188,6 +233,7 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
   cout << "Entry " << nentries << " of " << nentries << ", 100% Complete!\n";
 
   //generate normalized cumulative distributions of all ordering parameters
+  cout << "Generating cumulative distributions of ordering parameters..." << endl;
   TH1 *rhoHistC[NPOS*NCORE*NSEG], *phiHistC[NPOS*NCORE*NSEG], *zetaHistC[NPOS*NCORE*NSEG];
   for(int i = 0; i < NPOS; i++){
     for(int j = 0; j < NCORE; j++){
@@ -201,6 +247,26 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
         list->Add(rhoHistC[NCORE*NSEG*i + NSEG*j + k]);
         list->Add(phiHistC[NCORE*NSEG*i + NSEG*j + k]);
         list->Add(zetaHistC[NCORE*NSEG*i + NSEG*j + k]);
+      }
+    } 
+  }
+
+  //generate ordering parameter to spatial coordinate maps
+  cout << "Generating ordering parameter to spatial coordinate maps..." << endl;
+  Double_t *qVal;
+  TH1 *rMap[NPOS*NCORE*NSEG], *angleMap[NPOS*NCORE*NSEG], *zMap[NPOS*NCORE*NSEG];
+  for(int i = 0; i < NPOS; i++){
+    for(int j = 0; j < NCORE; j++){
+      for(int k = 0; k < NSEG; k++){
+        sprintf(hname,"rMapPos%iCore%iSeg%i",i,j,k);
+        rMap[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("rMapPos%iCore%iSeg%i",i,j,k),6,0,30);
+        sprintf(hname,"angleMapPos%iCore%iSeg%i",i,j,k);
+        angleMap[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("angleMapPos%iCore%iSeg%i",i,j,k),6,0,90);
+        sprintf(hname,"zMapPos%iCore%iSeg%i",i,j,k);
+        zMap[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("zMapPos%iCore%iSeg%i",i,j,k),6,0,90);
+        list->Add(rMap[NCORE*NSEG*i + NSEG*j + k]);
+        list->Add(angleMap[NCORE*NSEG*i + NSEG*j + k]);
+        list->Add(zMap[NCORE*NSEG*i + NSEG*j + k]);
       }
     } 
   }
