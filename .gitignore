@@ -1,4 +1,6 @@
 TimingFromScalerRF/TimingFromScalerRF
+GammaTracking/GammaTrackingTest
 S1873/SortData
 *~
 .nfs*
+*.root

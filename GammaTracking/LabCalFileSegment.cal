@@ -1,0 +1,396 @@
+TIG01BP01X { 
+Name:	TIG01BP01X
+Number:	1
+Address:	0x0000
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+TIG01BP02X { 
+Name:	TIG01BP02X
+Number:	2
+Address:	0x0001
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+TIG01BP03X { 
+Name:	TIG01BP03X
+Number:	3
+Address:	0x0002
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+TIG01BP04X { 
+Name:	TIG01BP04X
+Number:	4
+Address:	0x0003
+Digitizer:	GRF16
+EngCoeff:	1 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+TIG01BP05X { 
+Name:	TIG01BP05X
+Number:	5
+Address:	0x0004
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+TIG01BP06X { 
+Name:	TIG01BP06X
+Number:	6
+Address:	0x0005
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+TIG01BP07X { 
+Name:	TIG01BP07X
+Number:	7
+Address:	0x0006
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+TIG01BP08X { 
+Name:	TIG01BP08X
+Number:	8
+Address:	0x0007
+Digitizer:	GRF16
+EngCoeff:	1 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX09XX00X { 
+Name:	GDX09XX00X
+Number:	9
+Address:	0x0008
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+TIG01BN00A { 
+Name:	TIG01BN00A
+Number:	10
+Address:	0x0009
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX11XX00X { 
+Name:	GDX11XX00X
+Number:	11
+Address:	0x000a
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX12XX00X { 
+Name:	GDX12XX00X
+Number:	12
+Address:	0x000b
+Digitizer:	GRF16
+EngCoeff:	1 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX13XX00X { 
+Name:	GDX13XX00X
+Number:	13
+Address:	0x000c
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX14XX00X { 
+Name:	GDX14XX00X
+Number:	14
+Address:	0x000d
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX15XX00X { 
+Name:	GDX15XX00X
+Number:	15
+Address:	0x000e
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX16XX00X { 
+Name:	GDX16XX00X
+Number:	16
+Address:	0x000f
+Digitizer:	GRF16
+EngCoeff:	1 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX17XX00X { 
+Name:	GDX17XX00X
+Number:	17
+Address:	0x0100
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX18XX00X { 
+Name:	GDX18XX00X
+Number:	18
+Address:	0x0101
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX19XX00X { 
+Name:	GDX19XX00X
+Number:	19
+Address:	0x0102
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX20XX00X { 
+Name:	GDX20XX00X
+Number:	20
+Address:	0x0103
+Digitizer:	GRF16
+EngCoeff:	1 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX21XX00X { 
+Name:	GDX21XX00X
+Number:	21
+Address:	0x0104
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX22XX00X { 
+Name:	GDX22XX00X
+Number:	22
+Address:	0x0105
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX23XX00X { 
+Name:	GDX23XX00X
+Number:	23
+Address:	0x0106
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX24XX00X { 
+Name:	GDX24XX00X
+Number:	24
+Address:	0x0107
+Digitizer:	GRF16
+EngCoeff:	1 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX25XX00X { 
+Name:	GDX25XX00X
+Number:	25
+Address:	0x0108
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX26XX00X { 
+Name:	GDX26XX00X
+Number:	26
+Address:	0x0109
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX27XX00X { 
+Name:	GDX27XX00X
+Number:	27
+Address:	0x010a
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX28XX00X { 
+Name:	GDX28XX00X
+Number:	28
+Address:	0x010b
+Digitizer:	GRF16
+EngCoeff:	1 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX29XX00X { 
+Name:	GDX29XX00X
+Number:	29
+Address:	0x010c
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX30XX00X { 
+Name:	GDX30XX00X
+Number:	30
+Address:	0x010d
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX31XX00X { 
+Name:	GDX31XX00X
+Number:	31
+Address:	0x010e
+Digitizer:	GRF16
+EngCoeff:	0 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX32XX00X { 
+Name:	GDX32XX00X
+Number:	32
+Address:	0x010f
+Digitizer:	GRF16
+EngCoeff:	1 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
+GDX32XX00X { 
+Name:	GDX32XX00X
+Number:	32
+Address:	0x010f
+Digitizer:	GRF16
+EngCoeff:	1 1 0
+Integration:	0
+ENGChi2:	0
+FileInt:	0
+}
+
+//====================================//
