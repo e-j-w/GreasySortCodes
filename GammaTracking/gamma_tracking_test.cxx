@@ -29,6 +29,8 @@ using namespace std;
 #define     NCORE  4  //number of cores per position
 #define     NSEG   8  //number of segments per core
 
+#define     N_BINS_ORDERING 2048 //number of bins to use when discretizing ordering parameter
+
 //lists of adjacent segments in the TIGRESS array (zero-indexed)
 Int_t phiAdjSeg1[8] = {3,0,1,2,7,4,5,6};
 Int_t phiAdjSeg2[8] = {1,2,3,0,5,6,7,4};
@@ -43,16 +45,16 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
   //setup density functions for the real spatial coordinates r, angle, and z in cylindrical coordinates
   //these are rough guesses, and would be better replaced by simulated distributions
   //for r, assume proportional to r^2 (crystal radius 30mm)
-  TH1D *rDistHist = new TH1D("radius distribution","radius distribution",6,0,30);
-  for(int i=0;i<6;i++){
+  TH1D *rDistHist = new TH1D("radius distribution","radius distribution",30,0,30);
+  for(int i=0;i<30;i++){
     double rVal = rDistHist->GetBinCenter(i+1);
     rDistHist->SetBinContent(i+1,rVal*rVal);
   }
   rDistHist->Scale(1.0/rDistHist->Integral());
   list->Add(rDistHist);
   //for angle, assume flat distribution
-  TH1D *angleDistHist = new TH1D("angle distribution","angle distribution",6,0,90);
-  for(int i=0;i<6;i++){
+  TH1D *angleDistHist = new TH1D("angle distribution","angle distribution",30,0,90);
+  for(int i=0;i<30;i++){
     angleDistHist->SetBinContent(i+1,1.0);
   }
   angleDistHist->Scale(1.0/angleDistHist->Integral());
@@ -60,16 +62,16 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
   //for z, assume exponential, decreasing with depth (what is the decay constant?)
   //lateral segmentation is 30mm from crystal front, crystals are 90mm long, 
   //so need 2 distributions corresponding to front and back segments
-  TH1D *zDistHistFront = new TH1D("z distribution front","z distribution front",6,0,30);
-  for(int i=0;i<6;i++){
+  TH1D *zDistHistFront = new TH1D("z distribution front","z distribution front",30,0,30);
+  for(int i=0;i<30;i++){
     double decConst = 0.01;
     double zVal = zDistHistFront->GetBinCenter(i+1);
     zDistHistFront->SetBinContent(i+1,exp(-decConst*zVal));
   }
   zDistHistFront->Scale(1.0/zDistHistFront->Integral());
   list->Add(zDistHistFront);
-  TH1D *zDistHistBack = new TH1D("z distribution back","z distribution back",6,30,90);
-  for(int i=0;i<6;i++){
+  TH1D *zDistHistBack = new TH1D("z distribution back","z distribution back",30,30,90);
+  for(int i=0;i<30;i++){
     double decConst = 0.01;
     double zVal = zDistHistBack->GetBinCenter(i+1);
     zDistHistBack->SetBinContent(i+1,exp(-decConst*zVal));
@@ -94,11 +96,11 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
     for(int j = 0; j < NCORE; j++){
       for(int k = 0; k < NSEG; k++){
         sprintf(hname,"rhoPos%iCore%iSeg%i",i,j,k);
-        rhoHist[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("rhoPos%iCore%iSeg%i",i,j,k),2048,-2048,2048);
+        rhoHist[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("rhoPos%iCore%iSeg%i",i,j,k),N_BINS_ORDERING,-2048,2048);
         sprintf(hname,"phiPos%iCore%iSeg%i",i,j,k);
-        phiHist[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("phiPos%iCore%iSeg%i",i,j,k),2048,-0.1,0.1);
+        phiHist[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("phiPos%iCore%iSeg%i",i,j,k),N_BINS_ORDERING,-0.1,0.1);
         sprintf(hname,"zetaPos%iCore%iSeg%i",i,j,k);
-        zetaHist[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("zetaPos%iCore%iSeg%i",i,j,k),2048,-0.1,0.1);
+        zetaHist[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("zetaPos%iCore%iSeg%i",i,j,k),N_BINS_ORDERING,-0.1,0.1);
         /*list->Add(rhoHist[NCORE*NSEG*i + NSEG*j + k]);
         list->Add(phiHist[NCORE*NSEG*i + NSEG*j + k]);
         list->Add(zetaHist[NCORE*NSEG*i + NSEG*j + k]);*/
@@ -221,6 +223,11 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
         }
         zeta /= dno;
 
+        if(segNum>3){
+          //back segment, reverse sign to make zeta increase with z
+          zeta *= -1.;
+        }
+
         rhoHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(rho);
         phiHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(phi);
         zetaHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(zeta);
@@ -253,17 +260,52 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
 
   //generate ordering parameter to spatial coordinate maps
   cout << "Generating ordering parameter to spatial coordinate maps..." << endl;
-  Double_t *qVal;
+  Double_t xVal[1], qVal[1];
+  Int_t nQuantiles;
   TH1 *rMap[NPOS*NCORE*NSEG], *angleMap[NPOS*NCORE*NSEG], *zMap[NPOS*NCORE*NSEG];
   for(int i = 0; i < NPOS; i++){
     for(int j = 0; j < NCORE; j++){
       for(int k = 0; k < NSEG; k++){
         sprintf(hname,"rMapPos%iCore%iSeg%i",i,j,k);
-        rMap[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("rMapPos%iCore%iSeg%i",i,j,k),6,0,30);
+        rMap[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("rMapPos%iCore%iSeg%i",i,j,k),N_BINS_ORDERING,-2048,2048);
+        for(int l=0;l<N_BINS_ORDERING;l++){
+          xVal[0] = rhoHistC[NCORE*NSEG*i + NSEG*j + k]->GetBinContent(l+1);
+          nQuantiles = rDistHist->GetQuantiles(1,qVal,xVal);
+          if(nQuantiles==1){
+            rMap[NCORE*NSEG*i + NSEG*j + k]->SetBinContent(l+1,qVal[0]);
+          }
+        }
         sprintf(hname,"angleMapPos%iCore%iSeg%i",i,j,k);
-        angleMap[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("angleMapPos%iCore%iSeg%i",i,j,k),6,0,90);
+        angleMap[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("angleMapPos%iCore%iSeg%i",i,j,k),N_BINS_ORDERING,-0.1,0.1);
+        for(int l=0;l<N_BINS_ORDERING;l++){
+          xVal[0] = phiHistC[NCORE*NSEG*i + NSEG*j + k]->GetBinContent(l+1);
+          nQuantiles = angleDistHist->GetQuantiles(1,qVal,xVal);
+          if(nQuantiles==1){
+            angleMap[NCORE*NSEG*i + NSEG*j + k]->SetBinContent(l+1,qVal[0]);
+          }
+        }
         sprintf(hname,"zMapPos%iCore%iSeg%i",i,j,k);
-        zMap[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("zMapPos%iCore%iSeg%i",i,j,k),6,0,90);
+        zMap[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("zMapPos%iCore%iSeg%i",i,j,k),N_BINS_ORDERING,-0.1,0.1);
+        if(k<4){
+          //front segment
+          for(int l=0;l<N_BINS_ORDERING;l++){
+            xVal[0] = zetaHistC[NCORE*NSEG*i + NSEG*j + k]->GetBinContent(l+1);
+            nQuantiles = zDistHistFront->GetQuantiles(1,qVal,xVal);
+            if(nQuantiles==1){
+              zMap[NCORE*NSEG*i + NSEG*j + k]->SetBinContent(l+1,qVal[0]);
+            }
+          }
+        }else{
+          //back segment
+          for(int l=0;l<N_BINS_ORDERING;l++){
+            xVal[0] = zetaHistC[NCORE*NSEG*i + NSEG*j + k]->GetBinContent(l+1);
+            nQuantiles = zDistHistBack->GetQuantiles(1,qVal,xVal);
+            if(nQuantiles==1){
+              zMap[NCORE*NSEG*i + NSEG*j + k]->SetBinContent(l+1,qVal[0]);
+            }
+          }
+        }
+        
         list->Add(rMap[NCORE*NSEG*i + NSEG*j + k]);
         list->Add(angleMap[NCORE*NSEG*i + NSEG*j + k]);
         list->Add(zMap[NCORE*NSEG*i + NSEG*j + k]);
@@ -271,12 +313,11 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
     } 
   }
 
-  cout << "Histograms written, sorting complete" << endl;
-
-  cout << "Writing histograms to " << outfile << endl;
+  cout << "Writing histograms to: " << outfile << endl;
   TFile * myfile = new TFile(outfile, "RECREATE");
   myfile->cd();
   list->Write();
+  cout << "Histograms written, mapping complete!" << endl;
   myfile->Close();
 }
 
