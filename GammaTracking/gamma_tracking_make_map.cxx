@@ -1,5 +1,3 @@
-//g++ wf_sing.cxx -std=c++0x -I$GRSISYS/include -L$GRSISYS/lib `grsi-config --cflags --all-libs --GRSIData-libs` -I$GRSISYS/GRSIData/include -L$GRSISYS/GRSIData/lib `root-config --cflags --libs` -lTreePlayer -lMathMore -lSpectrum -lMinuit -lPyROOT -o WFSing
-
 #include <iostream>
 #include <iomanip>
 #include "TCutG.h"
@@ -39,7 +37,7 @@ Int_t    zAdjSeg[8] = {4,5,6,7,0,1,2,3};
 
 //function which generates a mapping between ordering parameters and real spatial coordinates
 //and saves this mapping to disk
-void generate_mapping(char const * infile, char const * calfile, char const * outfile) {
+void generate_mapping(const char *infile, const char *simfile, const char *calfile, const char *outfile) {
 
   TList * list = new TList;
 
@@ -57,12 +55,11 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
   }
 
   TTree *simTree;
-  TFile *inp = new TFile("sim_test.root","read");
-  if((simTree = (TTree*)inp->Get("tree"))==NULL)
-    {
-      cout << "ERROR: No spatial coordinate distribution info in the specified ROOT file!" << endl;
-      exit(-1);
-    }
+  TFile *inp = new TFile(simfile,"read");
+  if((simTree = (TTree*)inp->Get("tree"))==NULL){
+    cout << "ERROR: No spatial coordinate distribution info in the specified ROOT file!" << endl;
+    exit(-1);
+  }
   TBranch *rBranch, *phiBranch, *zBranch, *segIDBranch;
   TLeaf *rLeaf, *phiLeaf, *zLeaf, *segIDLeaf;
   if((rBranch = simTree->GetBranch("TigressSegmentMaxECylr"))==NULL){
@@ -167,14 +164,14 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
 
   TFile * inputfile = new TFile(infile, "READ");
   if (!inputfile->IsOpen()) {
-    printf("Opening file failed, aborting\n");
-    return;
+    cout << "ERROR: Could not open analysis tree file!" << endl;
+    exit(-1);
   }
   TChain * AnalysisTree = (TChain * ) inputfile->Get("AnalysisTree");
-  printf("%i tree files, details:\n", AnalysisTree->GetNtrees());
+  cout << AnalysisTree->GetNtrees() << " tree files, details:" << endl;
   AnalysisTree->ls();
   TTree * tree = (TTree * ) AnalysisTree->GetTree();
-  printf("Reading calibration file: %s\n", calfile);
+  cout << "Reading calibration file: " << calfile << endl;
   TChannel::ReadCalFile(calfile);
   Int_t nentries = AnalysisTree->GetEntries();
 
@@ -184,7 +181,7 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
     AnalysisTree->SetBranchAddress("TTigress", & tigress);
   } else {
     cout << "ERROR: no TTigress branch found!" << endl;
-    return;
+    exit(-1);
   }
 
   Int_t samples = 100; //number of samples per waveform
@@ -405,8 +402,6 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
     } 
   }
 
-  
-
   cout << "Writing histograms to: " << outfile << endl;
   TFile * myfile = new TFile(outfile, "RECREATE");
   myfile->cd();
@@ -418,9 +413,38 @@ void generate_mapping(char const * infile, char const * calfile, char const * ou
 
 int main(int argc, char ** argv) {
 
-  char const * afile;
-  char const * outfile;
-  char const * calfile;
+  const char *afile, *simfile, *outfile, *calfile;
+
+  // Input-chain-file, output-histogram-file
+  if (argc < 3) {
+    cout << endl << "This sortcode makes a map for the gamma tracking direct method which transforms ordering parameters to real spatial coordinates.  ";
+    cout << "These maps are constructed from real calibration data (which should be provided in the analysis tree, the first argument), and simulated distributions of the ";
+    cout << "spatial coordinates (which should be provided in a ROOT tree, the second argument).  GEANT4 simulations exist which can produce the simulated distribution data ";
+    cout << "(for example, G4TIP (https://github.com/e-j-w/G4TIP/))." << endl << endl;
+    cout << "Arguments: ./GammaTrackingMakeMap analysis_tree_file sim_tree_file cal_file output_file" << endl;
+    cout << "The analysis tree and simulation tree are required arguments.  Omitting other arguments will cause the sortcode to fall back to default values." << endl << endl;
+	  return 0;
+  } else if (argc == 3) {
+	  afile = argv[1];
+    simfile = argv[2];
+	  calfile = "CalibrationFile.cal";
+	  outfile = "trackingMap.root";
+  } else if (argc == 4) {
+	  afile = argv[1];
+    simfile = argv[2];
+	  calfile = argv[3];
+	  outfile = "trackingMap.root";
+  } else if (argc == 5) {
+	  afile = argv[1];
+    simfile = argv[2];
+	  calfile = argv[3];
+	  outfile = argv[4];
+  } else if (argc > 5) {
+	  cout << "Too many arguments." << endl;
+    cout << "Arguments: ./GammaTrackingMakeMap analysis_tree_file sim_tree_file cal_file output_file" << endl;
+	  return 0;
+  }
+
   cout << "Starting sortcode..." << endl;
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
@@ -431,32 +455,11 @@ int main(int argc, char ** argv) {
   grsi_path += ".grsirc";
   gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
 
-  // Input-chain-file, output-histogram-file
-  if (argc == 1) {
-	  cout << "Insufficient arguments, provide analysis tree files" << endl;
-	  return 0;
-  } else if (argc == 2) {
-	  afile = argv[1];
-	  calfile = "LabCalFileSegment.cal";
-	  outfile = "trackingTest.root";
-  } else if (argc == 3) {
-	  afile = argv[1];
-	  calfile = argv[2];
-	  outfile = "trackingTest.root";
-  } else if (argc == 4) {
-	  afile = argv[1];
-	  calfile = argv[2];
-	  outfile = argv[3];
-  } else if (argc > 4) {
-	  printf("Too many arguments\n");
-	  return 0;
-  }
-
-  printf("Input file:%s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
+  cout << "Input file: " << afile << endl << "Simulation data file: " << simfile << endl << "Calibration file: " << calfile << endl << "Output file: " << outfile << endl;
 
   TParserLibrary::Get()->Load();
 
-  generate_mapping(afile, calfile, outfile);
+  generate_mapping(afile, simfile, calfile, outfile);
 
   return 0;
 }
