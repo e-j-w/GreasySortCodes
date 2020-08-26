@@ -251,14 +251,16 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
         map_hit_counter++;
 
         //here is where the mapping happens
+        //cout << "rho: " << rho << ", phi: " << phi << ", zeta: " << zeta << endl;
+        //cout << "map bins: " << rMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(rho) << ", " << angleMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(phi) << ", " << zMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(zeta) << endl;
         if(rMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]!=NULL){
-          rMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(rMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(rMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindFirstBinAbove(rho)));
+          rMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(rMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(rMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(rho)));
         }
         if(angleMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]!=NULL){
-          angleMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(angleMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(angleMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindFirstBinAbove(phi)));
+          angleMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(angleMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(angleMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(phi)));
         }
         if(zMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]!=NULL){
-          zMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(zMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(zMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindFirstBinAbove(zeta)));
+          zMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(zMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(zMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(zeta)));
         }
       }
     }
