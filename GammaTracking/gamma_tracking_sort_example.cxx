@@ -7,6 +7,7 @@
 #include "TLeaf.h"
 #include "TChain.h"
 #include "TH2.h"
+#include "TH3.h"
 #include "TFile.h"
 #include "TGraphErrors.h"
 #include "TDirectory.h"
@@ -28,18 +29,18 @@ using namespace std;
 #define     NCORE  4  //number of cores per position
 #define     NSEG   8  //number of segments per core
 
-#define     N_BINS_ORDERING 2048 //number of bins to use when discretizing ordering parameter
+#define     BAD_RETURN -1E10 //value to be returned if ordering parameter calculation fails
 
-//lists of adjacent segments in the TIGRESS array (zero-indexed)
-Int_t phiAdjSeg1[8] = {3,0,1,2,7,4,5,6};
-Int_t phiAdjSeg2[8] = {1,2,3,0,5,6,7,4};
-Int_t    zAdjSeg[8] = {4,5,6,7,0,1,2,3};
+#include "ordering_parameter_calc.cxx"
 
 //function which generates a mapping between ordering parameters and real spatial coordinates
 //and saves this mapping to disk
 void sort_test(const char *infile, const char *mapfile, const char *calfile, const char *outfile) {
 
   TList * list = new TList;
+
+  TH3D *pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
+  list->Add(pos3DMap);
 
   //read in histograms from map file
   TFile *inp = new TFile(mapfile,"read");
@@ -108,7 +109,7 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
   Int_t nentries = AnalysisTree->GetEntries();
 
   TTigress * tigress = 0;
-  TTigressHit * tigress_hit, * tigress_hit2;
+  TTigressHit * tigress_hit;
   if (AnalysisTree->FindBranch("TTigress")) {
     AnalysisTree->SetBranchAddress("TTigress", & tigress);
   } else {
@@ -122,11 +123,10 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
   Int_t hit_counter = 0;
   Int_t map_hit_counter = 0;
 
-  const std::vector<Short_t> *wf, *segwf, *segwf2, *segwf3;
+  const std::vector<Short_t> *wf;
   bool found1, found2;
   Int_t waveform_t0;
   Int_t one;
-  Int_t offset = 0;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
     for (one = 0; one < tigress->GetMultiplicity(); one++) {
@@ -146,106 +146,23 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
       {
 
         hit_counter++;
-        TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
 
         Int_t posNum = tigress_hit->GetDetector()-1;
         Int_t coreNum = tigress_hit->GetCrystal();
-        Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
+        Int_t segNum = tigress_hit->GetSegmentHit(i).GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
 
-        //cout << "Entry " << jentry << ", position: " << posNum << ", core: " << coreNum << ", segment: " << segNum << endl;
-        segwf = segment_hit.GetWaveform();
-        if((posNum < 0)||(posNum > 15)){
-          cout << "Entry " << jentry << ", invalid array position: " << posNum << endl;
+        //calculate all ordering parameters (see ordering_parameter_calc.cxx)
+        double rho = calc_ordering(tigress_hit,i,jentry,waveform_t0,0);
+        if(rho == BAD_RETURN){
           continue;
         }
-        if(segwf->size() != samples){
-          cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
+        double phi = calc_ordering(tigress_hit,i,jentry,waveform_t0,1);
+        if(phi == BAD_RETURN){
           continue;
         }
-
-        //construct rho, the ordering parameter for the radius
-        //see Eq. 4 of NIM A 729 (2013) 198-206
-        double sampleAvg = 0.;
-        double rho = 0.;
-        double dno = 0.; //placeholder for denominator
-        for(int j=0;j<sampling_window;j++){
-          sampleAvg += waveform_t0+j;
-          dno += (segwf->at(waveform_t0+j+1) - segwf->at(waveform_t0+j-1))/2.0;
-        }
-        sampleAvg /= sampling_window*1.0;
-        for(int j=0;j<sampling_window;j++){
-          rho += pow(waveform_t0+j - sampleAvg,3.0)*(segwf->at(waveform_t0+j+1) - segwf->at(waveform_t0+j-1))/2.0;
-        }
-        rho /= dno;
-        if(rho!=rho){
-          cout << "Entry " << jentry << ", cannot compute rho parameter (NaN)." << endl;
+        double zeta = calc_ordering(tigress_hit,i,jentry,waveform_t0,2);
+        if(zeta == BAD_RETURN){
           continue;
-        }
-
-        //contruct phi, the ordering parameter for the angle
-        //see Eq. 3 of NIM A 729 (2013) 198-206
-        double phi = 0.;
-        found1 = false;
-        found2 = false;
-        for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
-          if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == phiAdjSeg1[segNum]){
-            found1=true;
-            segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
-          }
-          if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == phiAdjSeg2[segNum]){
-            found2=true;
-            segwf2 = tigress_hit->GetSegmentHit(j).GetWaveform();
-          }
-        }
-        if((!found1)||(!found2)){
-          cout << "Entry " << jentry << ", cannot get neighbouring segment wavefoms to compute phi parameter." << endl;
-          cout << "Entry " << jentry << ", position: " << posNum << ", core: " << coreNum << ", segment: " << segNum << endl;
-          continue;
-        }else if((segwf->size() != samples)||(segwf2->size() != samples)){
-          cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
-          continue;
-        }
-        for(int j=0;j<sampling_window;j++){
-          phi += segwf->at(waveform_t0+j)*segwf->at(waveform_t0+j) - segwf2->at(waveform_t0+j)*segwf2->at(waveform_t0+j);
-          dno += segwf->at(waveform_t0+j)*segwf->at(waveform_t0+j) + segwf2->at(waveform_t0+j)*segwf2->at(waveform_t0+j);
-        }
-        phi /= dno;
-        if(phi!=phi){
-          cout << "Entry " << jentry << ", cannot compute phi parameter (NaN)." << endl;
-          continue;
-        }
-
-        //contruct zeta, the ordering parameter for the z direction
-        //see Eq. 2 of NIM A 729 (2013) 198-206 (modified here)
-        double zeta = 0.;
-        found1 = false;
-        for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
-          if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == zAdjSeg[segNum]){
-            found1=true;
-            segwf3 = tigress_hit->GetSegmentHit(j).GetWaveform();
-          }
-        }
-        if(!found1){
-          cout << "Entry " << jentry << ", cannot get neighbouring segment wavefoms to compute zeta parameter." << endl;
-          cout << "Entry " << jentry << ", position: " << posNum << ", core: " << coreNum << ", segment: " << segNum << endl;
-          continue;
-        }else if(segwf3->size() != samples){
-          cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
-          continue;
-        }
-        for(int j=0;j<sampling_window;j++){
-          zeta += 2.0*segwf3->at(waveform_t0+j)*segwf3->at(waveform_t0+j) - segwf2->at(waveform_t0+j)*segwf2->at(waveform_t0+j) - segwf->at(waveform_t0+j)*segwf->at(waveform_t0+j);
-          dno += 2.0*segwf3->at(waveform_t0+j)*segwf3->at(waveform_t0+j) + segwf2->at(waveform_t0+j)*segwf2->at(waveform_t0+j) + segwf->at(waveform_t0+j)*segwf->at(waveform_t0+j);
-        }
-        zeta /= dno;
-        if(zeta!=zeta){
-          cout << "Entry " << jentry << ", cannot compute zeta parameter (NaN)." << endl;
-          continue;
-        }
-
-        if(segNum>3){
-          //back segment, reverse sign to make zeta increase with z
-          zeta *= -1.;
         }
 
         map_hit_counter++;
@@ -253,15 +170,32 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
         //here is where the mapping happens
         //cout << "rho: " << rho << ", phi: " << phi << ", zeta: " << zeta << endl;
         //cout << "map bins: " << rMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(rho) << ", " << angleMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(phi) << ", " << zMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(zeta) << endl;
+        double r=-1.;
+        double angle=-1.;
+        double z=-1.;
         if(rMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]!=NULL){
-          rMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(rMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(rMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(rho)));
+          r = rMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(rMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(rho));
         }
         if(angleMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]!=NULL){
-          angleMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(angleMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(angleMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(phi)));
+          angle = angleMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(angleMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(phi));
         }
         if(zMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]!=NULL){
-          zMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(zMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(zMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(zeta)));
+          z = zMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(zMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(zeta));
         }
+        if((r>=0.)&&(z>=0.)&&(angle>=0.)){
+          rMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(r);
+          angleMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(angle);
+          zMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(z);
+          angle += 90.0*(segNum%4);
+          if(z<10)
+            pos3DMap->Fill(r*cos(angle*M_PI/180.),r*sin(angle*M_PI/180.),z);
+          //cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
+          /*if(r==0.){
+            cout << "rho: " << rho << endl;
+          }
+          cout << "x: " << r*cos(angle*M_PI/180.) << ", y: " << r*sin(angle*M_PI/180.) << ", z: " << z << endl;*/
+        }
+        
       }
     }
     if (jentry % 10000 == 0) cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << nentries << ", " << 100 * jentry / nentries << "% complete" << "\r" << flush;
