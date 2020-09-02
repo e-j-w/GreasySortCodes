@@ -1,37 +1,4 @@
-#include <iostream>
-#include <iomanip>
-#include "TCutG.h"
-#include "TH1.h"
-#include "TF1.h"
-#include "TTree.h"
-#include "TLeaf.h"
-#include "TChain.h"
-#include "TH2.h"
-#include "TH3.h"
-#include "TFile.h"
-#include "TGraphErrors.h"
-#include "TDirectory.h"
-#include "TList.h"
-#include "TRandom.h"
-#include "TTigress.h"
-#include "TGriffin.h"
-#include "TGRSIDetectorHit.h"
-#include "TGRSIDetectorInformation.h"
-#include "TSpectrum.h"
-#include "TChannel.h"
-#include "TPulseAnalyzer.h"
-#include "TParserLibrary.h"
-#include "TEnv.h"
-
-using namespace std;
-
-#define     NPOS   16 //number of positions in the array
-#define     NCORE  4  //number of cores per position
-#define     NSEG   8  //number of segments per core
-
-#define     BAD_RETURN -1E10 //value to be returned if ordering parameter calculation fails
-
-#include "ordering_parameter_calc.cxx"
+#include "common.h" //define all global variables here!
 
 //function which generates a mapping between ordering parameters and real spatial coordinates
 //and saves this mapping to disk
@@ -49,21 +16,21 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
     exit(-1);
   }
   char hname[20];
-  TH1 *rMap[NPOS*NCORE*NSEG], *angleMap[NPOS*NCORE*NSEG], *zMap[NPOS*NCORE*NSEG];
-  for(int i = 0; i < NPOS; i++){
-    for(int j = 0; j < NCORE; j++){
-      for(int k = 0; k < NSEG; k++){
-        sprintf(hname,"rMapPos%iCore%iSeg%i",i,j,k);
-        if((rMap[NCORE*NSEG*i + NSEG*j + k] = (TH1*)inp->Get(hname))==NULL){
-          cout << "No r coordinate map for position " << i << ", core " << j << ", seg " << k << endl;
-        }
-        sprintf(hname,"angleMapPos%iCore%iSeg%i",i,j,k);
-        if((angleMap[NCORE*NSEG*i + NSEG*j + k] = (TH1*)inp->Get(hname))==NULL){
-          cout << "No angle coordinate map for position " << i << ", core " << j << ", seg " << k << endl;
-        }
-        sprintf(hname,"zMapPos%iCore%iSeg%i",i,j,k);
-        if((zMap[NCORE*NSEG*i + NSEG*j + k] = (TH1*)inp->Get(hname))==NULL){
-          cout << "No z coordinate map for position " << i << ", core " << j << ", seg " << k << endl;
+  TH1 *rMap[NSEG], *angleMap[NSEG*MAX_VAL_R/BIN_WIDTH_R], *zMap[NSEG*(MAX_VAL_R/BIN_WIDTH_R)*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)];
+  for(int k = 0; k < NSEG; k++){
+    sprintf(hname,"rMapSeg%i",k);
+    if((rMap[k] = (TH1*)inp->Get(hname))==NULL){
+      cout << "No r coordinate map for segment " << k << endl;
+    }
+    for(int j = 0; j < MAX_VAL_R/BIN_WIDTH_R; j++){
+      sprintf(hname,"angleMapSeg%ir%ito%i",k,j*BIN_WIDTH_R,(j+1)*BIN_WIDTH_R);
+      if((angleMap[k*MAX_VAL_R/BIN_WIDTH_R + j] = (TH1*)inp->Get(hname))==NULL){
+        cout << "No angle coordinate map for segment " << k << ", radial bin " << j << endl;
+      }
+      for(int i = 0; i < MAX_VAL_ANGLE/BIN_WIDTH_ANGLE; i++){
+        sprintf(hname,"zMapSeg%ir%ito%iangle%ito%i",k,j*BIN_WIDTH_R,(j+1)*BIN_WIDTH_R,i*BIN_WIDTH_ANGLE,(i+1)*BIN_WIDTH_ANGLE);
+        if((zMap[k*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + j*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + i] = (TH1*)inp->Get(hname))==NULL){
+          cout << "No z coordinate map for segment " << k << ", radial bin " << j << ", angle bin " << k << endl;
         }
       }
     } 
@@ -72,7 +39,7 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
   cout << "Map file data read in." << endl;
 
   //setup histograms for the mapped parameters
-  TH1D *rMappedHist[NPOS*NCORE*NSEG], *angleMappedHist[NPOS*NCORE*NSEG], *zMappedHist[NPOS*NCORE*NSEG];
+  TH1D *rMappedHist[NSEG], *angleMappedHist[NSEG], *zMappedHist[NSEG];
   for(int i = 0; i < NPOS; i++){
     for(int j = 0; j < NCORE; j++){
       for(int k = 0; k < NSEG; k++){
@@ -187,7 +154,7 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
           angleMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(angle);
           zMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(z);
           angle += 90.0*(segNum%4);
-          if(z<10)
+          //if(z<10)
             pos3DMap->Fill(r*cos(angle*M_PI/180.),r*sin(angle*M_PI/180.),z);
           //cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
           /*if(r==0.){
