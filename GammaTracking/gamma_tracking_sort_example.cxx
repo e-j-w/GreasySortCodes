@@ -14,8 +14,11 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
   if (!inp->IsOpen()) {
     cout << "ERROR: Could not open map file!" << endl;
     exit(-1);
+  }else{
+    cout << "Opened map file: " << mapfile << endl;
   }
-  char hname[20];
+
+  char hname[32];
   TH1 *rMap[NSEG], *angleMap[NSEG*MAX_VAL_R/BIN_WIDTH_R], *zMap[NSEG*(MAX_VAL_R/BIN_WIDTH_R)*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)];
   for(int k = 0; k < NSEG; k++){
     sprintf(hname,"rMapSeg%i",k);
@@ -30,7 +33,7 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
       for(int i = 0; i < MAX_VAL_ANGLE/BIN_WIDTH_ANGLE; i++){
         sprintf(hname,"zMapSeg%ir%ito%iangle%ito%i",k,j*BIN_WIDTH_R,(j+1)*BIN_WIDTH_R,i*BIN_WIDTH_ANGLE,(i+1)*BIN_WIDTH_ANGLE);
         if((zMap[k*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + j*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + i] = (TH1*)inp->Get(hname))==NULL){
-          cout << "No z coordinate map for segment " << k << ", radial bin " << j << ", angle bin " << k << endl;
+          cout << "No z coordinate map for segment " << k << ", radial bin " << j << ", angle bin " << i << endl;
         }
       }
     } 
@@ -40,26 +43,16 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
 
   //setup histograms for the mapped parameters
   TH1D *rMappedHist[NSEG], *angleMappedHist[NSEG], *zMappedHist[NSEG];
-  for(int i = 0; i < NPOS; i++){
-    for(int j = 0; j < NCORE; j++){
-      for(int k = 0; k < NSEG; k++){
-        if(rMap[NCORE*NSEG*i + NSEG*j + k]!=NULL){
-          sprintf(hname,"rMappedPos%iCore%iSeg%i",i,j,k);
-          rMappedHist[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("rMappedPos%iCore%iSeg%i",i,j,k),40,0,40);
-          list->Add(rMappedHist[NCORE*NSEG*i + NSEG*j + k]);
-        }
-        if(angleMap[NCORE*NSEG*i + NSEG*j + k]!=NULL){
-          sprintf(hname,"angleMappedPos%iCore%iSeg%i",i,j,k);
-          angleMappedHist[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("angleMappedPos%iCore%iSeg%i",i,j,k),30,0,90);
-          list->Add(angleMappedHist[NCORE*NSEG*i + NSEG*j + k]);
-        }
-        if(zMap[NCORE*NSEG*i + NSEG*j + k]!=NULL){
-          sprintf(hname,"zMappedPos%iCore%iSeg%i",i,j,k);
-          zMappedHist[NCORE*NSEG*i + NSEG*j + k] = new TH1D(hname,Form("zMappedPos%iCore%iSeg%i",i,j,k),90,0,90);
-          list->Add(zMappedHist[NCORE*NSEG*i + NSEG*j + k]);
-        }
-      }
-    } 
+  for(int k = 0; k < NSEG; k++){
+    sprintf(hname,"rMappedSeg%i",k);
+    rMappedHist[k] = new TH1D(hname,Form("rMappedSeg%i",k),40,0,40);
+    list->Add(rMappedHist[k]);
+    sprintf(hname,"angleMappedSeg%i",k);
+    angleMappedHist[k] = new TH1D(hname,Form("angleMappedSeg%i",k),30,0,90);
+    list->Add(angleMappedHist[k]);
+    sprintf(hname,"zMappedSeg%i",k);
+    zMappedHist[k] = new TH1D(hname,Form("zMappedSeg%i",k),90,0,90);
+    list->Add(zMappedHist[k]);
   }
 
   TFile * inputfile = new TFile(infile, "READ");
@@ -140,28 +133,36 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
         double r=-1.;
         double angle=-1.;
         double z=-1.;
-        if(rMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]!=NULL){
-          r = rMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(rMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(rho));
+        if(rMap[segNum]!=NULL){
+          r = rMap[segNum]->GetBinContent(rMap[segNum]->FindBin(rho));
         }
-        if(angleMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]!=NULL){
-          angle = angleMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(angleMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(phi));
-        }
-        if(zMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]!=NULL){
-          z = zMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->GetBinContent(zMap[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->FindBin(zeta));
-        }
-        if((r>=0.)&&(z>=0.)&&(angle>=0.)){
-          rMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(r);
-          angleMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(angle);
-          zMappedHist[NCORE*NSEG*posNum + NSEG*coreNum + segNum]->Fill(z);
-          angle += 90.0*(segNum%4);
-          //if(z<10)
-            pos3DMap->Fill(r*cos(angle*M_PI/180.),r*sin(angle*M_PI/180.),z);
-          //cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
-          /*if(r==0.){
-            cout << "rho: " << rho << endl;
+        Int_t rInd = (Int_t)(r/BIN_WIDTH_R);
+        if(rInd < MAX_VAL_R/BIN_WIDTH_R){
+          if(angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]!=NULL){
+            angle = angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]->GetBinContent(angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]->FindBin(phi));
+            Int_t angleInd = (Int_t)(angle/BIN_WIDTH_ANGLE);
+            if(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]!=NULL){
+              z = zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->GetBinContent(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->FindBin(zeta));
+              
+              if((r>=0.)&&(z>=0.)&&(angle>=0.)){
+                rMappedHist[segNum]->Fill(r);
+                angleMappedHist[segNum]->Fill(angle);
+                zMappedHist[segNum]->Fill(z);
+                angle += 90.0*(segNum%4);
+                if(z<20)
+                  pos3DMap->Fill(r*cos(angle*M_PI/180.),r*sin(angle*M_PI/180.),z);
+                //cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
+                /*if(r==0.){
+                  cout << "rho: " << rho << endl;
+                }
+                cout << "x: " << r*cos(angle*M_PI/180.) << ", y: " << r*sin(angle*M_PI/180.) << ", z: " << z << endl;*/
+              }
+            }
           }
-          cout << "x: " << r*cos(angle*M_PI/180.) << ", y: " << r*sin(angle*M_PI/180.) << ", z: " << z << endl;*/
         }
+        
+        
+        
         
       }
     }
