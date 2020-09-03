@@ -115,7 +115,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   TH3D *rhophizetaHist[NSEG];
   for(int k = 0; k < NSEG; k++){
     sprintf(hname,"rhophizetaSeg%i",k);
-    rhophizetaHist[k] = new TH3D(hname,Form("rhophizetaSeg%i",k),N_BINS_ORDERING,-1.*RHO_MAX,1.*RHO_MAX,N_BINS_ORDERING,-0.1,0.1,N_BINS_ORDERING,-1.*ZETA_MAX,1.*ZETA_MAX);
+    rhophizetaHist[k] = new TH3D(hname,Form("rhophizetaSeg%i",k),N_BINS_ORDERING,-1.*RHO_MAX,1.*RHO_MAX,N_BINS_ORDERING,-1.*PHI_MAX,1.*PHI_MAX,N_BINS_ORDERING,-1.*ZETA_MAX,1.*ZETA_MAX);
     //list->Add(rhophizetaHist[k]);
   }
 
@@ -142,10 +142,12 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   }
 
   Int_t samples = 100; //number of samples per waveform
-  Int_t sampling_window = 10; //number of waveform samples used to construct ordering parameters
 
   Int_t hit_counter = 0;
   Int_t map_hit_counter = 0;
+  Int_t overflow_rho_counter = 0;
+  Int_t overflow_phi_counter = 0;
+  Int_t overflow_zeta_counter = 0;
 
   const std::vector<Short_t> *wf, *segwf, *segwf2, *segwf3;
   bool found1, found2;
@@ -163,37 +165,48 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
       TPulseAnalyzer pulse;
       pulse.SetData(*wf,0);  // Allows you to use the full TPulseAnalyzer class
       waveform_t0 = (Int_t)pulse.fit_newT0(); //in samples
-      if((waveform_t0 <= 0)||(waveform_t0 >= samples-sampling_window-1)){
+      if((waveform_t0 <= 0)||(waveform_t0 >= samples-WAVEFORM_SAMPLING_WINDOW -1)){
         //this entry has an unusable risetime
         continue;
       }
+      hit_counter++;
+      bool isHit = false;
       for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++)
       {
 
-        hit_counter++;
+        
         TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
 
         Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
 
         //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-        Double_t rho = calc_ordering(tigress_hit,i,jentry,waveform_t0,0);
+        Double_t rho = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,0);
         if(rho == BAD_RETURN){
           continue;
         }
-        Double_t phi = calc_ordering(tigress_hit,i,jentry,waveform_t0,1);
+        Double_t phi = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,1);
         if(phi == BAD_RETURN){
           continue;
         }
-        Double_t zeta = calc_ordering(tigress_hit,i,jentry,waveform_t0,2);
+        Double_t zeta = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,2);
         if(zeta == BAD_RETURN){
           continue;
         }
 
-        map_hit_counter++;
+        if(fabs(rho) > RHO_MAX)
+          overflow_rho_counter++;
+        if(fabs(phi) > PHI_MAX)
+          overflow_phi_counter++;
+        if(fabs(zeta) > ZETA_MAX)
+          overflow_zeta_counter++;
+        
         //cout << "seg: " << segNum << ", rho: " << rho << ", phi:" << phi << ", zeta: " << zeta << endl;
         //cout << "bin: " << rhophizetaHist[segNum]->GetBin(rho,phi,zeta) << endl;
         rhophizetaHist[segNum]->Fill(rho,phi,zeta);
-
+        isHit = true;
+      }
+      if(isHit){
+        map_hit_counter++;
       }
     }
     if (jentry % 10000 == 0) cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << nentries << ", " << 100 * jentry / nentries << "% complete" << "\r" << flush;
@@ -201,6 +214,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
 
   cout << "Entry " << nentries << " of " << nentries << ", 100% Complete!" << endl;
   cout << map_hit_counter << " of " << hit_counter << " hits retained (" << 100*map_hit_counter/hit_counter << " %)." << endl;
+  cout << "Hits with ordering parameters out of map range for [rho, phi, zeta]: [" << overflow_rho_counter << " " << overflow_phi_counter << " " << overflow_zeta_counter << "]" << endl;
 
   //generate normalized cumulative distributions of all ordering parameters,
   //and then ordering parameter to spatial coordinate maps
@@ -273,7 +287,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   for(int k = 0; k < NSEG; k++){
     for(int j = 0; j < MAX_VAL_R/BIN_WIDTH_R; j++){
       sprintf(hname,"angleMapSeg%ir%ito%i",k,j*BIN_WIDTH_R,(j+1)*BIN_WIDTH_R);
-      angleMap[k*MAX_VAL_R/BIN_WIDTH_R + j] = new TH1D(hname,Form("angleMapSeg%ir%ito%i",k,j*BIN_WIDTH_R,(j+1)*BIN_WIDTH_R),N_BINS_ORDERING,-0.1,0.1);
+      angleMap[k*MAX_VAL_R/BIN_WIDTH_R + j] = new TH1D(hname,Form("angleMapSeg%ir%ito%i",k,j*BIN_WIDTH_R,(j+1)*BIN_WIDTH_R),N_BINS_ORDERING,-1.0*PHI_MAX,PHI_MAX);
       if(phiHist[k*MAX_VAL_R/BIN_WIDTH_R + j]->GetEntries()>0){
         for(int l=0;l<N_BINS_ORDERING;l++){
           xVal[0] = phiHistC[k*MAX_VAL_R/BIN_WIDTH_R + j]->GetBinContent(l+1);
@@ -372,6 +386,7 @@ int main(int argc, char ** argv) {
     cout << "(for example, G4TIP (https://github.com/e-j-w/G4TIP/))." << endl << endl;
     cout << "Arguments: ./GammaTrackingMakeMap analysis_tree_file sim_tree_file cal_file output_file" << endl;
     cout << "The analysis tree and simulation tree are required arguments.  Omitting other arguments will cause the sortcode to fall back to default values." << endl << endl;
+    cout << "NOTE: this code requires a LOT of memory (around 10GB with N_BINS_ORDERING set to 512 in common.h, scaling as N_BINS_ORDERING^3) to run." << endl << endl;
 	  return 0;
   } else if (argc == 3) {
 	  afile = argv[1];
