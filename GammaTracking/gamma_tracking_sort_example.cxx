@@ -149,7 +149,7 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
                 angleMappedHist[segNum]->Fill(angle);
                 zMappedHist[segNum]->Fill(z);
                 angle += 90.0*(segNum%4);
-                if(z<20)
+                //if(z<20)
                   pos3DMap->Fill(r*cos(angle*M_PI/180.),r*sin(angle*M_PI/180.),z);
                 //cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
                 /*if(r==0.){
