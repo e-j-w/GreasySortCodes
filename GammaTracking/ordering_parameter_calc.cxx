@@ -32,7 +32,7 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t sam
     //construct rho, the ordering parameter for the radius
     //see Eq. 4 of NIM A 729 (2013) 198-206
     double sampleAvg = 0.;
-    double term2 = 0.;
+    //double term2 = 0.;
     double rho = 0.;
     const std::vector<Short_t> *segwf2, *segwf3, *segwf4;
     bool found1 = false;
@@ -71,14 +71,14 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t sam
       cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
       return BAD_RETURN;
     }
-    for(int j=0;j<WAVEFORM_SAMPLING_WINDOW ;j++){
-      sampleAvg += (waveform_t0+j)*(segwf->at(waveform_t0+j+1) - segwf->at(waveform_t0+j-1))/2.0;
-      term2 += segwf2->at(waveform_t0+j) + segwf3->at(waveform_t0+j) + segwf4->at(waveform_t0+j);
-      dno += (segwf->at(waveform_t0+j+1) - segwf->at(waveform_t0+j-1))/2.0;
+    for(int j=1;j<samples-1;j++){
+      sampleAvg += (j)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
+      //term2 += segwf2->at(j) + segwf3->at(j) + segwf4->at(j);
+      dno += (segwf->at(j+1) - segwf->at(j-1))/2.0;
     }
     sampleAvg /= dno;
-    for(int j=0;j<WAVEFORM_SAMPLING_WINDOW ;j++){
-      rho += pow(waveform_t0+j - sampleAvg,3.0)*(segwf->at(waveform_t0+j+1) - segwf->at(waveform_t0+j-1))/2.0 - 400.*term2;
+    for(int j=1;j<samples-1;j++){
+      rho += pow(j - sampleAvg,3.0)*(segwf->at(j+1) - segwf->at(j-1))/2.0;// - 0.0005*term2;
     }
     rho /= dno;
     if((dno==0.)||(rho!=rho)){
@@ -120,9 +120,9 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t sam
       cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
       return BAD_RETURN;
     }
-    for(int j=0;j<WAVEFORM_SAMPLING_WINDOW ;j++){
-      phi += segwf2->at(waveform_t0+j)*segwf2->at(waveform_t0+j) - segwf3->at(waveform_t0+j)*segwf3->at(waveform_t0+j);
-      dno += segwf2->at(waveform_t0+j)*segwf2->at(waveform_t0+j) + segwf3->at(waveform_t0+j)*segwf3->at(waveform_t0+j);
+    for(int j=0;j<samples;j++){
+      phi += segwf2->at(j)*segwf2->at(j) - segwf3->at(j)*segwf3->at(j);
+      dno += segwf2->at(j)*segwf2->at(j) + segwf3->at(j)*segwf3->at(j);
     }
     phi /= dno;
     if((dno==0.)||(phi!=phi)){
@@ -205,6 +205,9 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t sam
     if(segNum>3){
       //back segment, reverse sign to make zeta increase with z
       zeta *= -1.;
+      zeta += ZETA_MAX;
+    }else{
+      zeta -= ZETA_MAX;
     }
     //cout << "zeta: " << zeta << endl;
     return zeta;

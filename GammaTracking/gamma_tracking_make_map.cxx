@@ -67,12 +67,13 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
         angleVal = phiLeaf->GetValue(j)*180./M_PI;
         zVal = zLeaf->GetValue(j);
         idVal = segIDLeaf->GetValue(j)-1; //convert to zero-indexed
+        //cout << "sim data seg ID: " << idVal << ", r: " << rVal << ", rInd: " << rInd << ", angle: " << angleVal << ", z: " << zVal << endl;
         if((idVal>=0)&&(idVal<NSEG)){
-          rDistHist[idVal]->Fill(rVal);
-          if((rVal>=0)&&(rVal<=MAX_VAL_R)){ 
+          if((rVal==rVal)&&(rVal>=0)&&(rVal<=MAX_VAL_R)){ 
+            rDistHist[idVal]->Fill(rVal);
             Int_t rInd = (Int_t)(rVal/BIN_WIDTH_R);
-            angleDistHist[idVal*MAX_VAL_R/BIN_WIDTH_R + rInd]->Fill(angleVal*180./M_PI);
-            if((angleVal>=0)&&(angleVal<=MAX_VAL_ANGLE)){
+            if((angleVal==angleVal)&&(angleVal>=0)&&(angleVal<=MAX_VAL_ANGLE)){
+              angleDistHist[idVal*MAX_VAL_R/BIN_WIDTH_R + rInd]->Fill(angleVal);
               Int_t angleInd = (Int_t)(angleVal/BIN_WIDTH_ANGLE);
               zDistHist[idVal*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->Fill(zVal);
             }
@@ -292,7 +293,8 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
         for(int l=0;l<N_BINS_ORDERING;l++){
           xVal[0] = phiHistC[k*MAX_VAL_R/BIN_WIDTH_R + j]->GetBinContent(l+1);
           nQuantiles = angleDistHist[k*MAX_VAL_R/BIN_WIDTH_R + j]->GetQuantiles(1,qVal,xVal);
-          if(nQuantiles==1){
+          if(nQuantiles>=1){
+            //printf("val=%f ",qVal[0]); //=0 when there is no GEANT4 data in this bin
             angleMap[k*MAX_VAL_R/BIN_WIDTH_R + j]->SetBinContent(l+1,qVal[0]);
           }
         }
@@ -355,7 +357,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
           for(int l=0;l<N_BINS_ORDERING;l++){
             xVal[0] = zetaHistC[k*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + j*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + i]->GetBinContent(l+1);
             nQuantiles = zDistHist[k*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + j*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + i]->GetQuantiles(1,qVal,xVal);
-            if(nQuantiles==1){
+            if(nQuantiles>=1){
               zMap[k*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + j*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + i]->SetBinContent(l+1,qVal[0]);
             }
           }

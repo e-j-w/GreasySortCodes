@@ -16,7 +16,8 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
     cout << "Opened map file: " << mapfile << endl;
   }
 
-  char hname[32];
+  
+  char hname[64];
   TH1 *rMap[NSEG], *angleMap[NSEG*MAX_VAL_R/BIN_WIDTH_R], *zMap[NSEG*(MAX_VAL_R/BIN_WIDTH_R)*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)];
   for(int k = 0; k < NSEG; k++){
     sprintf(hname,"rMapSeg%i",k);
@@ -39,13 +40,25 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
 
   cout << "Map file data read in." << endl;
 
-  //setup histograms for the mapped parameters
+  
+  //setup histograms for the basis 
+  Int_t samples = 100; //number of samples per waveform
   TH1D *basis[NSEG*BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z];
-  for(int k = 0; k < NSEG; k++){
-    sprintf(hname,"rMappedSeg%i",k);
-    basis[k] = new TH1D(hname,Form("rMappedSeg%i",k),40,0,40);
-    list->Add(basis[k]);
+  Int_t numEvtsBasis[NSEG*BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z];
+  memset(numEvtsBasis,0,sizeof(numEvtsBasis));
+  for(int l = 0; l < NSEG; l++){
+    for(int k = 0; k < BASIS_BINS_R; k++){
+      for(int j = 0; j < BASIS_BINS_ANGLE; j++){
+        for(int i = 0; i < BASIS_BINS_Z; i++){
+          Int_t basisInd = l*BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z + k*BASIS_BINS_ANGLE*BASIS_BINS_Z + j*BASIS_BINS_Z + i;
+          sprintf(hname,"basisSeg%ir%ito%iangle%ito%iz%ito%i",l,k*MAX_VAL_R/BASIS_BINS_R,(k+1)*MAX_VAL_R/BASIS_BINS_R,j*360/BASIS_BINS_ANGLE,(j+1)*360/BASIS_BINS_ANGLE,i*MAX_VAL_Z/BASIS_BINS_Z,(i+1)*MAX_VAL_Z/BASIS_BINS_Z);
+          basis[basisInd] = new TH1D(hname,Form("basisSeg%ir%ito%iangle%ito%iz%ito%i",l,k*MAX_VAL_R/BASIS_BINS_R,(k+1)*MAX_VAL_R/BASIS_BINS_R,j*360/BASIS_BINS_ANGLE,(j+1)*360/BASIS_BINS_ANGLE,i*MAX_VAL_Z/BASIS_BINS_Z,(i+1)*MAX_VAL_Z/BASIS_BINS_Z),samples,0,samples);
+          //list->Add(basis[basisInd]);
+        }
+      }
+    }
   }
+
 
   TFile * inputfile = new TFile(infile, "READ");
   if (!inputfile->IsOpen()) {
@@ -69,12 +82,10 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
     exit(-1);
   }
 
-  Int_t samples = 100; //number of samples per waveform
-
   Int_t hit_counter = 0;
   Int_t map_hit_counter = 0;
 
-  const std::vector<Short_t> *wf;
+  const std::vector<Short_t> *wf, *segwf;
   bool found1, found2;
   Int_t waveform_t0;
   Int_t one;
@@ -93,63 +104,118 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
         //this entry has an unusable risetime
         continue;
       }
-      for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++)
-      {
-
-        hit_counter++;
-
-        Int_t segNum = tigress_hit->GetSegmentHit(i).GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
-
-        //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-        double rho = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,0);
-        if(rho == BAD_RETURN){
-          continue;
+      hit_counter++;
+      bool goodWaveforms = true;
+      bool isHit = false;
+      //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
+      if(tigress_hit->GetSegmentMultiplicity() == 8){
+        //all segments have waveforms
+        //check that the waveforms are the same size
+        for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
+          if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=samples){
+            cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
+            goodWaveforms = false;
+            break;
+          }
         }
-        double phi = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,1);
-        if(phi == BAD_RETURN){
-          continue;
-        }
-        double zeta = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,2);
-        if(zeta == BAD_RETURN){
-          continue;
-        }
+        if(goodWaveforms){
+          //cout << "Entry " << jentry << endl;
+          for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
 
-        map_hit_counter++;
+            Int_t segNum = tigress_hit->GetSegmentHit(i).GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
+            if((segNum<0)||(segNum >= NSEG)){
+              cout << "Entry " << jentry << ", bad number of segments." << endl;
+              continue;
+            }
 
-        //map to spatial parameters
-        double r=-1.;
-        double angle=-1.;
-        double z=-1.;
-        if(rMap[segNum]!=NULL){
-          r = rMap[segNum]->GetBinContent(rMap[segNum]->FindBin(rho));
-        }
-        Int_t rInd = (Int_t)(r/BIN_WIDTH_R);
-        if(rInd < MAX_VAL_R/BIN_WIDTH_R){
-          if(angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]!=NULL){
-            angle = angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]->GetBinContent(angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]->FindBin(phi));
-            Int_t angleInd = (Int_t)(angle/BIN_WIDTH_ANGLE);
-            if(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]!=NULL){
-              z = zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->GetBinContent(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->FindBin(zeta));
-              if((r>=0.)&&(z>=0.)&&(angle>=0.)){
-                
-                //const std::vector<Short_t> *segwf;
-                //segwf = segment_hit.GetWaveform();
-                
+            //calculate all ordering parameters (see ordering_parameter_calc.cxx)
+            double rho = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,0);
+            if(rho == BAD_RETURN){
+              continue;
+            }
+            double phi = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,1);
+            if(phi == BAD_RETURN){
+              continue;
+            }
+            double zeta = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,2);
+            if(zeta == BAD_RETURN){
+              continue;
+            }
+   
+            isHit = true;
 
-                /*rMappedHist[segNum]->Fill(r);
-                angleMappedHist[segNum]->Fill(angle);
-                zMappedHist[segNum]->Fill(z);*/
+            //map to spatial parameters
+            double r=-1.;
+            double angle=-1.;
+            double z=-1.;
+
+            if(rMap[segNum]!=NULL){
+              r = rMap[segNum]->GetBinContent(rMap[segNum]->FindBin(rho));
+            }
+            Int_t rInd = (Int_t)(r/BIN_WIDTH_R);
+            if(rInd < MAX_VAL_R/BIN_WIDTH_R){
+              if(angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]!=NULL){
+                angle = angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]->GetBinContent(angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]->FindBin(phi));
+                Int_t angleInd = (Int_t)(angle/BIN_WIDTH_ANGLE);
+                if(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]!=NULL){
+                  z = zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->GetBinContent(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->FindBin(zeta));
+                  if((r>=0.)&&(z>=0.)&&(angle>=0.)){
+
+                    angle += 90.*(segNum%4); //transform angle to 2pi spanned val
+
+                    //cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
+
+                    //get indices for r, angle, z
+                    Int_t rBasisInd = (Int_t)(r*BASIS_BINS_R/MAX_VAL_R);
+                    Int_t angleBasisInd = (Int_t)(angle*BASIS_BINS_ANGLE/360);
+                    Int_t zBasisInd = (Int_t)(z*BASIS_BINS_Z/MAX_VAL_Z);
+
+                    //save waveforms
+                    for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
+                      Int_t segBasisInd = tigress_hit->GetSegmentHit(j).GetSegment()-1;
+                      Int_t basisInd = segBasisInd*BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z + rBasisInd*BASIS_BINS_ANGLE*BASIS_BINS_Z + angleBasisInd*BASIS_BINS_Z + zBasisInd;
+                      //cout << "basisInd: " << basisInd << endl;
+
+                      segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
+                      for(int k = 0; k < samples; k++){
+                        basis[basisInd]->SetBinContent(k,basis[basisInd]->GetBinContent(k) + segwf->at(k));
+                      }
+                      numEvtsBasis[basisInd]++;
+
+                    }
+                    //const std::vector<Short_t> *segwf;
+                    //segwf = tigress_hit->GetSegmentHit(i).GetWaveform();
+                    
+
+                    /*rMappedHist[segNum]->Fill(r);
+                    angleMappedHist[segNum]->Fill(angle);
+                    zMappedHist[segNum]->Fill(z);*/
+                  }
+                }
               }
             }
           }
+          if(isHit){
+            map_hit_counter++;
+          }
         }
-        
-        
-        
-        
       }
+      
     }
     if (jentry % 10000 == 0) cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << nentries << ", " << 100 * jentry / nentries << "% complete" << "\r" << flush;
+  }
+
+  for(int l = 0; l < NSEG; l++){
+    for(int k = 0; k < BASIS_BINS_R; k++){
+      for(int j = 0; j < BASIS_BINS_ANGLE; j++){
+        for(int i = 0; i < BASIS_BINS_Z; i++){
+          Int_t basisInd = l*BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z + k*BASIS_BINS_ANGLE*BASIS_BINS_Z + j*BASIS_BINS_Z + i;
+          if(numEvtsBasis[basisInd] > 0){
+            list->Add(basis[basisInd]);
+          }
+        }
+      }
+    }
   }
 
   cout << "Entry " << nentries << " of " << nentries << ", 100% Complete!" << endl;
