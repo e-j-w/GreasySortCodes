@@ -76,8 +76,6 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
     exit(-1);
   }
 
-  Int_t samples = 100; //number of samples per waveform
-
   Int_t hit_counter = 0;
   Int_t map_hit_counter = 0;
 
@@ -92,31 +90,33 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
       if(tigress_hit->GetKValue() != 700) continue;
       tigress_hit->SetWavefit();
       wf = tigress_hit->GetWaveform();
-      samples = wf->size();
+      if(wf->size()!=SAMPLES){
+        cout << "Entry " << jentry << ", improper core waveform size (" << wf->size() << ")." << endl;
+        continue;
+      }
       TPulseAnalyzer pulse;
       pulse.SetData(*wf,0);  // Allows you to use the full TPulseAnalyzer class
       waveform_t0 = (Int_t)pulse.fit_newT0(); //in samples
-      if((waveform_t0 <= 0)||(waveform_t0 >= samples-WAVEFORM_SAMPLING_WINDOW -1)){
+      if((waveform_t0 <= 0)||(waveform_t0 >= SAMPLES-WAVEFORM_SAMPLING_WINDOW -1)){
         //this entry has an unusable risetime
         continue;
       }
       hit_counter++;
       bool isHit = false;
-      for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++)
-      {
+      for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
 
         Int_t segNum = tigress_hit->GetSegmentHit(i).GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
 
         //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-        double rho = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,0);
+        double rho = calc_ordering(tigress_hit,i,jentry,waveform_t0,0);
         if(rho == BAD_RETURN){
           continue;
         }
-        double phi = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,1);
+        double phi = calc_ordering(tigress_hit,i,jentry,waveform_t0,1);
         if(phi == BAD_RETURN){
           continue;
         }
-        double zeta = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,2);
+        double zeta = calc_ordering(tigress_hit,i,jentry,waveform_t0,2);
         if(zeta == BAD_RETURN){
           continue;
         }
@@ -139,6 +139,10 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
               z = zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->GetBinContent(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->FindBin(zeta));
               
               if((r>=0.)&&(z>=0.)&&(angle>=0.)){
+                if(segNum<=3){
+                  //r corresponds to the distance from the central contact at z=30
+                  r = sqrt(r*r - (30.-z)*(30.-z));
+                }
                 rMappedHist[segNum]->Fill(r);
                 angleMappedHist[segNum]->Fill(angle);
                 zMappedHist[segNum]->Fill(z);

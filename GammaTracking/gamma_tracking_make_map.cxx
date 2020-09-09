@@ -29,21 +29,21 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
     cout << "ERROR: No spatial coordinate distribution info in the specified ROOT file!" << endl;
     exit(-1);
   }
-  TBranch *rBranch, *phiBranch, *zBranch, *segIDBranch;
-  TLeaf *rLeaf, *phiLeaf, *zLeaf, *segIDLeaf;
-  if((rBranch = simTree->GetBranch("TigressSegmentMaxECylr"))==NULL){
+  TBranch *rBranch, *phiBranch, *zBranch, *segIDBranch, *numHitsBranch;
+  TLeaf *rLeaf, *phiLeaf, *zLeaf, *segIDLeaf, *numHitsLeaf;
+  if((rBranch = simTree->GetBranch("TigressSegmentMaxECylSphr"))==NULL){
     cout << "ERROR: Sort data path 'TigressSegmentMaxECylr' doesn't correspond to a branch or leaf in the tree!" << endl;
     exit(-1);
   }else{
     rLeaf = (TLeaf*)rBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
   }
-  if((phiBranch = simTree->GetBranch("TigressSegmentMaxECylphi"))==NULL){
+  if((phiBranch = simTree->GetBranch("TigressSegmentMaxECylSphphi"))==NULL){
     cout << "ERROR: Sort data path 'TigressSegmentMaxECylphi' doesn't correspond to a branch or leaf in the tree!" << endl;
     exit(-1);
   }else{
     phiLeaf = (TLeaf*)phiBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
   }
-  if((zBranch = simTree->GetBranch("TigressSegmentMaxECylz"))==NULL){
+  if((zBranch = simTree->GetBranch("TigressSegmentMaxECylSphz"))==NULL){
     cout << "ERROR: Sort data path 'TigressSegmentMaxECylz' doesn't correspond to a branch or leaf in the tree!" << endl;
     exit(-1);
   }else{
@@ -55,10 +55,16 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   }else{
     segIDLeaf = (TLeaf*)segIDBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
   }
+  if((numHitsBranch = simTree->GetBranch("TigressSegmentMaxENumHits"))==NULL){
+    cout << "ERROR: Sort data path 'TigressSegmentMaxENumHits' doesn't correspond to a branch or leaf in the tree!" << endl;
+    exit(-1);
+  }else{
+    numHitsLeaf = (TLeaf*)numHitsBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
+  }
 
   Int_t sentries = simTree->GetEntries();
   Double_t rVal, angleVal, zVal;
-  Int_t idVal;
+  Int_t idVal, numHitsVal;
   for (int i=0;i<sentries;i++){
     simTree->GetEntry(i);
     for(int j=0; j<rLeaf->GetNdata(); j++) { //deal with multiple fold events
@@ -67,19 +73,22 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
         angleVal = phiLeaf->GetValue(j)*180./M_PI;
         zVal = zLeaf->GetValue(j);
         idVal = segIDLeaf->GetValue(j)-1; //convert to zero-indexed
+        numHitsVal = numHitsLeaf->GetValue(j);
         //cout << "sim data seg ID: " << idVal << ", r: " << rVal << ", rInd: " << rInd << ", angle: " << angleVal << ", z: " << zVal << endl;
-        if((idVal>=0)&&(idVal<NSEG)){
-          if((rVal==rVal)&&(rVal>=0)&&(rVal<=MAX_VAL_R)){ 
-            rDistHist[idVal]->Fill(rVal);
-            Int_t rInd = (Int_t)(rVal/BIN_WIDTH_R);
-            if((angleVal==angleVal)&&(angleVal>=0)&&(angleVal<=MAX_VAL_ANGLE)){
-              angleDistHist[idVal*MAX_VAL_R/BIN_WIDTH_R + rInd]->Fill(angleVal);
-              Int_t angleInd = (Int_t)(angleVal/BIN_WIDTH_ANGLE);
-              zDistHist[idVal*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->Fill(zVal);
+        if(numHitsVal==1){ //restrict to single interaction events
+          if((idVal>=0)&&(idVal<NSEG)){
+            if((rVal==rVal)&&(rVal>=0)&&(rVal<=MAX_VAL_R)){ 
+              rDistHist[idVal]->Fill(rVal);
+              Int_t rInd = (Int_t)(rVal/BIN_WIDTH_R);
+              if((angleVal==angleVal)&&(angleVal>=0)&&(angleVal<=MAX_VAL_ANGLE)){
+                angleDistHist[idVal*MAX_VAL_R/BIN_WIDTH_R + rInd]->Fill(angleVal);
+                Int_t angleInd = (Int_t)(angleVal/BIN_WIDTH_ANGLE);
+                zDistHist[idVal*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->Fill(zVal);
+              }
             }
+          }else{
+            cout << "Sim tree: invalid segment." << endl;
           }
-        }else{
-          cout << "Sim tree: invalid segment." << endl;
         }
       }else{
         cout << "Sim tree: data size mismatch." << endl;
@@ -142,8 +151,6 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
     exit(-1);
   }
 
-  Int_t samples = 100; //number of samples per waveform
-
   Int_t hit_counter = 0;
   Int_t map_hit_counter = 0;
   Int_t overflow_rho_counter = 0;
@@ -162,34 +169,35 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
       if(tigress_hit->GetKValue() != 700) continue;
       tigress_hit->SetWavefit();
       wf = tigress_hit->GetWaveform();
-      samples = wf->size();
+      if(wf->size()!=SAMPLES){
+        cout << "Entry " << jentry << ", improper core waveform size (" << wf->size() << ")." << endl;
+        continue;
+      }
       TPulseAnalyzer pulse;
       pulse.SetData(*wf,0);  // Allows you to use the full TPulseAnalyzer class
       waveform_t0 = (Int_t)pulse.fit_newT0(); //in samples
-      if((waveform_t0 <= 0)||(waveform_t0 >= samples-WAVEFORM_SAMPLING_WINDOW -1)){
+      if((waveform_t0 <= 0)||(waveform_t0 >= SAMPLES-WAVEFORM_SAMPLING_WINDOW -1)){
         //this entry has an unusable risetime
         continue;
       }
       hit_counter++;
       bool isHit = false;
-      for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++)
-      {
-
+      for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
         
         TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
 
         Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
 
         //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-        Double_t rho = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,0);
+        Double_t rho = calc_ordering(tigress_hit,i,jentry,waveform_t0,0);
         if(rho == BAD_RETURN){
           continue;
         }
-        Double_t phi = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,1);
+        Double_t phi = calc_ordering(tigress_hit,i,jentry,waveform_t0,1);
         if(phi == BAD_RETURN){
           continue;
         }
-        Double_t zeta = calc_ordering(tigress_hit,i,jentry,samples,waveform_t0,2);
+        Double_t zeta = calc_ordering(tigress_hit,i,jentry,waveform_t0,2);
         if(zeta == BAD_RETURN){
           continue;
         }

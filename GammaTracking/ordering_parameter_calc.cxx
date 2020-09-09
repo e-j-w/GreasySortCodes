@@ -1,6 +1,6 @@
 //function for calculation of ordering parameters
 //this enforces the single segment hit condition assumed by the mapping process, using SEGMENT_ENERGY_THRESHOLD
-double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t samples, Int_t waveform_t0, Int_t parameterNum) {
+double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t waveform_t0, Int_t parameterNum) {
 
   //lists of adjacent segments in the TIGRESS array (zero-indexed)
   Int_t phiAdjSeg1[8] = {3,0,1,2,7,4,5,6};
@@ -22,7 +22,7 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t sam
 
   const std::vector<Short_t> *segwf;
   segwf = segment_hit.GetWaveform();
-  if(segwf->size() != samples){
+  if(segwf->size() != SAMPLES){
     cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
     return BAD_RETURN;
   }
@@ -39,45 +39,36 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t sam
     bool found2 = false;
     bool found3 = false;
     for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
+      if((j!=i)&&(tigress_hit->GetSegmentHit(j).GetEnergy() >= SEGMENT_ENERGY_NOHIT_THRESHOLD)){
+        return BAD_RETURN;
+      }
       if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == phiAdjSeg1[segNum]){
-        if(tigress_hit->GetSegmentHit(j).GetEnergy() < SEGMENT_ENERGY_THRESHOLD){
-          found1=true;
-          segwf2 = tigress_hit->GetSegmentHit(j).GetWaveform();
-        }else{
-          return BAD_RETURN;
-        }
+        found1=true;
+        segwf2 = tigress_hit->GetSegmentHit(j).GetWaveform();
       }
       if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == phiAdjSeg2[segNum]){
-        if(tigress_hit->GetSegmentHit(j).GetEnergy() < SEGMENT_ENERGY_THRESHOLD){
-          found2=true;
-          segwf3 = tigress_hit->GetSegmentHit(j).GetWaveform();
-        }else{
-          return BAD_RETURN;
-        }
+        found2=true;
+        segwf3 = tigress_hit->GetSegmentHit(j).GetWaveform();
       }
       if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == zAdjSeg[segNum]){
-        if(tigress_hit->GetSegmentHit(j).GetEnergy() < SEGMENT_ENERGY_THRESHOLD){
-          found3=true;
-          segwf4 = tigress_hit->GetSegmentHit(j).GetWaveform();
-        }else{
-          return BAD_RETURN;
-        }
+        found3=true;
+        segwf4 = tigress_hit->GetSegmentHit(j).GetWaveform();
       }
     }
     if((!found1)||(!found2)||(!found3)){
       cout << "Entry " << jentry << ", cannot get neighbouring segment wavefoms to compute zeta parameter." << endl;
       return BAD_RETURN;
-    }else if((segwf2->size() != samples)||(segwf3->size() != samples)||(segwf4->size() != samples)){
+    }else if((segwf2->size() != SAMPLES)||(segwf3->size() != SAMPLES)||(segwf4->size() != SAMPLES)){
       cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
       return BAD_RETURN;
     }
-    for(int j=1;j<samples-1;j++){
+    for(int j=1;j<SAMPLES-1;j++){
       sampleAvg += (j)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
       //term2 += segwf2->at(j) + segwf3->at(j) + segwf4->at(j);
       dno += (segwf->at(j+1) - segwf->at(j-1))/2.0;
     }
     sampleAvg /= dno;
-    for(int j=1;j<samples-1;j++){
+    for(int j=1;j<SAMPLES-1;j++){
       rho += pow(j - sampleAvg,3.0)*(segwf->at(j+1) - segwf->at(j-1))/2.0;// - 0.0005*term2;
     }
     rho /= dno;
@@ -95,32 +86,26 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t sam
     bool found1 = false;
     bool found2 = false;
     for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
+      if((j!=i)&&(tigress_hit->GetSegmentHit(j).GetEnergy() >= SEGMENT_ENERGY_NOHIT_THRESHOLD)){
+        return BAD_RETURN;
+      }
       if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == phiAdjSeg1[segNum]){
-        if(tigress_hit->GetSegmentHit(j).GetEnergy() < SEGMENT_ENERGY_THRESHOLD){
-          found1=true;
-          segwf2 = tigress_hit->GetSegmentHit(j).GetWaveform();
-        }else{
-          return BAD_RETURN;
-        }
+        found1=true;
+        segwf2 = tigress_hit->GetSegmentHit(j).GetWaveform();
       }
       if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == phiAdjSeg2[segNum]){
-        if(tigress_hit->GetSegmentHit(j).GetEnergy() < SEGMENT_ENERGY_THRESHOLD){
-          found2=true;
-          segwf3 = tigress_hit->GetSegmentHit(j).GetWaveform();
-        }else{
-          return BAD_RETURN;
-        }
-        
+        found2=true;
+        segwf3 = tigress_hit->GetSegmentHit(j).GetWaveform();
       }
     }
     if((!found1)||(!found2)){
       cout << "Entry " << jentry << ", cannot get neighbouring segment wavefoms to compute phi parameter." << endl;
       return BAD_RETURN;
-    }else if((segwf2->size() != samples)||(segwf3->size() != samples)){
+    }else if((segwf2->size() != SAMPLES)||(segwf3->size() != SAMPLES)){
       cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
       return BAD_RETURN;
     }
-    for(int j=0;j<samples;j++){
+    for(int j=0;j<SAMPLES;j++){
       phi += segwf2->at(j)*segwf2->at(j) - segwf3->at(j)*segwf3->at(j);
       dno += segwf2->at(j)*segwf2->at(j) + segwf3->at(j)*segwf3->at(j);
     }
@@ -165,25 +150,24 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t sam
     const std::vector<Short_t> *segwf2;
     bool found2 = false;
     for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
+      if((j!=i)&&(tigress_hit->GetSegmentHit(j).GetEnergy() >= SEGMENT_ENERGY_NOHIT_THRESHOLD)){
+        return BAD_RETURN;
+      }
       if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == zAdjSeg[segNum]){
-        if(tigress_hit->GetSegmentHit(j).GetEnergy() < SEGMENT_ENERGY_THRESHOLD){
-          found2=true;
-          segwf2 = tigress_hit->GetSegmentHit(j).GetWaveform();
-        }else{
-          return BAD_RETURN;
-        }
+        found2=true;
+        segwf2 = tigress_hit->GetSegmentHit(j).GetWaveform();
       }
     }
     if(!found2){
       cout << "Entry " << jentry << ", cannot get neighbouring segment wavefoms to compute zeta parameter." << endl;
       return BAD_RETURN;
-    }else if(segwf2->size() != samples){
+    }else if(segwf2->size() != SAMPLES){
       cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
       return BAD_RETURN;
     }
     double maxVal = -1E30;
     double minVal = 1E30;
-    for(int j=1;j<samples-1;j++){
+    for(int j=1;j<SAMPLES-1;j++){
       if(segwf2->at(j) > maxVal){
         maxVal = segwf2->at(j);
       }
