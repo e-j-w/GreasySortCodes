@@ -14,7 +14,6 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
     cout << "Opened map file: " << mapfile << endl;
   }
 
-  char hname[32];
   TH1 *rMap[NSEG], *angleMap[NSEG*MAX_VAL_R/BIN_WIDTH_R], *zMap[NSEG*(MAX_VAL_R/BIN_WIDTH_R)*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)];
   for(int k = 0; k < NSEG; k++){
     sprintf(hname,"rMapSeg%i",k);
@@ -182,10 +181,10 @@ int main(int argc, char ** argv) {
 
   const char *afile, *mapfile, *outfile, *calfile;
 
-  // Input-chain-file, output-histogram-file
   if (argc < 2) {
-    cout << endl << "This sortcode sorts resconstructed hit positions, using the map file generated using the GammaTrackingMakeMap code." << endl << endl;
-    cout << "Arguments: ./GammaTrackingSortExample analysis_tree_file map_file cal_file output_file" << endl;
+    cout << endl << "This sortcode sorts resconstructed hit positions, using the map file generated using the GammaTrackingMakeMap code.  ";
+    cout << "It is only suitable for events containing a single interaction in a single segment, use the GammaTrackingSortFromBasis code otherwise." << endl << endl;
+    cout << "Arguments: ./GammaTrackingSortExample analysis_tree_file map_file cal_file output_file" << endl << endl;
     cout << "The analysis tree (containing the experimental data to be sorted) is a required argument.  Omitting other arguments will cause the sortcode to fall back to default values." << endl << endl;
 	  return 0;
   } else if (argc == 2) {
@@ -224,7 +223,7 @@ int main(int argc, char ** argv) {
   grsi_path += ".grsirc";
   gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
 
-  cout << "Input file: " << afile << endl << "Simulation data file: " << mapfile << endl << "Calibration file: " << calfile << endl << "Output file: " << outfile << endl;
+  cout << "Input file: " << afile << endl << "Map data file: " << mapfile << endl << "Calibration file: " << calfile << endl << "Output file: " << outfile << endl;
 
   TParserLibrary::Get()->Load();
 

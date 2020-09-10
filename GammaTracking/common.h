@@ -43,6 +43,8 @@ using namespace std;
 #define     BIN_WIDTH_ANGLE 10 //in deg
 #define     MAX_VAL_Z       90 //maximum z (in mm)
 
+#define     MAX_ENERGY_SINGLE_INTERACTION  600 //maximum energy allowed for a hit to be put into the map (higher energy events are more likely to result from multiple interactions)
+
 //parameters defining how fine the basis grid is (number of bins in each dimension, per segment)
 //bounds of the grid determined by MAX_VAL_R, MAX_VAL_ANGLE, MAX_VAL_Z
 #define     BASIS_MAX_VAL_Z_FRONT  30 //maximum z for front segments (in mm)
@@ -59,5 +61,7 @@ using namespace std;
 #define     SEGMENT_ENERGY_THRESHOLD       200 //threshold for a segment to be considered 'hit' in GetEnergy() units
 #define     SEGMENT_ENERGY_NOHIT_THRESHOLD 20  //threshold in GetEnergy() units below which a segment is considered not to be hit
 #define     WAVEFORM_SAMPLING_WINDOW       10  //number of waveform samples used to construct ordering parameters
+
+char hname[64];
 
 #include "ordering_parameter_calc.cxx"

@@ -16,8 +16,6 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
     cout << "Opened map file: " << mapfile << endl;
   }
 
-  
-  char hname[64];
   TH1 *rMap[NSEG], *angleMap[NSEG*MAX_VAL_R/BIN_WIDTH_R], *zMap[NSEG*(MAX_VAL_R/BIN_WIDTH_R)*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)];
   for(int k = 0; k < NSEG; k++){
     sprintf(hname,"rMapSeg%i",k);
@@ -112,7 +110,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
       bool goodWaveforms = true;
       bool isHit = false;
       //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
-      if(tigress_hit->GetSegmentMultiplicity() == 8){
+      if(tigress_hit->GetSegmentMultiplicity() == NSEG){
         //all segments have waveforms
         //check that the waveforms are the same size
         for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
@@ -121,7 +119,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
             goodWaveforms = false;
             break;
           }
-          if(tigress_hit->GetSegmentHit(i).GetEnergy() > BASIS_MAX_ENERGY){
+          if((tigress_hit->GetSegmentHit(i).GetEnergy() > BASIS_MAX_ENERGY)||(tigress_hit->GetSegmentHit(i).GetEnergy() > MAX_ENERGY_SINGLE_INTERACTION)){
             goodWaveforms = false;
             break;
           }
@@ -258,10 +256,9 @@ int main(int argc, char ** argv) {
 
   const char *afile, *mapfile, *outfile, *calfile;
 
-  // Input-chain-file, output-histogram-file
   if (argc < 2) {
-    cout << endl << "This sortcode a waveform basis for gamma tracking, using the map file generated using the GammaTrackingMakeMap code." << endl << endl;
-    cout << "Arguments: ./GammaTrackingMakeBasis analysis_tree_file map_file cal_file output_file" << endl;
+    cout << endl << "This sortcode generates a waveform basis for gamma tracking, using the map file generated using the GammaTrackingMakeMap code." << endl << endl;
+    cout << "Arguments: ./GammaTrackingMakeBasis analysis_tree_file map_file cal_file output_file" << endl << endl;
     cout << "The analysis tree (containing the calibration data used to make the basis) is a required argument.  Omitting other arguments will cause the sortcode to fall back to default values." << endl << endl;
 	  return 0;
   } else if (argc == 2) {
@@ -286,7 +283,7 @@ int main(int argc, char ** argv) {
 	  outfile = argv[4];
   } else if (argc > 5) {
 	  cout << "Too many arguments." << endl;
-    cout << "Arguments: ./GammaTrackingSortExample analysis_tree_file map_file cal_file output_file" << endl;
+    cout << "Arguments: ./GammaTrackingMakeBasis analysis_tree_file map_file cal_file output_file" << endl;
 	  return 0;
   }
 
@@ -300,7 +297,7 @@ int main(int argc, char ** argv) {
   grsi_path += ".grsirc";
   gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
 
-  cout << "Input file: " << afile << endl << "Simulation data file: " << mapfile << endl << "Calibration file: " << calfile << endl << "Output file: " << outfile << endl;
+  cout << "Input file: " << afile << endl << "Map data file: " << mapfile << endl << "Calibration file: " << calfile << endl << "Output file: " << outfile << endl;
 
   TParserLibrary::Get()->Load();
 
