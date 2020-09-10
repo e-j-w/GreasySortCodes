@@ -29,7 +29,8 @@ using namespace std;
 #define     NCORE  4  //number of cores per position
 #define     NSEG   8  //number of segments per core
 
-#define     SAMPLES 100 //number of samples in each waveform
+#define     SAMPLES          100 //number of samples in each waveform
+#define     BASELINE_SAMPLES 30  //number of samples at the start of the waveform used to calculate the baseline
 
 #define     N_BINS_ORDERING 512 //number of bins to use when discretizing ordering parameter (WARNING: memory usage scales as ^3 with this, can also overflow TH3 integer bin index with values > 1024!)
 #define     RHO_MAX         5E4
@@ -48,8 +49,10 @@ using namespace std;
 #define     BASIS_MIN_VAL_Z_BACK   30 //minimum z for back segments (in mm)
 #define     BASIS_BINS_R           10
 #define     BASIS_BINS_ANGLE       36 //in the basis, the angle covers the full 2pi range
-#define     BASIS_BINS_Z           10
-#define     BASIS_MAX_ENERGY       2000 //maximum energy allowed for a hit to be put into the basis
+#define     BASIS_BINS_Z           20
+#define     BASIS_MAX_ENERGY       2000 //maximum energy allowed for a hit to be put into the basis (used to suppress high energy events)
+#define     BASIS_START_SAMPLE     40 //sample to time-align waveform start to in the basis
+
 
 #define     BAD_RETURN -1E10 //value to be returned if ordering parameter calculation fails
 

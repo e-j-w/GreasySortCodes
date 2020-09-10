@@ -85,13 +85,16 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
   const std::vector<Short_t> *wf, *segwf;
   bool found1, found2;
   Int_t waveform_t0;
+  Double_t seg_waveform_baseline;
+  Double_t core_E;
   Int_t one;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
     for (one = 0; one < tigress->GetMultiplicity(); one++) {
       tigress_hit = tigress->GetTigressHit(one);
       if(tigress_hit->GetKValue() != 700) continue;
-      if(tigress_hit->GetEnergy() > BASIS_MAX_ENERGY) continue;
+      core_E = tigress_hit->GetEnergy();
+      if((core_E <= 0)||(core_E > BASIS_MAX_ENERGY)) continue; //bad energy
       tigress_hit->SetWavefit();
       wf = tigress_hit->GetWaveform();
       if(wf->size()!=SAMPLES){
@@ -118,14 +121,14 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
             goodWaveforms = false;
             break;
           }
+          if(tigress_hit->GetSegmentHit(i).GetEnergy() > BASIS_MAX_ENERGY){
+            goodWaveforms = false;
+            break;
+          }
         }
         if(goodWaveforms){
           //cout << "Entry " << jentry << endl;
           for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
-
-            if(tigress_hit->GetSegmentHit(i).GetEnergy() > BASIS_MAX_ENERGY){
-              continue;
-            }
 
             //calculate all ordering parameters (see ordering_parameter_calc.cxx)
             double rho = calc_ordering(tigress_hit,i,jentry,waveform_t0,0);
@@ -167,7 +170,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
                   if((r>=0.)&&(z>=0.)&&(angle>=0.)){
                     
                     if(segNum<=3){
-                      //r corresponds to the distance from the central contact at z=30
+                      //r corresponds to the distance from the central contact at z=30, transform back to cylindrical coordinates
                       r = sqrt(r*r - (30.-z)*(30.-z));
                     }
 
@@ -193,8 +196,19 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
 
                       Int_t segBasisInd = tigress_hit->GetSegmentHit(j).GetSegment()-1;
                       segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
+                      seg_waveform_baseline = 0.;
+                      for(int k = 0; k < BASELINE_SAMPLES; k++){
+                        seg_waveform_baseline += segwf->at(k);
+                      }
+                      seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
+
+                      //cout << "core t0: " << waveform_t0 << ", core energy: " << core_E << ", segment " << segBasisInd << " baseline: " << seg_waveform_baseline << endl;
+                      Int_t tOffset = waveform_t0-BASIS_START_SAMPLE;
                       for(int k = 0; k < SAMPLES; k++){
-                        basis[basisInd]->SetBinContent(k+(SAMPLES*segBasisInd),basis[basisInd]->GetBinContent(k+(SAMPLES*segBasisInd)) + segwf->at(k));
+                        if((k>=tOffset)&&(k<SAMPLES+tOffset)){
+                          //cout << "incrementing bin " << k << "by " << ((segwf->at(k-tOffset) - seg_waveform_baseline)/core_E) << endl;
+                          basis[basisInd]->SetBinContent(k+(SAMPLES*segBasisInd),basis[basisInd]->GetBinContent(k+(SAMPLES*segBasisInd)) + ((segwf->at(k-tOffset) - seg_waveform_baseline)/core_E) );
+                        }
                       }
                       numEvtsBasis[basisInd]++;
                       //cout << "val: " << basis[basisInd]->GetBinContent(0) << ", num evts: " << numEvtsBasis[basisInd] << endl;
@@ -219,7 +233,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
       for(int i = 0; i < BASIS_BINS_Z; i++){
         Int_t basisInd = k*BASIS_BINS_ANGLE*BASIS_BINS_Z + j*BASIS_BINS_Z + i;
         if(numEvtsBasis[basisInd] > 0){
-          for(int m = 0; m < SAMPLES; m++){
+          for(int m = 0; m < SAMPLES*NSEG; m++){
             basis[basisInd]->SetBinContent(m,basis[basisInd]->GetBinContent(m)/(1.0*numEvtsBasis[basisInd]));
           }
           list->Add(basis[basisInd]);
