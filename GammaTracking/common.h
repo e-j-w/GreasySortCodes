@@ -33,9 +33,9 @@ using namespace std;
 #define     BASELINE_SAMPLES 30  //number of samples at the start of the waveform used to calculate the baseline
 
 #define     N_BINS_ORDERING 512 //number of bins to use when discretizing ordering parameter (WARNING: memory usage scales as ^3 with this, can also overflow TH3 integer bin index with values > 1024!)
-#define     RHO_MAX         5E4
-#define     PHI_MAX         0.5
-#define     ZETA_MAX        4
+#define     RHO_MAX         3E4
+#define     PHI_MAX         0.1
+#define     ZETA_MAX        0.5
 
 #define     MAX_VAL_R       50 //maximum r (in mm)
 #define     BIN_WIDTH_R     5  //in mm
@@ -55,7 +55,7 @@ using namespace std;
 #define     BASIS_MAX_ENERGY       2000 //maximum energy allowed for a hit to be put into the basis (used to suppress high energy events)
 #define     BASIS_START_SAMPLE     40 //sample to time-align waveform start to in the basis
 
-
+#define     BIG_NUMBER 1E30  //a big number
 #define     BAD_RETURN -1E10 //value to be returned if ordering parameter calculation fails
 
 #define     SEGMENT_ENERGY_THRESHOLD       200 //threshold for a segment to be considered 'hit' in GetEnergy() units

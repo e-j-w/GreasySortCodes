@@ -186,7 +186,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
         
         TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
 
-        if(tigress_hit->GetSegmentHit(i).GetEnergy() > MAX_ENERGY_SINGLE_INTERACTION){
+        if(tigress_hit->GetSegmentHit(i).GetCharge() > MAX_ENERGY_SINGLE_INTERACTION){
           continue; //energy too high - event likely to result from multiple hits
         }
 

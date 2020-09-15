@@ -39,7 +39,9 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
   cout << "Map file data read in." << endl;
 
   
-  //setup histograms for the basis 
+  //setup histograms for the basis
+  TH1I *basisHP = new TH1I("basis_hitpattern","basis_hitpattern",BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z,0,BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z);
+  list->Add(basisHP);
   TH1D *basis[BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z];
   Int_t numEvtsBasis[BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z];
   memset(numEvtsBasis,0,sizeof(numEvtsBasis));
@@ -48,7 +50,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
       for(int i = 0; i < BASIS_BINS_Z; i++){
         Int_t basisInd = k*BASIS_BINS_ANGLE*BASIS_BINS_Z + j*BASIS_BINS_Z + i;
         sprintf(hname,"basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/BASIS_BINS_R,(k+1)*MAX_VAL_R/BASIS_BINS_R,j*360/BASIS_BINS_ANGLE,(j+1)*360/BASIS_BINS_ANGLE,i*MAX_VAL_Z/BASIS_BINS_Z,(i+1)*MAX_VAL_Z/BASIS_BINS_Z);
-        basis[basisInd] = new TH1D(hname,Form("basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/BASIS_BINS_R,(k+1)*MAX_VAL_R/BASIS_BINS_R,j*360/BASIS_BINS_ANGLE,(j+1)*360/BASIS_BINS_ANGLE,i*MAX_VAL_Z/BASIS_BINS_Z,(i+1)*MAX_VAL_Z/BASIS_BINS_Z),SAMPLES*NSEG,0,SAMPLES*NSEG);
+        basis[basisInd] = new TH1D(hname,Form("basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/BASIS_BINS_R,(k+1)*MAX_VAL_R/BASIS_BINS_R,j*360/BASIS_BINS_ANGLE,(j+1)*360/BASIS_BINS_ANGLE,i*MAX_VAL_Z/BASIS_BINS_Z,(i+1)*MAX_VAL_Z/BASIS_BINS_Z),SAMPLES*(NSEG+1),0,SAMPLES*(NSEG+1));
         //list->Add(basis[basisInd]);
       }
     }
@@ -83,13 +85,13 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
   const std::vector<Short_t> *wf, *segwf;
   bool found1, found2;
   Int_t waveform_t0;
-  Double_t seg_waveform_baseline;
+  Double_t core_waveform_baseline, seg_waveform_baseline;
   Double_t core_E;
-  Int_t one;
+  Int_t hitInd;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
-    for (one = 0; one < tigress->GetMultiplicity(); one++) {
-      tigress_hit = tigress->GetTigressHit(one);
+    for (hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++) {
+      tigress_hit = tigress->GetTigressHit(hitInd);
       if(tigress_hit->GetKValue() != 700) continue;
       core_E = tigress_hit->GetEnergy();
       if((core_E <= 0)||(core_E > BASIS_MAX_ENERGY)) continue; //bad energy
@@ -119,7 +121,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
             goodWaveforms = false;
             break;
           }
-          if((tigress_hit->GetSegmentHit(i).GetEnergy() > BASIS_MAX_ENERGY)||(tigress_hit->GetSegmentHit(i).GetEnergy() > MAX_ENERGY_SINGLE_INTERACTION)){
+          if((tigress_hit->GetSegmentHit(i).GetCharge() > BASIS_MAX_ENERGY)||(tigress_hit->GetSegmentHit(i).GetCharge() > MAX_ENERGY_SINGLE_INTERACTION)){
             goodWaveforms = false;
             break;
           }
@@ -183,16 +185,24 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
                     Int_t basisInd = rBasisInd*BASIS_BINS_ANGLE*BASIS_BINS_Z + angleBasisInd*BASIS_BINS_Z + zBasisInd;
 
                     //save waveforms (in 'superpulse' format, core waveform followed by segment waveforms on the same histogram)
-                    
+                    Int_t tOffset = waveform_t0-BASIS_START_SAMPLE;
+
                     //first core waveform
-                    /*for(int k = 0; k < SAMPLES; k++){
-                      basis[basisInd]->SetBinContent(k,basis[basisInd]->GetBinContent(k) + wf->at(k));
-                    }*/
+                    core_waveform_baseline = 0.;
+                    for(int k = 0; k < BASELINE_SAMPLES; k++){
+                      core_waveform_baseline += wf->at(k);
+                    }
+                    core_waveform_baseline /= 1.0*BASELINE_SAMPLES;
+                    for(int k = 0; k < SAMPLES; k++){
+                      if((k>=tOffset)&&(k<SAMPLES+tOffset)){
+                        basis[basisInd]->SetBinContent(k,basis[basisInd]->GetBinContent(k) + ((wf->at(k-tOffset) - core_waveform_baseline)/core_E));
+                      }
+                    }
                     //then segment waveforms
                     for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
                       //cout << "basisInd: " << basisInd << endl;
 
-                      Int_t segBasisInd = tigress_hit->GetSegmentHit(j).GetSegment()-1;
+                      Int_t segBasisInd = tigress_hit->GetSegmentHit(j).GetSegment();
                       segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
                       seg_waveform_baseline = 0.;
                       for(int k = 0; k < BASELINE_SAMPLES; k++){
@@ -201,16 +211,16 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
                       seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
 
                       //cout << "core t0: " << waveform_t0 << ", core energy: " << core_E << ", segment " << segBasisInd << " baseline: " << seg_waveform_baseline << endl;
-                      Int_t tOffset = waveform_t0-BASIS_START_SAMPLE;
+                      
                       for(int k = 0; k < SAMPLES; k++){
                         if((k>=tOffset)&&(k<SAMPLES+tOffset)){
                           //cout << "incrementing bin " << k << "by " << ((segwf->at(k-tOffset) - seg_waveform_baseline)/core_E) << endl;
                           basis[basisInd]->SetBinContent(k+(SAMPLES*segBasisInd),basis[basisInd]->GetBinContent(k+(SAMPLES*segBasisInd)) + ((segwf->at(k-tOffset) - seg_waveform_baseline)/core_E) );
                         }
                       }
-                      numEvtsBasis[basisInd]++;
-                      //cout << "val: " << basis[basisInd]->GetBinContent(0) << ", num evts: " << numEvtsBasis[basisInd] << endl;
                     }
+                    numEvtsBasis[basisInd]++;
+                    //cout << "val: " << basis[basisInd]->GetBinContent(0) << ", num evts: " << numEvtsBasis[basisInd] << endl;
                   }
                 }
               }
@@ -230,10 +240,21 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
     for(int j = 0; j < BASIS_BINS_ANGLE; j++){
       for(int i = 0; i < BASIS_BINS_Z; i++){
         Int_t basisInd = k*BASIS_BINS_ANGLE*BASIS_BINS_Z + j*BASIS_BINS_Z + i;
+        Int_t basisHPVal = 0;
+        Int_t one = 1;
         if(numEvtsBasis[basisInd] > 0){
-          for(int m = 0; m < SAMPLES*NSEG; m++){
+          for(int m = 0; m < SAMPLES*(NSEG+1); m++){
             basis[basisInd]->SetBinContent(m,basis[basisInd]->GetBinContent(m)/(1.0*numEvtsBasis[basisInd]));
           }
+          for(int m = 0; m < NSEG; m++){
+            //try and find the sample value near the expected maximum of the pulse (estimate it is at BASIS_START_SAMPLE + 0.25*SAMPLES)
+            if(basis[basisInd]->GetBinContent((Int_t)((m+1.25)*(SAMPLES) + BASIS_START_SAMPLE)) > 0.5){
+              //this segment is 'hit' in this basis bin
+              basisHPVal|=(one<<m);
+            }
+          }
+          //cout << "index: " << basisInd << ", HP val: " << basisHPVal << endl;
+          basisHP->SetBinContent(basisInd,basisHPVal);
           list->Add(basis[basisInd]);
         }
       }

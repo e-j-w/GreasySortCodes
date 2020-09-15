@@ -13,7 +13,7 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t wav
 
   TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
 
-  if(segment_hit.GetEnergy() < SEGMENT_ENERGY_THRESHOLD){
+  if(segment_hit.GetCharge() < SEGMENT_ENERGY_THRESHOLD){
     return BAD_RETURN;
   }
 
@@ -39,9 +39,10 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t wav
     bool found2 = false;
     bool found3 = false;
     for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
-      if((j!=i)&&(tigress_hit->GetSegmentHit(j).GetEnergy() >= SEGMENT_ENERGY_NOHIT_THRESHOLD)){
+      if((j!=i)&&(tigress_hit->GetSegmentHit(j).GetCharge() >= SEGMENT_ENERGY_NOHIT_THRESHOLD)){
         return BAD_RETURN;
       }
+      //cout << "energy: " << tigress_hit->GetSegmentHit(j).GetEnergy() << ", charge: " << tigress_hit->GetSegmentHit(j).GetCharge() << endl;
       if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == phiAdjSeg1[segNum]){
         found1=true;
         segwf2 = tigress_hit->GetSegmentHit(j).GetWaveform();
@@ -86,7 +87,7 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t wav
     bool found1 = false;
     bool found2 = false;
     for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
-      if((j!=i)&&(tigress_hit->GetSegmentHit(j).GetEnergy() >= SEGMENT_ENERGY_NOHIT_THRESHOLD)){
+      if((j!=i)&&(tigress_hit->GetSegmentHit(j).GetCharge() >= SEGMENT_ENERGY_NOHIT_THRESHOLD)){
         return BAD_RETURN;
       }
       if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == phiAdjSeg1[segNum]){
@@ -150,7 +151,7 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t wav
     const std::vector<Short_t> *segwf2;
     bool found2 = false;
     for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
-      if((j!=i)&&(tigress_hit->GetSegmentHit(j).GetEnergy() >= SEGMENT_ENERGY_NOHIT_THRESHOLD)){
+      if((j!=i)&&(tigress_hit->GetSegmentHit(j).GetCharge() >= SEGMENT_ENERGY_NOHIT_THRESHOLD)){
         return BAD_RETURN;
       }
       if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == zAdjSeg[segNum]){
@@ -189,10 +190,10 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t wav
     if(segNum>3){
       //back segment, reverse sign to make zeta increase with z
       zeta *= -1.;
-      zeta += ZETA_MAX;
-    }else{
-      zeta -= ZETA_MAX;
-    }
+      //zeta += ZETA_MAX;
+    }//else{
+    //  zeta -= ZETA_MAX;
+    //}
     //cout << "zeta: " << zeta << endl;
     return zeta;
   }
