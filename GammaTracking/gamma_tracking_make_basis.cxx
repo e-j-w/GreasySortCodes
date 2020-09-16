@@ -195,7 +195,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
                     core_waveform_baseline /= 1.0*BASELINE_SAMPLES;
                     for(int k = 0; k < SAMPLES; k++){
                       if((k>=tOffset)&&(k<SAMPLES+tOffset)){
-                        basis[basisInd]->SetBinContent(k,basis[basisInd]->GetBinContent(k) + ((wf->at(k-tOffset) - core_waveform_baseline)/core_E));
+                        basis[basisInd]->SetBinContent(k+1,basis[basisInd]->GetBinContent(k+1) + ((wf->at(k-tOffset) - core_waveform_baseline)/core_E));
                       }
                     }
                     //then segment waveforms
@@ -215,7 +215,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
                       for(int k = 0; k < SAMPLES; k++){
                         if((k>=tOffset)&&(k<SAMPLES+tOffset)){
                           //cout << "incrementing bin " << k << "by " << ((segwf->at(k-tOffset) - seg_waveform_baseline)/core_E) << endl;
-                          basis[basisInd]->SetBinContent(k+(SAMPLES*segBasisInd),basis[basisInd]->GetBinContent(k+(SAMPLES*segBasisInd)) + ((segwf->at(k-tOffset) - seg_waveform_baseline)/core_E) );
+                          basis[basisInd]->SetBinContent(k+1+(SAMPLES*segBasisInd),basis[basisInd]->GetBinContent(k+1+(SAMPLES*segBasisInd)) + ((segwf->at(k-tOffset) - seg_waveform_baseline)/core_E) );
                         }
                       }
                     }
@@ -244,7 +244,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
         Int_t one = 1;
         if(numEvtsBasis[basisInd] > 0){
           for(int m = 0; m < SAMPLES*(NSEG+1); m++){
-            basis[basisInd]->SetBinContent(m,basis[basisInd]->GetBinContent(m)/(1.0*numEvtsBasis[basisInd]));
+            basis[basisInd]->SetBinContent(m+1,basis[basisInd]->GetBinContent(m+1)/(1.0*numEvtsBasis[basisInd]));
           }
           for(int m = 0; m < NSEG; m++){
             //try and find the sample value near the expected maximum of the pulse (estimate it is at BASIS_START_SAMPLE + 0.25*SAMPLES)
@@ -254,7 +254,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
             }
           }
           //cout << "index: " << basisInd << ", HP val: " << basisHPVal << endl;
-          basisHP->SetBinContent(basisInd,basisHPVal);
+          basisHP->SetBinContent(basisInd+1,basisHPVal);
           list->Add(basis[basisInd]);
         }
       }

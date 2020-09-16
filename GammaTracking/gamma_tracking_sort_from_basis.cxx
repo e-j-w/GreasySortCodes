@@ -75,8 +75,8 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
   double rVal, angleVal, zVal;
   Int_t evtSegHP = 0; //event segment hitpattern, which will be compared against hitpatterns in the basis
   Int_t one = 1;
-  for (int jentry = 0; jentry < 100000; jentry++) {
-  //for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
+  //for (int jentry = 0; jentry < 100000; jentry++) {
+  for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
     for (hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++) {
       tigress_hit = tigress->GetTigressHit(hitInd);
@@ -96,6 +96,7 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
         //this entry has an unusable risetime
         continue;
       }
+      Int_t tOffset = waveform_t0-BASIS_START_SAMPLE;
       bool goodWaveforms = true;
       bool isHit = false;
       //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
@@ -111,61 +112,59 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
             break;
           }
           if(tigress_hit->GetSegmentHit(i).GetCharge() > SEGMENT_ENERGY_THRESHOLD){
-            evtSegHP|=(one<<tigress_hit->GetSegmentHit(i).GetSegment());
+            evtSegHP|=(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
             numSegHits++;
           }
         }
         if(goodWaveforms){
-          
-          chisq = 0.;
+
           minChisq = BIG_NUMBER;
           minInd = -1;
 
           //take action depending on the number of hit segments
-          switch(numSegHits){
-            case 2:
-              //signal best represented by either:
-              //a linear combination of 2 basis waveforms each containing a hit on one of the segments of interest
-              //(for neighbouring segments) a basis waveform near the boundary of one of the two segments
-              break;
-            case 1:
-              //signal best represented by a basis waveform from a position within the segment of interest
-              for(int i=0; i<(BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z); i++){
-                if(basis[i]!=NULL){
-                  //check that the event hitpattern matches the hitpattern in the basis
-                  if(basisHP->GetBinContent(i) == evtSegHP){
-                    chisq=0;
-
-                    for(int j=0; j<NSEG; j++){
-                      seg_waveform_baseline = 0.;
-                      for(int k = 0; k < BASELINE_SAMPLES; k++){
-                        seg_waveform_baseline += tigress_hit->GetSegmentHit(j).GetWaveform()->at(k);
-                      }
-                      seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
-
-                      for(int k=BASIS_START_SAMPLE; k<SAMPLES; k++){
-                        //will need to scale waveforms to match basis
-                        wfrmSampleVal = (tigress_hit->GetSegmentHit(j).GetWaveform()->at(k) - seg_waveform_baseline)/core_E;
-                        chisq += pow(wfrmSampleVal - basis[i]->GetBinContent((tigress_hit->GetSegmentHit(j).GetSegment())*SAMPLES + k),2);
-                      }
+          if(numSegHits==1){
+            //signal best represented by a basis waveform from a position within the segment of interest
+            for(int i=0; i<(BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z); i++){
+              if(basis[i]!=NULL){
+                //check that the event hitpattern matches the hitpattern in the basis
+                if(basisHP->GetBinContent(i+1) == evtSegHP){
+                  chisq = 0;
+                  for(int j=0; j<NSEG; j++){
+                    segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
+                    seg_waveform_baseline = 0.;
+                    for(int k = 0; k < BASELINE_SAMPLES; k++){
+                      seg_waveform_baseline += segwf->at(k);
                     }
-                    //cout << "index " << i << ", chisq: " << chisq << endl;
-                    if(chisq<minChisq){
-                      minChisq = chisq;
-                      minInd = i;
+                    seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
+
+                    for(int k=BASIS_START_SAMPLE; k<SAMPLES; k++){
+                      if((k>=tOffset)&&(k<SAMPLES+tOffset)){
+                        wfrmSampleVal = (segwf->at(k-tOffset) - seg_waveform_baseline)/core_E;
+                        chisq += pow(wfrmSampleVal - basis[i]->GetBinContent((tigress_hit->GetSegmentHit(j).GetSegment())*SAMPLES + k + 1),2);
+                        /*if(evtSegHP==2){
+                          rBin = i/(BASIS_BINS_ANGLE*BASIS_BINS_Z);
+                          angleBin = (i - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z))/BASIS_BINS_Z;
+                          zBin = (i - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z) - angleBin*BASIS_BINS_Z);
+                          cout << "HP: " << evtSegHP << ", rBin: " << rBin << ", angleBin: " << angleBin << ", zBin: " << zBin << ", segment: "; 
+                          cout << tigress_hit->GetSegmentHit(j).GetSegment() << ", sample: " << k << ", sample val: ";
+                          cout <<  wfrmSampleVal << ", basis sample val: " << basis[i]->GetBinContent((tigress_hit->GetSegmentHit(j).GetSegment())*SAMPLES + k + 1) << endl;
+                        }*/
+                      }
+                      
                     }
                   }
+                  //cout << "index " << i << ", HP: " << evtSegHP << ", chisq: " << chisq << endl;
+                  if(chisq<minChisq){
+                    minChisq = chisq;
+                    minInd = i;
+                  }
                 }
-                  
               }
-              break;
-            case 0:
-              //do nothing
-              //cout << "Entry " << jentry << " contains no hit segments." << endl;
-              break;
-            default:
-              cout << "Entry " << jentry << " contains an unhandled number of hit segments (" << numSegHits << ")." << endl;
-              break;
+                
+            }
+          }else{
+            //cout << "Entry " << jentry << " contains an unhandled number of hit segments (" << numSegHits << ")." << endl;
+            continue;
           }
 
           if(minInd >= 0){
