@@ -186,10 +186,6 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
         
         TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
 
-        if(tigress_hit->GetSegmentHit(i).GetCharge() > MAX_ENERGY_SINGLE_INTERACTION){
-          continue; //energy too high - event likely to result from multiple hits
-        }
-
         Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
 
         //calculate all ordering parameters (see ordering_parameter_calc.cxx)

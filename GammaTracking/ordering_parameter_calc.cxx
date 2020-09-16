@@ -1,6 +1,6 @@
 //function for calculation of ordering parameters
 //this enforces the single segment hit condition assumed by the mapping process, using SEGMENT_ENERGY_THRESHOLD
-double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t waveform_t0, Int_t parameterNum) {
+double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t jentry, const Int_t waveform_t0, const Int_t parameterNum) {
 
   //lists of adjacent segments in the TIGRESS array (zero-indexed)
   Int_t phiAdjSeg1[8] = {3,0,1,2,7,4,5,6};
@@ -15,6 +15,9 @@ double calc_ordering(TTigressHit * tigress_hit, Int_t i, Int_t jentry, Int_t wav
 
   if(segment_hit.GetCharge() < SEGMENT_ENERGY_THRESHOLD){
     return BAD_RETURN;
+  }
+  if(segment_hit.GetCharge() > MAX_ENERGY_SINGLE_INTERACTION){
+    return BAD_RETURN; //energy too high - event likely to result from multiple hits
   }
 
   Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed

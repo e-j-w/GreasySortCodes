@@ -3,6 +3,8 @@
 //Function which sorts hit positions using a pre-generated waveform basis
 void sort_from_basis(const char *infile, const char *basisfile, const char *calfile, const char *outfile) {
 
+  TRandom3 *rand = new TRandom3();
+
   TList * list = new TList;
 
   //read in histograms from basis file
@@ -68,9 +70,11 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
   Int_t waveform_t0;
   Double_t seg_waveform_baseline;
   Int_t numSegHits; //counter for the number of segments with a hit (ie. over the threshold energy)
+  Int_t segNum;
   Double_t core_E;
   Int_t hitInd;
-  Double_t wfrmSampleVal, chisq, minChisq;
+  Double_t wfrmSampleVal, basisSampleVal, chisq, minChisq;
+  Int_t numEvalSamples;
   Int_t minInd, rBin, angleBin, zBin;
   double rVal, angleVal, zVal;
   Int_t evtSegHP = 0; //event segment hitpattern, which will be compared against hitpatterns in the basis
@@ -81,7 +85,7 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
     for (hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++) {
       tigress_hit = tigress->GetTigressHit(hitInd);
       if(tigress_hit->GetKValue() != 700) continue;
-      core_E = tigress_hit->GetEnergy();
+      core_E = tigress_hit->GetCharge();
       if((core_E <= 0)||(core_E > BASIS_MAX_ENERGY)) continue; //bad energy
       tigress_hit->SetWavefit();
       wf = tigress_hit->GetWaveform();
@@ -112,7 +116,7 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
             break;
           }
           if(tigress_hit->GetSegmentHit(i).GetCharge() > SEGMENT_ENERGY_THRESHOLD){
-            evtSegHP|=(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
+            evtSegHP|=(one<<(tigress_hit->GetSegmentHit(i).GetSegment())); //GetSegment() is 1-indexed, evtSegHp=0 means no hits
             numSegHits++;
           }
         }
@@ -129,30 +133,36 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
                 //check that the event hitpattern matches the hitpattern in the basis
                 if(basisHP->GetBinContent(i+1) == evtSegHP){
                   chisq = 0;
+                  numEvalSamples=0;
                   for(int j=0; j<NSEG; j++){
+                    segNum = tigress_hit->GetSegmentHit(j).GetSegment(); //1-indexed
                     segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
                     seg_waveform_baseline = 0.;
                     for(int k = 0; k < BASELINE_SAMPLES; k++){
                       seg_waveform_baseline += segwf->at(k);
                     }
                     seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
-
-                    for(int k=BASIS_START_SAMPLE; k<SAMPLES; k++){
+                    
+                    for(int k=0; k<SAMPLES; k++){
                       if((k>=tOffset)&&(k<SAMPLES+tOffset)){
                         wfrmSampleVal = (segwf->at(k-tOffset) - seg_waveform_baseline)/core_E;
-                        chisq += pow(wfrmSampleVal - basis[i]->GetBinContent((tigress_hit->GetSegmentHit(j).GetSegment())*SAMPLES + k + 1),2);
+                        basisSampleVal = basis[i]->GetBinContent(segNum*SAMPLES + k + 1);
+                        if(basisSampleVal!=0){
+                          chisq += pow(wfrmSampleVal - basisSampleVal,2)/fabs(basisSampleVal);
+                          numEvalSamples++;
+                        }
                         /*if(evtSegHP==2){
-                          rBin = i/(BASIS_BINS_ANGLE*BASIS_BINS_Z);
-                          angleBin = (i - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z))/BASIS_BINS_Z;
+                          rBin = (Int_t)(i/(BASIS_BINS_ANGLE*BASIS_BINS_Z*1.0));
+                          angleBin = (Int_t)((i - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z*1.0))/(BASIS_BINS_Z*1.0));
                           zBin = (i - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z) - angleBin*BASIS_BINS_Z);
                           cout << "HP: " << evtSegHP << ", rBin: " << rBin << ", angleBin: " << angleBin << ", zBin: " << zBin << ", segment: "; 
                           cout << tigress_hit->GetSegmentHit(j).GetSegment() << ", sample: " << k << ", sample val: ";
-                          cout <<  wfrmSampleVal << ", basis sample val: " << basis[i]->GetBinContent((tigress_hit->GetSegmentHit(j).GetSegment())*SAMPLES + k + 1) << endl;
+                          cout <<  wfrmSampleVal << ", basis sample val: " << basisSampleVal << endl;
                         }*/
                       }
-                      
                     }
                   }
+                  chisq /= numEvalSamples*1.0;
                   //cout << "index " << i << ", HP: " << evtSegHP << ", chisq: " << chisq << endl;
                   if(chisq<minChisq){
                     minChisq = chisq;
@@ -170,8 +180,8 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
           if(minInd >= 0){
 
             //a best-fit basis waveform was found, figure out the corresponding hit location
-            rBin = minInd/(BASIS_BINS_ANGLE*BASIS_BINS_Z);
-            angleBin = (minInd - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z))/BASIS_BINS_Z;
+            rBin = (Int_t)(minInd/(BASIS_BINS_ANGLE*BASIS_BINS_Z*1.0));
+            angleBin = (Int_t)((minInd - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z*1.0))/(BASIS_BINS_Z*1.0));
             zBin = (minInd - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z) - angleBin*BASIS_BINS_Z);
             rVal = (rBin+0.5)*MAX_VAL_R/(1.0*BASIS_BINS_R);
             angleVal = (angleBin+0.5)*360./(1.0*BASIS_BINS_ANGLE);

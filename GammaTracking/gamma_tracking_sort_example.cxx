@@ -104,8 +104,6 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
       bool isHit = false;
       for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
 
-        Int_t segNum = tigress_hit->GetSegmentHit(i).GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
-
         //calculate all ordering parameters (see ordering_parameter_calc.cxx)
         double rho = calc_ordering(tigress_hit,i,jentry,waveform_t0,0);
         if(rho == BAD_RETURN){
@@ -122,6 +120,8 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
 
         isHit = true;
 
+        Int_t segNum = tigress_hit->GetSegmentHit(i).GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
+
         //here is where the mapping happens
         double r=-1.;
         double angle=-1.;
@@ -137,22 +137,24 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
             if(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]!=NULL){
               z = zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->GetBinContent(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->FindBin(zeta));
               
-              if((r>=0.)&&(z>=0.)&&(angle>=0.)){
+              if((r>0.)&&(z>0.)&&(angle>0.)){
                 if(segNum<=3){
                   //r corresponds to the distance from the central contact at z=30
                   r = sqrt(r*r - (30.-z)*(30.-z));
                 }
-                rMappedHist[segNum]->Fill(r);
-                angleMappedHist[segNum]->Fill(angle);
-                zMappedHist[segNum]->Fill(z);
-                angle += 90.0*(segNum%4);
-                //if(z<20)
-                  pos3DMap->Fill(r*cos(angle*M_PI/180.),r*sin(angle*M_PI/180.),z);
-                //cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
-                /*if(r==0.){
-                  cout << "rho: " << rho << endl;
+                if((r==r)&&(angle==angle)&&(z==z)){
+                  rMappedHist[segNum]->Fill(r);
+                  angleMappedHist[segNum]->Fill(angle);
+                  zMappedHist[segNum]->Fill(z);
+                  angle += 90.0*(segNum%4);
+                  //if(z<20)
+                    pos3DMap->Fill(r*cos(angle*M_PI/180.),r*sin(angle*M_PI/180.),z);
+                  //cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
+                  /*if(r==0.){
+                    cout << "rho: " << rho << endl;
+                  }
+                  cout << "x: " << r*cos(angle*M_PI/180.) << ", y: " << r*sin(angle*M_PI/180.) << ", z: " << z << endl;*/
                 }
-                cout << "x: " << r*cos(angle*M_PI/180.) << ", y: " << r*sin(angle*M_PI/180.) << ", z: " << z << endl;*/
               }
             }
           }
