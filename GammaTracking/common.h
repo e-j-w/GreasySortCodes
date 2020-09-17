@@ -48,21 +48,23 @@ using namespace std;
 
 //parameters defining how fine the basis grid is (number of bins in each dimension, per segment)
 //bounds of the grid determined by MAX_VAL_R, MAX_VAL_ANGLE, MAX_VAL_Z
-#define     BASIS_MAX_VAL_Z_FRONT  30 //maximum z for front segments (in mm)
-#define     BASIS_MIN_VAL_Z_BACK   30 //minimum z for back segments (in mm)
-#define     BASIS_BINS_R           20
-#define     BASIS_BINS_ANGLE       18 //in the basis, the angle covers the full 2pi range
-#define     BASIS_BINS_Z           20
-#define     BASIS_MAX_ENERGY       2000 //maximum energy allowed for a hit to be put into the basis (used to suppress high energy events)
-#define     BASIS_START_SAMPLE     40 //sample to time-align waveform start to in the basis
-
-#define     BIG_NUMBER 1E30  //a big number
-#define     BAD_RETURN -1E10 //value to be returned if ordering parameter calculation fails
+#define     BASIS_MAX_VAL_Z_FRONT   30 //maximum z for front segments (in mm)
+#define     BASIS_MIN_VAL_Z_BACK    30 //minimum z for back segments (in mm)
+#define     BASIS_BINS_R_COARSE     5
+#define     BASIS_BINS_ANGLE_COARSE 8 //in the basis, the angle covers the full 2pi range
+#define     BASIS_BINS_Z_COARSE     5
+#define     FINE_BASIS_BINFACTOR    4 //for the fine basis, the number of bins in each dimension is multiplied by this factor with respect to the coarse basis
+#define     BASIS_MAX_ENERGY        2000 //maximum energy allowed for a hit to be put into the basis (used to suppress high energy events)
+#define     BASIS_START_SAMPLE      40 //sample to time-align waveform start to in the basis
 
 #define     SEGMENT_ENERGY_THRESHOLD       200 //threshold for a segment to be considered 'hit' in GetEnergy() units
 #define     SEGMENT_ENERGY_NOHIT_THRESHOLD 20  //threshold in GetEnergy() units below which a segment is considered not to be hit
 #define     WAVEFORM_SAMPLING_WINDOW       10  //number of waveform samples used to construct ordering parameters
 
+
+//global variables here
+#define     BIG_NUMBER 1E30  //a big number
+#define     BAD_RETURN -1E10 //value to be returned if ordering parameter calculation fails
 char hname[64];
 
 #include "ordering_parameter_calc.cxx"

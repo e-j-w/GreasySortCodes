@@ -1,43 +1,79 @@
 #include "common.h" //define all global variables here!
 
 //Function which sorts hit positions using a pre-generated waveform basis
-void sort_from_basis(const char *infile, const char *basisfile, const char *calfile, const char *outfile) {
+void sort_from_basis(const char *infile, const char *basisfileCoarse, const char *basisfileFine, const char *calfile, const char *outfile) {
 
   TRandom3 *rand = new TRandom3();
 
-  TList * list = new TList;
+  TList *list = new TList;
 
   //read in histograms from basis file
-  TFile *inp = new TFile(basisfile,"read");
+  TFile *inp = new TFile(basisfileCoarse,"read");
   if (!inp->IsOpen()) {
     cout << "ERROR: Could not open basis file!" << endl;
     exit(-1);
   }else{
-    cout << "Opened waveform basis file: " << basisfile << endl;
+    cout << "Opened waveform basis file: " << basisfileCoarse << endl;
   }
   
   //setup histograms for the basis 
   TH1I *basisHP;
   if((basisHP = (TH1I*)inp->Get("basis_hitpattern"))==NULL){
-    cout << "ERROR: no hitpattern in the waveform basis." << endl;
+    cout << "ERROR: no hitpattern in the coarse waveform basis." << endl;
     exit(-1);
   }
-  TH1D *basis[BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z];
-  Int_t numEvtsBasis[BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z];
-  memset(numEvtsBasis,0,sizeof(numEvtsBasis));
-  for(int k = 0; k < BASIS_BINS_R; k++){
-    for(int j = 0; j < BASIS_BINS_ANGLE; j++){
-      for(int i = 0; i < BASIS_BINS_Z; i++){
-        Int_t basisInd = k*BASIS_BINS_ANGLE*BASIS_BINS_Z + j*BASIS_BINS_Z + i;
-        sprintf(hname,"basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/BASIS_BINS_R,(k+1)*MAX_VAL_R/BASIS_BINS_R,j*360/BASIS_BINS_ANGLE,(j+1)*360/BASIS_BINS_ANGLE,i*MAX_VAL_Z/BASIS_BINS_Z,(i+1)*MAX_VAL_Z/BASIS_BINS_Z);
-        if((basis[basisInd] = (TH1D*)inp->Get(hname))==NULL){
-          cout << "No waveform basis data for radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
+  Int_t coarseBasisBinsR = BASIS_BINS_R_COARSE;
+  Int_t coarseBasisBinsAngle = BASIS_BINS_ANGLE_COARSE;
+  Int_t coarseBasisBinsZ = BASIS_BINS_Z_COARSE;
+  TH1D *coarseBasis[coarseBasisBinsR*coarseBasisBinsAngle*coarseBasisBinsZ];
+  for(int k = 0; k < coarseBasisBinsR; k++){
+    for(int j = 0; j < coarseBasisBinsAngle; j++){
+      for(int i = 0; i < coarseBasisBinsZ; i++){
+        Int_t basisInd = k*coarseBasisBinsAngle*coarseBasisBinsZ + j*coarseBasisBinsZ + i;
+        sprintf(hname,"basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/coarseBasisBinsR,(k+1)*MAX_VAL_R/coarseBasisBinsR,j*360/coarseBasisBinsAngle,(j+1)*360/coarseBasisBinsAngle,i*MAX_VAL_Z/coarseBasisBinsZ,(i+1)*MAX_VAL_Z/coarseBasisBinsZ);
+        if((coarseBasis[basisInd] = (TH1D*)inp->Get(hname))==NULL){
+          cout << "No coarse waveform basis data for radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
+          //cout << hname << endl;
+          //getc(stdin);
         }
-        //list->Add(basis[basisInd]);
+        //list->Add(coarseBasis[basisInd]);
       }
     }
   }
-  cout << "Waveform basis data read in." << endl;
+  cout << "Coarse waveform basis data read in." << endl;
+  
+
+  //read in histograms from basis file
+  TFile *inp2 = new TFile(basisfileFine,"read");
+  if (!inp2->IsOpen()) {
+    cout << "ERROR: Could not open basis file!" << endl;
+    exit(-1);
+  }else{
+    cout << "Opened waveform basis file: " << basisfileFine << endl;
+  }
+  
+  //setup histograms for the basis 
+  if((basisHP = (TH1I*)inp2->Get("basis_hitpattern"))==NULL){
+    cout << "ERROR: no hitpattern in the fine waveform basis." << endl;
+    exit(-1);
+  }
+  Int_t fineBasisBinsR = BASIS_BINS_R_COARSE*FINE_BASIS_BINFACTOR;
+  Int_t fineBasisBinsAngle = BASIS_BINS_ANGLE_COARSE*FINE_BASIS_BINFACTOR;
+  Int_t fineBasisBinsZ = BASIS_BINS_Z_COARSE*FINE_BASIS_BINFACTOR;
+  TH1D *fineBasis[fineBasisBinsR*fineBasisBinsAngle*fineBasisBinsZ];
+  for(int k = 0; k < fineBasisBinsR; k++){
+    for(int j = 0; j < fineBasisBinsAngle; j++){
+      for(int i = 0; i < fineBasisBinsZ; i++){
+        Int_t basisInd = k*fineBasisBinsAngle*fineBasisBinsZ + j*fineBasisBinsZ + i;
+        sprintf(hname,"basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/fineBasisBinsR,(k+1)*MAX_VAL_R/fineBasisBinsR,j*360/fineBasisBinsAngle,(j+1)*360/fineBasisBinsAngle,i*MAX_VAL_Z/fineBasisBinsZ,(i+1)*MAX_VAL_Z/fineBasisBinsZ);
+        if((fineBasis[basisInd] = (TH1D*)inp2->Get(hname))==NULL){
+          cout << "No fine waveform basis data for radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
+        }
+        //list->Add(fineBasis[basisInd]);
+      }
+    }
+  }
+  cout << "Fine waveform basis data read in." << endl;
 
   TH3D *pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMap);
@@ -74,8 +110,7 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
   Double_t core_E;
   Int_t hitInd;
   Double_t wfrmSampleVal, basisSampleVal, chisq, minChisq;
-  Int_t numEvalSamples;
-  Int_t minInd, rBin, angleBin, zBin;
+  Int_t minInd, rBinCoarse, angleBinCoarse, zBinCoarse, rBinFine, angleBinFine, zBinFine;
   double rVal, angleVal, zVal;
   Int_t evtSegHP = 0; //event segment hitpattern, which will be compared against hitpatterns in the basis
   Int_t one = 1;
@@ -100,7 +135,6 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
         //this entry has an unusable risetime
         continue;
       }
-      Int_t tOffset = waveform_t0-BASIS_START_SAMPLE;
       bool goodWaveforms = true;
       bool isHit = false;
       //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
@@ -120,6 +154,7 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
             numSegHits++;
           }
         }
+        //cout << "good: " << goodWaveforms << ", num seg hits: " << numSegHits << endl;
         if(goodWaveforms){
 
           minChisq = BIG_NUMBER;
@@ -128,12 +163,11 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
           //take action depending on the number of hit segments
           if(numSegHits==1){
             //signal best represented by a basis waveform from a position within the segment of interest
-            for(int i=0; i<(BASIS_BINS_R*BASIS_BINS_ANGLE*BASIS_BINS_Z); i++){
-              if(basis[i]!=NULL){
+            for(int i=0; i<(coarseBasisBinsR*coarseBasisBinsAngle*coarseBasisBinsZ); i++){
+              if(coarseBasis[i]!=NULL){
                 //check that the event hitpattern matches the hitpattern in the basis
-                if(basisHP->GetBinContent(i+1) == evtSegHP){
+                //if(basisHP->GetBinContent(i+1) == evtSegHP){
                   chisq = 0;
-                  numEvalSamples=0;
                   for(int j=0; j<NSEG; j++){
                     segNum = tigress_hit->GetSegmentHit(j).GetSegment(); //1-indexed
                     segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
@@ -142,35 +176,27 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
                       seg_waveform_baseline += segwf->at(k);
                     }
                     seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
-                    
                     for(int k=0; k<SAMPLES; k++){
-                      if((k>=tOffset)&&(k<SAMPLES+tOffset)){
-                        wfrmSampleVal = (segwf->at(k-tOffset) - seg_waveform_baseline)/core_E;
-                        basisSampleVal = basis[i]->GetBinContent(segNum*SAMPLES + k + 1);
-                        if(basisSampleVal!=0){
-                          chisq += pow(wfrmSampleVal - basisSampleVal,2)/fabs(basisSampleVal);
-                          numEvalSamples++;
-                        }
-                        /*if(evtSegHP==2){
-                          rBin = (Int_t)(i/(BASIS_BINS_ANGLE*BASIS_BINS_Z*1.0));
-                          angleBin = (Int_t)((i - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z*1.0))/(BASIS_BINS_Z*1.0));
-                          zBin = (i - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z) - angleBin*BASIS_BINS_Z);
-                          cout << "HP: " << evtSegHP << ", rBin: " << rBin << ", angleBin: " << angleBin << ", zBin: " << zBin << ", segment: "; 
-                          cout << tigress_hit->GetSegmentHit(j).GetSegment() << ", sample: " << k << ", sample val: ";
-                          cout <<  wfrmSampleVal << ", basis sample val: " << basisSampleVal << endl;
-                        }*/
-                      }
+                      wfrmSampleVal = (segwf->at(k) - seg_waveform_baseline)/core_E;
+                      basisSampleVal = coarseBasis[i]->GetBinContent(segNum*SAMPLES + k + 1);
+                      chisq += pow(fabs(wfrmSampleVal - basisSampleVal),2);
+                      /*if(evtSegHP==2){
+                        rBin = (Int_t)(i/(coarseBasisBinsAngle*coarseBasisBinsZ*1.0));
+                        angleBin = (Int_t)((i - rBin*(coarseBasisBinsAngle*coarseBasisBinsZ*1.0))/(coarseBasisBinsZ*1.0));
+                        zBin = (i - rBin*(coarseBasisBinsAngle*coarseBasisBinsZ) - angleBin*coarseBasisBinsZ);
+                        cout << "HP: " << evtSegHP << ", rBin: " << rBin << ", angleBin: " << angleBin << ", zBin: " << zBin << ", segment: "; 
+                        cout << tigress_hit->GetSegmentHit(j).GetSegment() << ", sample: " << k << ", sample val: ";
+                        cout <<  wfrmSampleVal << ", basis sample val: " << basisSampleVal << endl;
+                      }*/
                     }
                   }
-                  chisq /= numEvalSamples*1.0;
                   //cout << "index " << i << ", HP: " << evtSegHP << ", chisq: " << chisq << endl;
                   if(chisq<minChisq){
                     minChisq = chisq;
                     minInd = i;
                   }
-                }
+                //}
               }
-                
             }
           }else{
             //cout << "Entry " << jentry << " contains an unhandled number of hit segments (" << numSegHits << ")." << endl;
@@ -179,15 +205,78 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
 
           if(minInd >= 0){
 
-            //a best-fit basis waveform was found, figure out the corresponding hit location
-            rBin = (Int_t)(minInd/(BASIS_BINS_ANGLE*BASIS_BINS_Z*1.0));
-            angleBin = (Int_t)((minInd - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z*1.0))/(BASIS_BINS_Z*1.0));
-            zBin = (minInd - rBin*(BASIS_BINS_ANGLE*BASIS_BINS_Z) - angleBin*BASIS_BINS_Z);
-            rVal = (rBin+0.5)*MAX_VAL_R/(1.0*BASIS_BINS_R);
-            angleVal = (angleBin+0.5)*360./(1.0*BASIS_BINS_ANGLE);
-            zVal = (zBin+0.5)*MAX_VAL_Z/(1.0*BASIS_BINS_Z);
-            //cout << "Filling at: x=" << rVal*cos(angleVal*M_PI/180.) << ", y=" << rVal*sin(angleVal*M_PI/180.) << ", z=" << zVal << ", minInd: " << minInd << endl;
-            pos3DMap->Fill(rVal*cos(angleVal*M_PI/180.),rVal*sin(angleVal*M_PI/180.),zVal);
+            //a best-fit coarse basis waveform was found, figure out the corresponding bin
+            rBinCoarse = (Int_t)(minInd/(coarseBasisBinsAngle*coarseBasisBinsZ*1.0));
+            angleBinCoarse = (Int_t)((minInd - rBinCoarse*(coarseBasisBinsAngle*coarseBasisBinsZ*1.0))/(coarseBasisBinsZ*1.0));
+            zBinCoarse = (minInd - rBinCoarse*(coarseBasisBinsAngle*coarseBasisBinsZ) - angleBinCoarse*coarseBasisBinsZ);
+            //rVal = (rBin+0.5)*MAX_VAL_R/(1.0*coarseBasisBinsR);
+            //angleVal = (angleBin+0.5)*360./(1.0*coarseBasisBinsAngle);
+            //zVal = (zBin+0.5)*MAX_VAL_Z/(1.0*coarseBasisBinsZ);
+
+            minInd = -1;
+
+            if(numSegHits==1){
+              //signal best represented by a basis waveform from a position within the segment of interest
+              for(int i=0; i<(FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR); i++){
+                rBinFine = (rBinCoarse*FINE_BASIS_BINFACTOR) + (Int_t)(i/(FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR*1.0));
+                angleBinFine = (angleBinCoarse*FINE_BASIS_BINFACTOR) + (((Int_t)(i/(FINE_BASIS_BINFACTOR*1.0)) % FINE_BASIS_BINFACTOR) );
+                zBinFine = (zBinCoarse*FINE_BASIS_BINFACTOR) + (i % FINE_BASIS_BINFACTOR);
+                Int_t basisInd = rBinFine*fineBasisBinsAngle*fineBasisBinsZ + angleBinFine*fineBasisBinsZ + zBinFine;
+                //cout << "coarse basis bins [" << rBinCoarse << " " << angleBinCoarse << " " << zBinCoarse << "]" << endl;
+                //cout << "fine basis bins [" << rBinFine << " " << angleBinFine << " " << zBinFine << "], fine basis index: " << basisInd << endl;
+                if(fineBasis[basisInd]!=NULL){
+                  //check that the event hitpattern matches the hitpattern in the basis
+                  //if(basisHP->GetBinContent(i+1) == evtSegHP){
+                    chisq = 0;
+                    for(int j=0; j<NSEG; j++){
+                      segNum = tigress_hit->GetSegmentHit(j).GetSegment(); //1-indexed
+                      segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
+                      seg_waveform_baseline = 0.;
+                      for(int k = 0; k < BASELINE_SAMPLES; k++){
+                        seg_waveform_baseline += segwf->at(k);
+                      }
+                      seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
+                      for(int k=0; k<SAMPLES; k++){
+                        wfrmSampleVal = (segwf->at(k) - seg_waveform_baseline)/core_E;
+                        basisSampleVal = fineBasis[basisInd]->GetBinContent(segNum*SAMPLES + k + 1);
+                        chisq += pow(fabs(wfrmSampleVal - basisSampleVal),2);
+                        /*if(evtSegHP==2){
+                          rBin = (Int_t)(i/(fineBasisBinsAngle*fineBasisBinsZ*1.0));
+                          angleBin = (Int_t)((i - rBin*(fineBasisBinsAngle*fineBasisBinsZ*1.0))/(fineBasisBinsZ*1.0));
+                          zBin = (i - rBin*(fineBasisBinsAngle*fineBasisBinsZ) - angleBin*fineBasisBinsZ);
+                          cout << "HP: " << evtSegHP << ", rBin: " << rBin << ", angleBin: " << angleBin << ", zBin: " << zBin << ", segment: "; 
+                          cout << tigress_hit->GetSegmentHit(j).GetSegment() << ", sample: " << k << ", sample val: ";
+                          cout <<  wfrmSampleVal << ", basis sample val: " << basisSampleVal << endl;
+                        }*/
+                      }
+                    }
+                    //cout << "index " << basisInd << ", HP: " << evtSegHP << ", chisq: " << chisq << endl;
+                    if(chisq<minChisq){
+                      minChisq = chisq;
+                      minInd = basisInd;
+                    }
+                  //}
+                }
+              }
+            }else{
+              //cout << "Entry " << jentry << " contains an unhandled number of hit segments (" << numSegHits << ")." << endl;
+              continue;
+            }
+
+            if(minInd >= 0){
+
+              //a best-fit fine basis waveform was found, figure out the corresponding bin
+              rBinFine = (Int_t)(minInd/(fineBasisBinsAngle*fineBasisBinsZ*1.0));
+              angleBinFine = (Int_t)((minInd - rBinFine*(fineBasisBinsAngle*fineBasisBinsZ*1.0))/(fineBasisBinsZ*1.0));
+              zBinFine = (minInd - rBinFine*(fineBasisBinsAngle*fineBasisBinsZ) - angleBinFine*fineBasisBinsZ);
+              rVal = (rBinFine+0.5)*MAX_VAL_R/(1.0*fineBasisBinsR);
+              angleVal = (angleBinFine+0.5)*360./(1.0*fineBasisBinsAngle);
+              zVal = (zBinFine+0.5)*MAX_VAL_Z/(1.0*fineBasisBinsZ);
+              //cout << "Filling at: x=" << rVal*cos(angleVal*M_PI/180.) << ", y=" << rVal*sin(angleVal*M_PI/180.) << ", z=" << zVal << ", minInd: " << minInd << endl;
+              pos3DMap->Fill(rVal*cos(angleVal*M_PI/180.),rVal*sin(angleVal*M_PI/180.),zVal);
+            }
+
+            
           }
 
         }
@@ -206,40 +295,51 @@ void sort_from_basis(const char *infile, const char *basisfile, const char *calf
   cout << "Histograms written, sorting complete!" << endl;
   myfile->Close();
   inp->Close();
+  inp2->Close();
 }
 
 int main(int argc, char ** argv) {
 
-  const char *afile, *basisfile, *outfile, *calfile;
+  const char *afile, *basisfileCoarse, *basisfileFine, *outfile, *calfile;
 
   if (argc < 2) {
     cout << endl << "This sortcode sorts interaction positions using a waveform basis (generated using the GammaTrackingMakeBasis code)." << endl << endl;
-    cout << "Arguments: ./GammaTrackingSortFromBasis analysis_tree_file basis_file cal_file output_file" << endl << endl;
+    cout << "Arguments: ./GammaTrackingSortFromBasis analysis_tree_file basis_file_coarse basis_file_fine cal_file output_file" << endl << endl;
     cout << "The analysis tree (containing the calibration data used to make the basis) is a required argument.  Omitting other arguments will cause the sortcode to fall back to default values." << endl << endl;
 	  return 0;
   } else if (argc == 2) {
 	  afile = argv[1];
-    basisfile = "trackingWaveformBasis.root";
+    basisfileCoarse = "trackingWaveformBasisCoarse.root";
+    basisfileFine = "trackingWaveformBasisFine.root";
 	  calfile = "CalibrationFile.cal";
 	  outfile = "trackingBasisSortTest.root";
   } else if (argc == 3) {
 	  afile = argv[1];
-    basisfile = argv[2];
+    basisfileCoarse = argv[2];
+    basisfileFine = "trackingWaveformBasisFine.root";
 	  calfile = "CalibrationFile.cal";
 	  outfile = "trackingBasisSortTest.root";
   } else if (argc == 4) {
 	  afile = argv[1];
-    basisfile = argv[2];
-	  calfile = argv[3];
+    basisfileCoarse = argv[2];
+    basisfileFine = argv[3];
+	  calfile = "CalibrationFile.cal";
 	  outfile = "trackingBasisSortTest.root";
-  } else if (argc == 5) {
+  }else if (argc == 5) {
 	  afile = argv[1];
-    basisfile = argv[2];
-	  calfile = argv[3];
-	  outfile = argv[4];
-  } else if (argc > 5) {
+    basisfileCoarse = argv[2];
+    basisfileFine = argv[3];
+	  calfile = argv[4];
+	  outfile = "trackingBasisSortTest.root";
+  } else if (argc == 6) {
+	  afile = argv[1];
+    basisfileCoarse = argv[2];
+    basisfileFine = argv[3];
+	  calfile = argv[4];
+	  outfile = argv[5];
+  } else if (argc > 6) {
 	  cout << "Too many arguments." << endl;
-    cout << "Arguments: ./GammaTrackingSortFromBasis analysis_tree_file basis_file cal_file output_file" << endl;
+    cout << "Arguments: ./GammaTrackingSortFromBasis analysis_tree_file basis_file_coarse basis_file_fine cal_file output_file" << endl;
 	  return 0;
   }
 
@@ -253,11 +353,12 @@ int main(int argc, char ** argv) {
   grsi_path += ".grsirc";
   gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
 
-  cout << "Input file: " << afile << endl << "Waveform basis file: " << basisfile << endl << "Calibration file: " << calfile << endl << "Output file: " << outfile << endl;
+  cout << "Input file: " << afile << endl << "Coarse Waveform basis file: " << basisfileCoarse << endl << "Fine Waveform basis file: " << basisfileFine << endl;
+  cout << "Calibration file: " << calfile << endl << "Output file: " << outfile << endl;
 
   TParserLibrary::Get()->Load();
 
-  sort_from_basis(afile, basisfile, calfile, outfile);
+  sort_from_basis(afile, basisfileCoarse, basisfileFine, calfile, outfile);
 
   return 0;
 }
