@@ -38,27 +38,27 @@ using namespace std;
 #define     PHI_MAX         0.1
 #define     ZETA_MAX        0.5
 
-#define     MAX_VAL_R       50 //maximum r (in mm)
-#define     BIN_WIDTH_R     3  //in mm
+#define     MAX_VAL_R       40 //maximum r (in mm)
+#define     BIN_WIDTH_R     2  //in mm
 #define     MAX_VAL_ANGLE   90 //maximum angle (in deg)
-#define     BIN_WIDTH_ANGLE 10 //in deg
+#define     BIN_WIDTH_ANGLE 5 //in deg
 #define     MAX_VAL_Z       90 //maximum z (in mm)
 
-#define     MAX_ENERGY_SINGLE_INTERACTION  600 //maximum energy allowed for a hit to be put into the map (higher energy events are more likely to result from multiple interactions)
+#define     MAX_ENERGY_SINGLE_INTERACTION  1500 //maximum energy allowed for a hit to be put into the map (higher energy events are more likely to result from multiple interactions)
 
 //parameters defining how fine the basis grid is (number of bins in each dimension, per segment)
 //bounds of the grid determined by MAX_VAL_R, MAX_VAL_ANGLE, MAX_VAL_Z
 #define     BASIS_MAX_VAL_Z_FRONT   30 //maximum z for front segments (in mm)
 #define     BASIS_MIN_VAL_Z_BACK    30 //minimum z for back segments (in mm)
-#define     BASIS_BINS_R_COARSE     5
+#define     BASIS_BINS_R_COARSE     10
 #define     BASIS_BINS_ANGLE_COARSE 8 //in the basis, the angle covers the full 2pi range
-#define     BASIS_BINS_Z_COARSE     5
+#define     BASIS_BINS_Z_COARSE     9
 #define     FINE_BASIS_BINFACTOR    4 //for the fine basis, the number of bins in each dimension is multiplied by this factor with respect to the coarse basis
 #define     BASIS_MAX_ENERGY        2000 //maximum energy allowed for a hit to be put into the basis (used to suppress high energy events)
 #define     BASIS_START_SAMPLE      40 //sample to time-align waveform start to in the basis
 
 #define     SEGMENT_ENERGY_THRESHOLD       200 //threshold for a segment to be considered 'hit' in GetEnergy() units
-#define     SEGMENT_ENERGY_NOHIT_THRESHOLD 20  //threshold in GetEnergy() units below which a segment is considered not to be hit
+#define     SEGMENT_ENERGY_NOHIT_THRESHOLD 20  //threshold in GetCharge() units below which a segment is considered not to be hit
 #define     WAVEFORM_SAMPLING_WINDOW       10  //number of waveform samples used to construct ordering parameters
 
 

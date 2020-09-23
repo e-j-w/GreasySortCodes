@@ -157,7 +157,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   Int_t overflow_phi_counter = 0;
   Int_t overflow_zeta_counter = 0;
 
-  const std::vector<Short_t> *wf, *segwf, *segwf2, *segwf3;
+  const std::vector<Short_t> *wf;
   bool found1, found2;
   Int_t waveform_t0;
   Int_t one;
