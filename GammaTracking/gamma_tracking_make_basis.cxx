@@ -242,20 +242,22 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
     for(int j = 0; j < basisBinsAngle; j++){
       for(int i = 0; i < basisBinsZ; i++){
         Int_t basisInd = k*basisBinsAngle*basisBinsZ + j*basisBinsZ + i;
-        Int_t basisHPVal = 0;
-        Int_t one = 1;
+        uint32_t basisHPVal = 0;
+        uint32_t one = 1;
         if(numEvtsBasis[basisInd] > 0){
           for(int m = 0; m < SAMPLES*(NSEG+1); m++){
             basis[basisInd]->SetBinContent(m+1,basis[basisInd]->GetBinContent(m+1)/(1.0*numEvtsBasis[basisInd]));
           }
           for(int m = 0; m < NSEG; m++){
-            //try and find the sample value near the expected maximum of the pulse (estimate it is at BASIS_START_SAMPLE + 0.25*SAMPLES)
-            if(basis[basisInd]->GetBinContent((Int_t)((m+1.25)*(SAMPLES) + BASIS_START_SAMPLE)) > 0.2){
+            //try and find the sample value near the expected maximum of the pulse (estimate it is at 0.85*SAMPLES)
+            if(basis[basisInd]->GetBinContent((Int_t)((m+1.85)*(SAMPLES))) > 0.2){
               //this segment is 'hit' in this basis bin
-              basisHPVal|=(one<<(m+1)); //+1 so that 0 refers to no hits
+              basisHPVal|=(one<<m);
+              //cout << "hit seg " << m << " with bin content: " << basis[basisInd]->GetBinContent((Int_t)((m+1.85)*(SAMPLES))) << endl;
             }
           }
           //cout << "index: " << basisInd << ", HP val: " << basisHPVal << endl;
+          //getc(stdin);
           basisHP->SetBinContent(basisInd+1,basisHPVal);
           list->Add(basis[basisInd]);
         }
