@@ -79,8 +79,6 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
   Int_t map_hit_counter = 0;
 
   const std::vector<Short_t> *wf;
-  bool found1, found2;
-  Int_t waveform_t0;
   Int_t one;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
@@ -95,7 +93,7 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
       }
       TPulseAnalyzer pulse;
       pulse.SetData(*wf,0);  // Allows you to use the full TPulseAnalyzer class
-      waveform_t0 = (Int_t)pulse.fit_newT0(); //in samples
+      Int_t waveform_t0 = (Int_t)pulse.fit_newT0(); //in samples
       if((waveform_t0 <= 0)||(waveform_t0 >= SAMPLES-WAVEFORM_SAMPLING_WINDOW -1)){
         //this entry has an unusable risetime
         continue;

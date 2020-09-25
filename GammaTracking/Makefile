@@ -15,4 +15,4 @@ gamma_tracking_sort_from_basis_gridsearch: gamma_tracking_sort_from_basis_gridse
 	g++ gamma_tracking_sort_from_basis_gridsearch.cxx $(CPPFLAGS) -o GammaTrackingSortFromBasisGridSearch
 	
 clean:
-	rm GammaTrackingMakeMap GammaTrackingMakeBasis GammaTrackingSortExample GammaTrackingSortFromBasisGridSearch *~
+	rm GammaTrackingMakeMap GammaTrackingMakeBasis GammaTrackingSortExample GammaTrackingSortFromBasisGridSearch GammaTrackingSortFromBasis *~

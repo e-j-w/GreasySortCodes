@@ -158,8 +158,6 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   Int_t overflow_zeta_counter = 0;
 
   const std::vector<Short_t> *wf;
-  bool found1, found2;
-  Int_t waveform_t0;
   Int_t one;
   Int_t offset = 0;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
@@ -175,7 +173,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
       }
       TPulseAnalyzer pulse;
       pulse.SetData(*wf,0);  // Allows you to use the full TPulseAnalyzer class
-      waveform_t0 = (Int_t)pulse.fit_newT0(); //in samples
+      Int_t waveform_t0 = (Int_t)pulse.fit_newT0(); //in samples
       if((waveform_t0 <= 0)||(waveform_t0 >= SAMPLES-WAVEFORM_SAMPLING_WINDOW -1)){
         //this entry has an unusable risetime
         continue;

@@ -3,15 +3,11 @@
 double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t jentry, const Int_t waveform_t0, const Int_t parameterNum) {
 
   //lists of adjacent segments in the TIGRESS array (zero-indexed)
-  Int_t phiAdjSeg1[8] = {3,0,1,2,7,4,5,6};
-  Int_t phiAdjSeg2[8] = {1,2,3,0,5,6,7,4};
-  Int_t    zAdjSeg[8] = {4,5,6,7,0,1,2,3};
+  const Int_t phiAdjSeg1[8] = {3,0,1,2,7,4,5,6};
+  const Int_t phiAdjSeg2[8] = {1,2,3,0,5,6,7,4};
+  const Int_t    zAdjSeg[8] = {4,5,6,7,0,1,2,3};
   
-  double dno = 0.; //placeholder for denominator
-  Int_t one;
-  Int_t offset = 0;
-
-  TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
+  const TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
 
   if(segment_hit.GetCharge() < SEGMENT_ENERGY_THRESHOLD){
     return BAD_RETURN;
@@ -20,7 +16,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t jentr
     return BAD_RETURN; //energy too high - event likely to result from multiple hits
   }
 
-  Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
+  const Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
   //cout << "segment " << segNum << " energy: " << segment_hit.GetEnergy() << endl;
 
   const std::vector<Short_t> *segwf;
@@ -35,8 +31,9 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t jentr
     //construct rho, the ordering parameter for the radius
     //see Eq. 4 of NIM A 729 (2013) 198-206
     double sampleAvg = 0.;
-    //double term2 = 0.;
+    double term2 = 0.;
     double rho = 0.;
+    double dno = 0.; //placeholder for denominator
     const std::vector<Short_t> *segwf2, *segwf3, *segwf4;
     bool found1 = false;
     bool found2 = false;
@@ -68,24 +65,28 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t jentr
     }
     for(int j=1;j<SAMPLES-1;j++){
       sampleAvg += (j)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
-      //term2 += segwf2->at(j) + segwf3->at(j) + segwf4->at(j);
+      term2 += segwf2->at(j) + segwf3->at(j) + segwf4->at(j);
       dno += (segwf->at(j+1) - segwf->at(j-1))/2.0;
     }
     sampleAvg /= dno;
+    term2 /= dno;
     for(int j=1;j<SAMPLES-1;j++){
-      rho += pow(j - sampleAvg,3.0)*(segwf->at(j+1) - segwf->at(j-1))/2.0;// - 0.0005*term2;
+      rho += pow(j - sampleAvg,3.0)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
     }
     rho /= dno;
+    //rho = rho - term2; //may want to adjust weight of term2, Li uses x400
+    rho = term2;
     if((dno==0.)||(rho!=rho)){
       cout << "Entry " << jentry << ", cannot compute rho parameter (NaN)." << endl;
       return BAD_RETURN;
     }
-    //cout << "rho: " << rho << endl;
+    //cout << "term2: " << term2 << ", rho: " << rho << endl;
     return rho;
   }else if(parameterNum==1){
     //contruct phi, the ordering parameter for the angle
     //see Eq. 3 of NIM A 729 (2013) 198-206
     double phi = 0.;
+    double dno = 0.; //placeholder for denominator
     const std::vector<Short_t> *segwf2, *segwf3;
     bool found1 = false;
     bool found2 = false;
@@ -147,10 +148,11 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t jentr
       return BAD_RETURN;
     }*/
     return phi;
-  }else{
+  }else if(parameterNum==2){
     //contruct zeta, the ordering parameter for the z direction
     //see Eq. 2 of NIM A 729 (2013) 198-206 (modified here)
     double zeta = 0.;
+    double dno = 0.; //placeholder for denominator
     const std::vector<Short_t> *segwf2;
     bool found2 = false;
     for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
@@ -199,6 +201,8 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t jentr
     //}
     //cout << "zeta: " << zeta << endl;
     return zeta;
+  }else{
+    return BAD_RETURN;
   }
 
 }
