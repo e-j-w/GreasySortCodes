@@ -140,30 +140,16 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
     exit(-1);
   }
 
-  const std::vector<Short_t> *wf, *segwf;
+  const std::vector<Short_t> *segwf;
   const Int_t one = 1;
-  for (int jentry = 0; jentry < 10000; jentry++) {
+  for (int jentry = 0; jentry < 100000; jentry++) {
   //for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
     for (int hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++) {
       tigress_hit = tigress->GetTigressHit(hitInd);
       if(tigress_hit->GetKValue() != 700) continue;
       Double_t coreCharge = tigress_hit->GetCharge();
-      if((coreCharge <= 0)||(coreCharge > BASIS_MAX_ENERGY)) continue; //bad energy
-      tigress_hit->SetWavefit();
-      wf = tigress_hit->GetWaveform();
-      if(wf->size()!=SAMPLES){
-        cout << "Entry " << jentry << ", improper core waveform size (" << wf->size() << ")." << endl;
-        continue;
-      }
-      TPulseAnalyzer pulse;
-      pulse.SetData(*wf,0);  // Allows you to use the full TPulseAnalyzer class
-      Int_t waveform_t0 = (Int_t)pulse.fit_newT0(); //in samples
-      if((waveform_t0 <= 0)||(waveform_t0 >= SAMPLES-WAVEFORM_SAMPLING_WINDOW -1)){
-        //this entry has an unusable risetime
-        continue;
-      }
-      bool goodWaveforms = true;
+      if(coreCharge <= 0) continue; //bad energy
       bool isHit = false;
       //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
       Int_t numSegHits = 0; //counter for the number of segments with a hit (ie. over the threshold energy)
@@ -171,8 +157,18 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
       if(tigress_hit->GetSegmentMultiplicity() == NSEG){
         //all segments have waveforms
         evtSegHP = 0;
-        //check that the waveforms are the same size
+        //check that the waveforms are the same size, and that there are no duplicate segments
+        bool goodWaveforms = true;
+        Int_t segsInData = 0;
         for(int i = 0; i < NSEG; i++){
+          //make sure all segments in the data are different
+          if(segsInData&(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1))){
+            cout << "Entry " << jentry << ", multiple hits in one segment." << endl;
+            goodWaveforms = false;
+            break;
+          }else{
+            segsInData|=(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
+          }
           if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=SAMPLES){
             cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
             goodWaveforms = false;
@@ -238,6 +234,7 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
             //or by two basis waveforms with hits in different segments
             //in the latter case, should scale each basis waveform based on the corresponding segment energy and then 
             //add together before performing chisq test
+            continue;
             
             for(int i=0; i<(coarseBasisBinsR*coarseBasisBinsAngle*coarseBasisBinsZ); i++){
               if(coarseBasis[i]!=NULL){

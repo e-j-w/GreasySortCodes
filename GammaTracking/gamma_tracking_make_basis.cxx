@@ -93,6 +93,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
   Int_t map_hit_counter = 0;
 
   const std::vector<Short_t> *wf, *segwf;
+  const Int_t one = 1;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
     for (int hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++) {
@@ -106,20 +107,22 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
         cout << "Entry " << jentry << ", improper core waveform size (" << wf->size() << ")." << endl;
         continue;
       }
-      TPulseAnalyzer pulse;
-      pulse.SetData(*wf,0);  // Allows you to use the full TPulseAnalyzer class
-      Int_t waveform_t0 = (Int_t)pulse.fit_newT0(); //in samples
-      if((waveform_t0 <= 0)||(waveform_t0 >= SAMPLES-WAVEFORM_SAMPLING_WINDOW -1)){
-        //this entry has an unusable risetime
-        continue;
-      }
       hit_counter++;
       //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
       if(tigress_hit->GetSegmentMultiplicity() == NSEG){
         //all segments have waveforms
-        //check that the waveforms are the same size
+        //check that the waveforms are the same size, and that there are no duplicate segments
         bool goodWaveforms = true;
+        Int_t segsInData = 0;
         for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
+          //make sure all segments in the data are different
+          if(segsInData&(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1))){
+            cout << "Entry " << jentry << ", multiple hits in one segment." << endl;
+            goodWaveforms = false;
+            break;
+          }else{
+            segsInData|=(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
+          }
           if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=SAMPLES){
             cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
             goodWaveforms = false;
@@ -137,15 +140,15 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
           for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
 
             //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-            double rho = calc_ordering(tigress_hit,i,jentry,waveform_t0,0);
+            double rho = calc_ordering(tigress_hit,i,jentry,0);
             if(rho == BAD_RETURN){
               continue;
             }
-            double phi = calc_ordering(tigress_hit,i,jentry,waveform_t0,1);
+            double phi = calc_ordering(tigress_hit,i,jentry,1);
             if(phi == BAD_RETURN){
               continue;
             }
-            double zeta = calc_ordering(tigress_hit,i,jentry,waveform_t0,2);
+            double zeta = calc_ordering(tigress_hit,i,jentry,2);
             if(zeta == BAD_RETURN){
               continue;
             }

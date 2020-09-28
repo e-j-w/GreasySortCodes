@@ -157,7 +157,6 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   Int_t overflow_phi_counter = 0;
   Int_t overflow_zeta_counter = 0;
 
-  const std::vector<Short_t> *wf;
   Int_t one;
   Int_t offset = 0;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
@@ -165,19 +164,6 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
     for (one = 0; one < tigress->GetMultiplicity(); one++) {
       tigress_hit = tigress->GetTigressHit(one);
       if(tigress_hit->GetKValue() != 700) continue;
-      tigress_hit->SetWavefit();
-      wf = tigress_hit->GetWaveform();
-      if(wf->size()!=SAMPLES){
-        cout << "Entry " << jentry << ", improper core waveform size (" << wf->size() << ")." << endl;
-        continue;
-      }
-      TPulseAnalyzer pulse;
-      pulse.SetData(*wf,0);  // Allows you to use the full TPulseAnalyzer class
-      Int_t waveform_t0 = (Int_t)pulse.fit_newT0(); //in samples
-      if((waveform_t0 <= 0)||(waveform_t0 >= SAMPLES-WAVEFORM_SAMPLING_WINDOW -1)){
-        //this entry has an unusable risetime
-        continue;
-      }
       hit_counter++;
       bool isHit = false;
       for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
@@ -187,15 +173,15 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
         Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
 
         //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-        Double_t rho = calc_ordering(tigress_hit,i,jentry,waveform_t0,0);
+        Double_t rho = calc_ordering(tigress_hit,i,jentry,0);
         if(rho == BAD_RETURN){
           continue;
         }
-        Double_t phi = calc_ordering(tigress_hit,i,jentry,waveform_t0,1);
+        Double_t phi = calc_ordering(tigress_hit,i,jentry,1);
         if(phi == BAD_RETURN){
           continue;
         }
-        Double_t zeta = calc_ordering(tigress_hit,i,jentry,waveform_t0,2);
+        Double_t zeta = calc_ordering(tigress_hit,i,jentry,2);
         if(zeta == BAD_RETURN){
           continue;
         }

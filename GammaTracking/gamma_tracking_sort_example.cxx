@@ -78,40 +78,26 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
   Int_t hit_counter = 0;
   Int_t map_hit_counter = 0;
 
-  const std::vector<Short_t> *wf;
   Int_t one;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
     for (one = 0; one < tigress->GetMultiplicity(); one++) {
       tigress_hit = tigress->GetTigressHit(one);
       if(tigress_hit->GetKValue() != 700) continue;
-      tigress_hit->SetWavefit();
-      wf = tigress_hit->GetWaveform();
-      if(wf->size()!=SAMPLES){
-        cout << "Entry " << jentry << ", improper core waveform size (" << wf->size() << ")." << endl;
-        continue;
-      }
-      TPulseAnalyzer pulse;
-      pulse.SetData(*wf,0);  // Allows you to use the full TPulseAnalyzer class
-      Int_t waveform_t0 = (Int_t)pulse.fit_newT0(); //in samples
-      if((waveform_t0 <= 0)||(waveform_t0 >= SAMPLES-WAVEFORM_SAMPLING_WINDOW -1)){
-        //this entry has an unusable risetime
-        continue;
-      }
       hit_counter++;
       bool isHit = false;
       for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
 
         //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-        double rho = calc_ordering(tigress_hit,i,jentry,waveform_t0,0);
+        double rho = calc_ordering(tigress_hit,i,jentry,0);
         if(rho == BAD_RETURN){
           continue;
         }
-        double phi = calc_ordering(tigress_hit,i,jentry,waveform_t0,1);
+        double phi = calc_ordering(tigress_hit,i,jentry,1);
         if(phi == BAD_RETURN){
           continue;
         }
-        double zeta = calc_ordering(tigress_hit,i,jentry,waveform_t0,2);
+        double zeta = calc_ordering(tigress_hit,i,jentry,2);
         if(zeta == BAD_RETURN){
           continue;
         }
