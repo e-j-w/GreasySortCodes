@@ -39,30 +39,23 @@ using namespace std;
 #define     ZETA_MAX        0.5
 
 #define     MAX_VAL_R             40 //maximum r (in mm)
-#define     VOXEL_BINS_R          20 //number of r bins in the map
+#define     VOXEL_BINS_R          10 //number of r bins in the map
 #define     MAX_VAL_ANGLE         90 //maximum angle (in deg)
 #define     VOXEL_BINS_ANGLE_MAX  18 //number of angle bins in the map, at the largest r value (scales with r)
 #define     MAX_VAL_Z             90 //maximum z (in mm)
 #define     VOXEL_BINS_Z          18 //used for binning in the basis (not needed for the map)
 
 #define     MAX_ENERGY_SINGLE_INTERACTION  1500 //maximum energy allowed for a hit to be put into the map (higher energy events are more likely to result from multiple interactions)
+#define     BASIS_MAX_ENERGY        2000 //maximum energy allowed for a hit to be put into the basis (used to suppress high energy events)
 
 //parameters defining how fine the basis grid is (number of bins in each dimension, per segment)
 //bounds of the grid determined by MAX_VAL_R, MAX_VAL_ANGLE, MAX_VAL_Z
-#define     BASIS_MAX_VAL_Z_FRONT   30 //maximum z for front segments (in mm)
-#define     BASIS_MIN_VAL_Z_BACK    30 //minimum z for back segments (in mm)
-#define     BASIS_BINS_R_COARSE     10
-#define     BASIS_BINS_ANGLE_COARSE 8 //in the basis, the angle covers the full 2pi range
-#define     BASIS_BINS_Z_COARSE     9
 #define     COARSE_BASIS_BINFACTOR  0.5 //for the coarse basis, the number of bins in each dimension is multiplied by this factor with respect to the map
-#define     FINE_BASIS_BINFACTOR    2 //for the fine basis, the number of bins in each dimension is multiplied by this factor with respect to the map
-#define     BASIS_MAX_ENERGY        2000 //maximum energy allowed for a hit to be put into the basis (used to suppress high energy events)
-#define     BASIS_START_SAMPLE      40 //sample to time-align waveform start to in the basis
+#define     FINE_BASIS_BINFACTOR    2.0 //for the fine basis, the number of bins in each dimension is multiplied by this factor with respect to the map
 
 #define     SEGMENT_ENERGY_THRESHOLD       200 //threshold for a segment to be considered 'hit' in GetEnergy() units
 #define     SEGMENT_ENERGY_NOHIT_THRESHOLD 20  //threshold in GetCharge() units below which a segment is considered not to be hit
 #define     WAVEFORM_SAMPLING_WINDOW       10  //number of waveform samples used to construct ordering parameters
-
 
 //global variables here
 #define     BIG_NUMBER 1E30  //a big number
