@@ -16,20 +16,25 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
     cout << "Opened map file: " << mapfile << endl;
   }
 
-  TH1 *rMap[NSEG], *angleMap[NSEG*MAX_VAL_R/BIN_WIDTH_R], *zMap[NSEG*(MAX_VAL_R/BIN_WIDTH_R)*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)];
+  TH1 *rMap[NSEG], *angleMap[NSEG*VOXEL_BINS_R], *zMap[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
   for(int k = 0; k < NSEG; k++){
     sprintf(hname,"rMapSeg%i",k);
     if((rMap[k] = (TH1*)inp->Get(hname))==NULL){
       cout << "No r coordinate map for segment " << k << endl;
     }
-    for(int j = 0; j < MAX_VAL_R/BIN_WIDTH_R; j++){
-      sprintf(hname,"angleMapSeg%ir%ito%i",k,j*BIN_WIDTH_R,(j+1)*BIN_WIDTH_R);
-      if((angleMap[k*MAX_VAL_R/BIN_WIDTH_R + j] = (TH1*)inp->Get(hname))==NULL){
+    for(int j = 0; j < VOXEL_BINS_R; j++){
+      Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
+      Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
+      sprintf(hname,"angleMapSeg%ir%ito%i",k,rValMin,rValMax);
+      if((angleMap[k*VOXEL_BINS_R + j] = (TH1*)inp->Get(hname))==NULL){
         cout << "No angle coordinate map for segment " << k << ", radial bin " << j << endl;
       }
-      for(int i = 0; i < MAX_VAL_ANGLE/BIN_WIDTH_ANGLE; i++){
-        sprintf(hname,"zMapSeg%ir%ito%iangle%ito%i",k,j*BIN_WIDTH_R,(j+1)*BIN_WIDTH_R,i*BIN_WIDTH_ANGLE,(i+1)*BIN_WIDTH_ANGLE);
-        if((zMap[k*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + j*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + i] = (TH1*)inp->Get(hname))==NULL){
+      Int_t numAngleBins = getNumAngleBins(j,1.0);
+      for(int i = 0; i < numAngleBins; i++){
+        Int_t angleValMin = (Int_t)(i*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
+        Int_t angleValMax = (Int_t)((i+1)*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
+        sprintf(hname,"zMapSeg%ir%ito%iangle%ito%i",k,rValMin,rValMax,angleValMin,angleValMax);
+        if((zMap[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = (TH1*)inp->Get(hname))==NULL){
           cout << "No z coordinate map for segment " << k << ", radial bin " << j << ", angle bin " << i << endl;
         }
       }
@@ -38,35 +43,35 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
 
   cout << "Map file data read in." << endl;
 
-  
   //setup histograms for the basis
-  Int_t basisBinsR, basisBinsAngle, basisBinsZ;
+  
+  Double_t basisScaleFac;
   if(makeFineBasis){
-    basisBinsR = BASIS_BINS_R_COARSE*FINE_BASIS_BINFACTOR;
-    basisBinsAngle = BASIS_BINS_ANGLE_COARSE*FINE_BASIS_BINFACTOR;
-    basisBinsZ = BASIS_BINS_Z_COARSE*FINE_BASIS_BINFACTOR;
+    basisScaleFac = FINE_BASIS_BINFACTOR;
   }else{
-    basisBinsR = BASIS_BINS_R_COARSE;
-    basisBinsAngle = BASIS_BINS_ANGLE_COARSE;
-    basisBinsZ = BASIS_BINS_Z_COARSE;
+    basisScaleFac = COARSE_BASIS_BINFACTOR;
   }
+  const Int_t basisBinsR = VOXEL_BINS_R*basisScaleFac; 
+  const Int_t basisBinsAngle = 4*VOXEL_BINS_ANGLE_MAX*basisScaleFac; 
+  const Int_t basisBinsZ = VOXEL_BINS_Z*basisScaleFac;
   TH1I *basisHP = new TH1I("basis_hitpattern","basis_hitpattern",basisBinsR*basisBinsAngle*basisBinsZ,0,basisBinsR*basisBinsAngle*basisBinsZ);
   list->Add(basisHP);
   TH1D *basis[basisBinsR*basisBinsAngle*basisBinsZ];
   Int_t numEvtsBasis[basisBinsR*basisBinsAngle*basisBinsZ];
   memset(numEvtsBasis,0,sizeof(numEvtsBasis));
   for(int k = 0; k < basisBinsR; k++){
-    for(int j = 0; j < basisBinsAngle; j++){
+    Int_t numAngleBinsAtR = 4*getNumAngleBins(k,basisScaleFac); //x4 since covering 2pi rather than pi/2
+    //cout << "numAngleBinsAtR: " << numAngleBinsAtR << endl;
+    for(int j = 0; j < numAngleBinsAtR; j++){
       for(int i = 0; i < basisBinsZ; i++){
         Int_t basisInd = k*basisBinsAngle*basisBinsZ + j*basisBinsZ + i;
-        sprintf(hname,"basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/basisBinsR,(k+1)*MAX_VAL_R/basisBinsR,j*360/basisBinsAngle,(j+1)*360/basisBinsAngle,i*MAX_VAL_Z/basisBinsZ,(i+1)*MAX_VAL_Z/basisBinsZ);
-        basis[basisInd] = new TH1D(hname,Form("basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/basisBinsR,(k+1)*MAX_VAL_R/basisBinsR,j*360/basisBinsAngle,(j+1)*360/basisBinsAngle,i*MAX_VAL_Z/basisBinsZ,(i+1)*MAX_VAL_Z/basisBinsZ),SAMPLES*(NSEG+1),0,SAMPLES*(NSEG+1));
+        sprintf(hname,"basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/basisBinsR,(k+1)*MAX_VAL_R/basisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR,i*MAX_VAL_Z/basisBinsZ,(i+1)*MAX_VAL_Z/basisBinsZ);
+        basis[basisInd] = new TH1D(hname,Form("basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/basisBinsR,(k+1)*MAX_VAL_R/basisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR,i*MAX_VAL_Z/basisBinsZ,(i+1)*MAX_VAL_Z/basisBinsZ),SAMPLES*(NSEG+1),0,SAMPLES*(NSEG+1));
         //list->Add(basis[basisInd]);
       }
     }
   }
-
-
+  
   TFile * inputfile = new TFile(infile, "READ");
   if (!inputfile->IsOpen()) {
     cout << "ERROR: Could not open analysis tree file!" << endl;
@@ -160,14 +165,20 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
             //map to spatial parameters
             if(rMap[segNum]!=NULL){
               double r = rMap[segNum]->GetBinContent(rMap[segNum]->FindBin(rho));
-              Int_t rInd = (Int_t)(r/BIN_WIDTH_R);
-              if(rInd < MAX_VAL_R/BIN_WIDTH_R){
-                if(angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]!=NULL){
-                  double angle = angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]->GetBinContent(angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]->FindBin(phi));
-                  Int_t angleInd = (Int_t)(angle/BIN_WIDTH_ANGLE);
-                  if(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]!=NULL){
-                    double z = zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->GetBinContent(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->FindBin(zeta));
-                    
+              Int_t rInd = (Int_t)(r*VOXEL_BINS_R/MAX_VAL_R);
+              if(rInd < VOXEL_BINS_R){
+                if(angleMap[segNum*VOXEL_BINS_R + rInd]!=NULL){
+                  double angle = angleMap[segNum*VOXEL_BINS_R + rInd]->GetBinContent(angleMap[segNum*VOXEL_BINS_R + rInd]->FindBin(phi));
+                  if(angle>=MAX_VAL_ANGLE){
+                    angle=MAX_VAL_ANGLE-0.001; //have seen rare events where angle is exactly 90 degrees
+                  }
+                  Int_t angleInd = (Int_t)(angle*getNumAngleBins(rInd,1.0)/MAX_VAL_ANGLE);
+                  if(zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]!=NULL){
+                    double z = zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->GetBinContent(zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->FindBin(zeta));
+                    if(z>=MAX_VAL_Z){
+                      z=MAX_VAL_Z-0.001; //have seen rare events where z is exactly 90 mm
+                    }
+
                     if((r>0.)&&(z>0.)&&(angle>0.)){
                       if(segNum<=3){
                         //r corresponds to the distance from the central contact at z=30
@@ -180,9 +191,13 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
 
                         //get indices for r, angle, z
                         Int_t rBasisInd = (Int_t)(r*basisBinsR/MAX_VAL_R);
-                        Int_t angleBasisInd = (Int_t)(angle*basisBinsAngle/360.);
+                        Int_t numAngleBinsAtR = 4*getNumAngleBins(rBasisInd,basisScaleFac); //x4 since covering 2pi rather than pi/2
+                        Int_t angleBasisInd = (Int_t)(angle*numAngleBinsAtR/360.);
                         Int_t zBasisInd = (Int_t)(z*basisBinsZ/MAX_VAL_Z);
                         Int_t basisInd = rBasisInd*basisBinsAngle*basisBinsZ + angleBasisInd*basisBinsZ + zBasisInd;
+                        
+                        //cout << "seg: " << segNum << ", rBasisInd: " << rBasisInd << ", angleBasisInd: " << angleBasisInd << ", numAngleBinsAtR: " << numAngleBinsAtR << ", zBasisInd: " << zBasisInd << endl;
+                        //cout << "num basis bins: [ " << basisBinsR << " " << basisBinsAngle << " " << basisBinsZ << " ]" << endl;
 
                         //save waveforms (in 'superpulse' format, core waveform followed by segment waveforms on the same histogram)
 
@@ -235,7 +250,8 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
   }
 
   for(int k = 0; k < basisBinsR; k++){
-    for(int j = 0; j < basisBinsAngle; j++){
+    Int_t numAngleBinsAtR = 4*getNumAngleBins(k,basisScaleFac); //x4 since covering 2pi rather than pi/2
+    for(int j = 0; j < numAngleBinsAtR; j++){
       for(int i = 0; i < basisBinsZ; i++){
         Int_t basisInd = k*basisBinsAngle*basisBinsZ + j*basisBinsZ + i;
         uint32_t basisHPVal = 0;

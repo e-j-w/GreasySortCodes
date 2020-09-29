@@ -14,21 +14,27 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
     cout << "Opened map file: " << mapfile << endl;
   }
 
-  TH1 *rMap[NSEG], *angleMap[NSEG*MAX_VAL_R/BIN_WIDTH_R], *zMap[NSEG*(MAX_VAL_R/BIN_WIDTH_R)*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)];
+  TH1 *rMap[NSEG], *angleMap[NSEG*VOXEL_BINS_R], *zMap[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
   for(int k = 0; k < NSEG; k++){
     sprintf(hname,"rMapSeg%i",k);
     if((rMap[k] = (TH1*)inp->Get(hname))==NULL){
       cout << "No r coordinate map for segment " << k << endl;
     }
-    for(int j = 0; j < MAX_VAL_R/BIN_WIDTH_R; j++){
-      sprintf(hname,"angleMapSeg%ir%ito%i",k,j*BIN_WIDTH_R,(j+1)*BIN_WIDTH_R);
-      if((angleMap[k*MAX_VAL_R/BIN_WIDTH_R + j] = (TH1*)inp->Get(hname))==NULL){
+    for(int j = 0; j < VOXEL_BINS_R; j++){
+      Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
+      Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
+      sprintf(hname,"angleMapSeg%ir%ito%i",k,rValMin,rValMax);
+      if((angleMap[k*VOXEL_BINS_R + j] = (TH1*)inp->Get(hname))==NULL){
         cout << "No angle coordinate map for segment " << k << ", radial bin " << j << endl;
       }
-      for(int i = 0; i < MAX_VAL_ANGLE/BIN_WIDTH_ANGLE; i++){
-        sprintf(hname,"zMapSeg%ir%ito%iangle%ito%i",k,j*BIN_WIDTH_R,(j+1)*BIN_WIDTH_R,i*BIN_WIDTH_ANGLE,(i+1)*BIN_WIDTH_ANGLE);
-        if((zMap[k*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + j*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + i] = (TH1*)inp->Get(hname))==NULL){
-          cout << "No z coordinate map for segment " << k << ", radial bin " << j << ", angle bin " << i << endl;
+      Int_t numAngleBins = getNumAngleBins(j,1.0);
+      for(int i = 0; i < numAngleBins; i++){
+        Int_t angleValMin = (Int_t)(i*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
+        Int_t angleValMax = (Int_t)((i+1)*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
+        sprintf(hname,"zMapSeg%ir%ito%iangle%ito%i",k,rValMin,rValMax,angleValMin,angleValMax);
+        if((zMap[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = (TH1*)inp->Get(hname))==NULL){
+          zMap[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]=NULL;
+          cout << "No z coordinate map for segment " << k << ", radial bin " << j << ", angle bin " << i << ", name: " << hname << endl;
         }
       }
     } 
@@ -113,14 +119,21 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
         if(rMap[segNum]!=NULL){
           r = rMap[segNum]->GetBinContent(rMap[segNum]->FindBin(rho));
         }
-        Int_t rInd = (Int_t)(r/BIN_WIDTH_R);
-        if(rInd < MAX_VAL_R/BIN_WIDTH_R){
-          if(angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]!=NULL){
-            angle = angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]->GetBinContent(angleMap[segNum*MAX_VAL_R/BIN_WIDTH_R + rInd]->FindBin(phi));
-            Int_t angleInd = (Int_t)(angle/BIN_WIDTH_ANGLE);
-            if(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]!=NULL){
-              z = zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->GetBinContent(zMap[segNum*(MAX_VAL_ANGLE/BIN_WIDTH_ANGLE)*(MAX_VAL_R/BIN_WIDTH_R) + rInd*MAX_VAL_ANGLE/BIN_WIDTH_ANGLE + angleInd]->FindBin(zeta));
-              
+        Int_t rInd = (Int_t)(r*VOXEL_BINS_R/MAX_VAL_R);
+        if(rInd < VOXEL_BINS_R){
+          if(angleMap[segNum*VOXEL_BINS_R + rInd]!=NULL){
+            angle = angleMap[segNum*VOXEL_BINS_R + rInd]->GetBinContent(angleMap[segNum*VOXEL_BINS_R + rInd]->FindBin(phi));
+            if(angle>=MAX_VAL_ANGLE){
+              angle=MAX_VAL_ANGLE-0.001; //have seen rare events where angle is exactly 90 degrees
+            }
+            Int_t angleInd = (Int_t)(angle*getNumAngleBins(rInd,1.0)/(MAX_VAL_ANGLE*1.0));
+            //cout << "seg: " << segNum << ", r index: " << rInd << ", angle: " << angle << ", angle index: " << angleInd << ", num angle bins: " << getNumAngleBins(rInd,1.0) << endl;
+            if(zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]!=NULL){
+              z = zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->GetBinContent(zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->FindBin(zeta));
+              if(z>=MAX_VAL_Z){
+                z=MAX_VAL_Z-0.001; //have seen rare events where z is exactly 90 mm
+              }
+
               if((r>0.)&&(z>0.)&&(angle>0.)){
                 if(segNum<=3){
                   //r corresponds to the distance from the central contact at z=30
