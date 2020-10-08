@@ -39,19 +39,22 @@ using namespace std;
 #define     ZETA_MAX        0.5
 
 #define     MAX_VAL_R             40 //maximum r (in mm)
-#define     VOXEL_BINS_R          10 //number of r bins in the map
+#define     VOXEL_BINS_R          10 //number of r bins in the map (large values can cause memory pressure when sorting the basis)
 #define     MAX_VAL_ANGLE         90 //maximum angle (in deg)
-#define     VOXEL_BINS_ANGLE_MAX  18 //number of angle bins in the map, at the largest r value (scales with r)
+#define     VOXEL_BINS_ANGLE_MAX  9 //number of angle bins in the map, at the largest r value (scales with r) (large values can cause memory pressure when sorting the basis)
 #define     MAX_VAL_Z             90 //maximum z (in mm)
-#define     VOXEL_BINS_Z          18 //used for binning in the basis (not needed for the map)
+#define     VOXEL_BINS_Z          9 //used for binning in the basis (not needed for the map) (large values can cause memory pressure when sorting the basis)
 
 #define     MAX_ENERGY_SINGLE_INTERACTION  1500 //maximum energy allowed for a hit to be put into the map (higher energy events are more likely to result from multiple interactions)
 #define     BASIS_MAX_ENERGY        2000 //maximum energy allowed for a hit to be put into the basis (used to suppress high energy events)
 
 //parameters defining how fine the basis grid is (number of bins in each dimension, per segment)
 //bounds of the grid determined by MAX_VAL_R, MAX_VAL_ANGLE, MAX_VAL_Z
-#define     COARSE_BASIS_BINFACTOR  0.5 //for the coarse basis, the number of bins in each dimension is multiplied by this factor with respect to the map
-#define     FINE_BASIS_BINFACTOR    2.0 //for the fine basis, the number of bins in each dimension is multiplied by this factor with respect to the map
+#define     COARSE_BASIS_BINFACTOR  1.0 //for the coarse basis, the number of bins in each dimension is multiplied by this factor with respect to the map
+#define     FINE_BASIS_BINFACTOR    4.0 //for the fine basis, the number of bins in each dimension is multiplied by this factor with respect to the map
+
+#define     GRID_HIT_SEG_WEIGHT     1.0
+#define     GRID_NONHIT_SEG_WEIGHT  100.0
 
 #define     SEGMENT_ENERGY_THRESHOLD       200 //threshold for a segment to be considered 'hit' in GetEnergy() units
 #define     SEGMENT_ENERGY_NOHIT_THRESHOLD 20  //threshold in GetCharge() units below which a segment is considered not to be hit
@@ -62,6 +65,7 @@ using namespace std;
 #define     BAD_RETURN -1E10 //value to be returned if ordering parameter calculation fails
 char hname[64];
 
-Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac){ return 1 + (Int_t)(pow((rInd/((VOXEL_BINS_R*scaleFac) - 1.0)),2.0)*((VOXEL_BINS_ANGLE_MAX*scaleFac)-1));}; //the number of angle bins in the map depends on r
+Int_t getNumAngleBins(Int_t rInd, Double_t rScaleFac, Double_t scaleFac){ return 1 + (Int_t)(pow((rInd/((VOXEL_BINS_R*rScaleFac) - 1.0)),2.0)*((VOXEL_BINS_ANGLE_MAX*scaleFac)-1));}; //the number of angle bins in the map depends on r
+Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac){ return getNumAngleBins(rInd,scaleFac,scaleFac); };
 
 #include "ordering_parameter_calc.cxx"

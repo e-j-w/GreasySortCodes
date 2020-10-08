@@ -177,7 +177,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
     tree->GetEntry(jentry);
     for (one = 0; one < tigress->GetMultiplicity(); one++) {
       tigress_hit = tigress->GetTigressHit(one);
-      if(tigress_hit->GetKValue() != 700) continue;
+      if(tigress_hit->GetKValue() != 700) continue;  //exclude pileup
       hit_counter++;
       bool isHit = false;
       for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
