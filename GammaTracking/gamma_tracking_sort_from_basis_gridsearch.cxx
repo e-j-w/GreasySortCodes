@@ -3,8 +3,9 @@
 
 TH1D *coarseBasis[(Int_t)(VOXEL_BINS_R*COARSE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*COARSE_BASIS_BINFACTOR*VOXEL_BINS_Z*COARSE_BASIS_BINFACTOR)];
 TH1D *fineBasis[(Int_t)(VOXEL_BINS_R*FINE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*FINE_BASIS_BINFACTOR*VOXEL_BINS_Z*FINE_BASIS_BINFACTOR)];
+TRandom3 *randGen;
 
-void fillAtHitInd(const Int_t hitInd, const Int_t fineBasisBinsR, const Int_t fineBasisBinsAngle, const Int_t fineBasisBinsZ, TRandom3 *rand, TH3D *pos3DMap){
+void fillAtHitInd(const Int_t hitInd, const Int_t fineBasisBinsR, const Int_t fineBasisBinsAngle, const Int_t fineBasisBinsZ, TRandom3 *randGen, TH3D *pos3DMap){
   Int_t rBinFine, angleBinFine, zBinFine;
   double rVal, angleVal, zVal;
   if(hitInd >= 0){
@@ -13,9 +14,9 @@ void fillAtHitInd(const Int_t hitInd, const Int_t fineBasisBinsR, const Int_t fi
     angleBinFine = (Int_t)((hitInd - rBinFine*(fineBasisBinsAngle*fineBasisBinsZ*1.0))/(fineBasisBinsZ*1.0));
     zBinFine = (hitInd - rBinFine*(fineBasisBinsAngle*fineBasisBinsZ) - angleBinFine*fineBasisBinsZ);
     Int_t numAngleBinsAtR = 4*getNumAngleBins(rBinFine,FINE_BASIS_BINFACTOR,COARSE_BASIS_BINFACTOR)*FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR; //x4 since covering 2pi rather than pi/2
-    rVal = (rBinFine+rand->Uniform(1.0))*MAX_VAL_R/(1.0*fineBasisBinsR);
-    angleVal = (angleBinFine+rand->Uniform(1.0))*360./(1.0*numAngleBinsAtR);
-    zVal = (zBinFine+rand->Uniform(1.0))*MAX_VAL_Z/(1.0*fineBasisBinsZ);
+    rVal = (rBinFine+randGen->Uniform(1.0))*MAX_VAL_R/(1.0*fineBasisBinsR);
+    angleVal = (angleBinFine+randGen->Uniform(1.0))*360./(1.0*numAngleBinsAtR);
+    zVal = (zBinFine+randGen->Uniform(1.0))*MAX_VAL_Z/(1.0*fineBasisBinsZ);
     //cout << "Filling at: x=" << rVal*cos(angleVal*M_PI/180.) << ", y=" << rVal*sin(angleVal*M_PI/180.) << ", z=" << zVal << ", hitInd: " << hitInd << endl;
     pos3DMap->Fill(rVal*cos(angleVal*M_PI/180.),rVal*sin(angleVal*M_PI/180.),zVal);
   }
@@ -61,110 +62,15 @@ int32_t commonHitInHP(int32_t hp1, int32_t hp2, int32_t max_search){
   return -1;
 }
 
-//Function which sorts hit positions using a pre-generated waveform basis
-void sort_from_basis(const char *infile, const char *basisfileCoarse, const char *basisfileFine, const char *calfile, const char *outfile) {
-
-  if(FINE_BASIS_BINFACTOR<COARSE_BASIS_BINFACTOR){
-    cout << "ERROR: fine basis binning must be equal to or finer than the coarse basis binning." << endl;
-    exit(-1);
-  }
-  if(fmod((FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR),1) > 0.){
-    cout << "ERROR: the ratio FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR must be an integer." << endl;
-    exit(-1);
-  }
-
-  TRandom3 *rand = new TRandom3();
-
-  TList *list = new TList;
-
-  //read in histograms from basis file
-  TFile *inp = new TFile(basisfileCoarse,"read");
-  if (!inp->IsOpen()) {
-    cout << "ERROR: Could not open basis file!" << endl;
-    exit(-1);
-  }else{
-    cout << "Opened waveform basis file: " << basisfileCoarse << endl;
-  }
+void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *basisHPFine, TH3D *coarseBasisInd3DMap, TH3D *basisInd3DMap, TH1I *numSegHitsHist, TH3D *pos3DMap, TH2D *posXYMap, TH3D *pos3DMap1Hit, TH3D *pos3DMap2Hit){
   
-  //setup histograms for the basis 
-  TH1I *basisHPCoarse, *basisHPFine;
-  if((basisHPCoarse = (TH1I*)inp->Get("basis_hitpattern"))==NULL){
-    cout << "ERROR: no hitpattern in the coarse waveform basis." << endl;
-    exit(-1);
-  }
   Int_t coarseBasisBinsR = VOXEL_BINS_R*COARSE_BASIS_BINFACTOR;
   Int_t coarseBasisBinsAngle = 4*VOXEL_BINS_ANGLE_MAX*COARSE_BASIS_BINFACTOR;
   Int_t coarseBasisBinsZ = VOXEL_BINS_Z*COARSE_BASIS_BINFACTOR;
-  for(int k = 0; k < coarseBasisBinsR; k++){
-    Int_t numAngleBinsAtR = 4*getNumAngleBins(k,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2
-    for(int j = 0; j < numAngleBinsAtR; j++){
-      for(int i = 0; i < coarseBasisBinsZ; i++){
-        Int_t basisInd = k*coarseBasisBinsAngle*coarseBasisBinsZ + j*coarseBasisBinsZ + i;
-        sprintf(hname,"basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/coarseBasisBinsR,(k+1)*MAX_VAL_R/coarseBasisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR,i*MAX_VAL_Z/coarseBasisBinsZ,(i+1)*MAX_VAL_Z/coarseBasisBinsZ);
-        if((coarseBasis[basisInd] = (TH1D*)inp->Get(hname))==NULL){
-          cout << "No coarse waveform basis data for radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
-          //cout << hname << endl;
-          //getc(stdin);
-        }
-        //list->Add(coarseBasis[basisInd]);
-      }
-    }
-  }
-  cout << "Coarse waveform basis data read in." << endl;
-  
-
-  //read in histograms from basis file
-  TFile *inp2 = new TFile(basisfileFine,"read");
-  if (!inp2->IsOpen()) {
-    cout << "ERROR: Could not open basis file!" << endl;
-    exit(-1);
-  }else{
-    cout << "Opened waveform basis file: " << basisfileFine << endl;
-  }
-  
-  //setup histograms for the basis 
-  if((basisHPFine = (TH1I*)inp2->Get("basis_hitpattern"))==NULL){
-    cout << "ERROR: no hitpattern in the fine waveform basis." << endl;
-    exit(-1);
-  }
   Int_t fineBasisBinsR = VOXEL_BINS_R*FINE_BASIS_BINFACTOR;
   Int_t fineBasisBinsAngle = 4*VOXEL_BINS_ANGLE_MAX*FINE_BASIS_BINFACTOR;
   Int_t fineBasisBinsZ = VOXEL_BINS_Z*FINE_BASIS_BINFACTOR;
-  for(int k = 0; k < fineBasisBinsR; k++){
-    Int_t numAngleBinsAtR = 4*getNumAngleBins(k,FINE_BASIS_BINFACTOR,COARSE_BASIS_BINFACTOR)*FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR; //x4 since covering 2pi rather than pi/2
-    for(int j = 0; j < numAngleBinsAtR; j++){
-      for(int i = 0; i < fineBasisBinsZ; i++){
-        Int_t basisInd = k*fineBasisBinsAngle*fineBasisBinsZ + j*fineBasisBinsZ + i;
-        sprintf(hname,"basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/fineBasisBinsR,(k+1)*MAX_VAL_R/fineBasisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR,i*MAX_VAL_Z/fineBasisBinsZ,(i+1)*MAX_VAL_Z/fineBasisBinsZ);
-        if((fineBasis[basisInd] = (TH1D*)inp2->Get(hname))==NULL){
-          cout << "No fine waveform basis data for radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
-        }
-        //list->Add(fineBasis[basisInd]);
-      }
-    }
-  }
-  cout << "Fine waveform basis data read in." << endl;
 
-  TH1I *numSegHitsHist = new TH1I("numSegHits","numSegHits",10,0,10);
-  list->Add(numSegHitsHist);
-  TH3D *pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
-  list->Add(pos3DMap);
-  TH3D *pos3DMap1Hit = new TH3D("pos3DMap1Hit","pos3DMap1Hit",40,-40,40,40,-40,40,40,-10,100);
-  list->Add(pos3DMap1Hit);
-  TH3D *pos3DMap2Hit = new TH3D("pos3DMap2Hit","pos3DMap2Hit",40,-40,40,40,-40,40,40,-10,100);
-  list->Add(pos3DMap2Hit);
-  TH2D *posXYMap = new TH2D("posXYMap","posXYMap",40,-40,40,40,-40,40);
-  list->Add(posXYMap);
-  TH3D *coarseBasisInd3DMap = new TH3D("coarseBasisInd3DMap","coarseBasisInd3DMap",coarseBasisBinsR,0,coarseBasisBinsR,coarseBasisBinsAngle,0,coarseBasisBinsAngle,coarseBasisBinsZ,0,coarseBasisBinsZ);
-  list->Add(coarseBasisInd3DMap);
-  TH3D *basisInd3DMap = new TH3D("basisInd3DMap","basisInd3DMap",fineBasisBinsR,0,fineBasisBinsR,fineBasisBinsAngle,0,fineBasisBinsAngle,fineBasisBinsZ,0,fineBasisBinsZ);
-  list->Add(basisInd3DMap);
-
-  TFile * inputfile = new TFile(infile, "READ");
-  if (!inputfile->IsOpen()) {
-    cout << "ERROR: Could not open analysis tree file!" << endl;
-    exit(-1);
-  }
   TChain * AnalysisTree = (TChain * ) inputfile->Get("AnalysisTree");
   cout << AnalysisTree->GetNtrees() << " tree files, details:" << endl;
   AnalysisTree->ls();
@@ -544,13 +450,13 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
             for(int i=0;i<2;i++){
               if(minIndFine[i]>=0){
                 numSegHitsHist->Fill(numSegHits);
-                fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,rand,pos3DMap);
+                fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,randGen,pos3DMap);
                 fillAtHitIndBasis(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,basisInd3DMap);
                 fillXYAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,posXYMap);
                 if(numSegHits==1){
-                  fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,rand,pos3DMap1Hit);
+                  fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,randGen,pos3DMap1Hit);
                 }else if(numSegHits==2){
-                  fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,rand,pos3DMap2Hit);
+                  fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,randGen,pos3DMap2Hit);
                 }
               }
             }
@@ -563,6 +469,136 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
   }
 
   cout << "Entry " << nentries << " of " << nentries << ", 100% Complete!" << endl;
+}
+
+//Function which sorts hit positions using a pre-generated waveform basis
+void sort_from_basis(const char *infile, const char *basisfileCoarse, const char *basisfileFine, const char *calfile, const char *outfile, bool inpList) {
+
+  if(FINE_BASIS_BINFACTOR<COARSE_BASIS_BINFACTOR){
+    cout << "ERROR: fine basis binning must be equal to or finer than the coarse basis binning." << endl;
+    exit(-1);
+  }
+  if(fmod((FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR),1) > 0.){
+    cout << "ERROR: the ratio FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR must be an integer." << endl;
+    exit(-1);
+  }
+
+  randGen = new TRandom3();
+
+  TList *list = new TList;
+
+  //read in histograms from basis file
+  TFile *inp = new TFile(basisfileCoarse,"read");
+  if (!inp->IsOpen()) {
+    cout << "ERROR: Could not open basis file!" << endl;
+    exit(-1);
+  }else{
+    cout << "Opened waveform basis file: " << basisfileCoarse << endl;
+  }
+  
+  //setup histograms for the basis 
+  TH1I *basisHPCoarse, *basisHPFine;
+  if((basisHPCoarse = (TH1I*)inp->Get("basis_hitpattern"))==NULL){
+    cout << "ERROR: no hitpattern in the coarse waveform basis." << endl;
+    exit(-1);
+  }
+  Int_t coarseBasisBinsR = VOXEL_BINS_R*COARSE_BASIS_BINFACTOR;
+  Int_t coarseBasisBinsAngle = 4*VOXEL_BINS_ANGLE_MAX*COARSE_BASIS_BINFACTOR;
+  Int_t coarseBasisBinsZ = VOXEL_BINS_Z*COARSE_BASIS_BINFACTOR;
+  for(int k = 0; k < coarseBasisBinsR; k++){
+    Int_t numAngleBinsAtR = 4*getNumAngleBins(k,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2
+    for(int j = 0; j < numAngleBinsAtR; j++){
+      for(int i = 0; i < coarseBasisBinsZ; i++){
+        Int_t basisInd = k*coarseBasisBinsAngle*coarseBasisBinsZ + j*coarseBasisBinsZ + i;
+        sprintf(hname,"basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/coarseBasisBinsR,(k+1)*MAX_VAL_R/coarseBasisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR,i*MAX_VAL_Z/coarseBasisBinsZ,(i+1)*MAX_VAL_Z/coarseBasisBinsZ);
+        if((coarseBasis[basisInd] = (TH1D*)inp->Get(hname))==NULL){
+          cout << "No coarse waveform basis data for radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
+          //cout << hname << endl;
+          //getc(stdin);
+        }
+        //list->Add(coarseBasis[basisInd]);
+      }
+    }
+  }
+  cout << "Coarse waveform basis data read in." << endl;
+  
+
+  //read in histograms from basis file
+  TFile *inp2 = new TFile(basisfileFine,"read");
+  if (!inp2->IsOpen()) {
+    cout << "ERROR: Could not open basis file!" << endl;
+    exit(-1);
+  }else{
+    cout << "Opened waveform basis file: " << basisfileFine << endl;
+  }
+  
+  //setup histograms for the basis 
+  if((basisHPFine = (TH1I*)inp2->Get("basis_hitpattern"))==NULL){
+    cout << "ERROR: no hitpattern in the fine waveform basis." << endl;
+    exit(-1);
+  }
+  Int_t fineBasisBinsR = VOXEL_BINS_R*FINE_BASIS_BINFACTOR;
+  Int_t fineBasisBinsAngle = 4*VOXEL_BINS_ANGLE_MAX*FINE_BASIS_BINFACTOR;
+  Int_t fineBasisBinsZ = VOXEL_BINS_Z*FINE_BASIS_BINFACTOR;
+  for(int k = 0; k < fineBasisBinsR; k++){
+    Int_t numAngleBinsAtR = 4*getNumAngleBins(k,FINE_BASIS_BINFACTOR,COARSE_BASIS_BINFACTOR)*FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR; //x4 since covering 2pi rather than pi/2
+    for(int j = 0; j < numAngleBinsAtR; j++){
+      for(int i = 0; i < fineBasisBinsZ; i++){
+        Int_t basisInd = k*fineBasisBinsAngle*fineBasisBinsZ + j*fineBasisBinsZ + i;
+        sprintf(hname,"basis_r%ito%i_angle%ito%i_z%ito%i",k*MAX_VAL_R/fineBasisBinsR,(k+1)*MAX_VAL_R/fineBasisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR,i*MAX_VAL_Z/fineBasisBinsZ,(i+1)*MAX_VAL_Z/fineBasisBinsZ);
+        if((fineBasis[basisInd] = (TH1D*)inp2->Get(hname))==NULL){
+          cout << "No fine waveform basis data for radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
+        }
+        //list->Add(fineBasis[basisInd]);
+      }
+    }
+  }
+  cout << "Fine waveform basis data read in." << endl;
+
+  TH1I *numSegHitsHist = new TH1I("numSegHits","numSegHits",10,0,10);
+  list->Add(numSegHitsHist);
+  TH3D *pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
+  list->Add(pos3DMap);
+  TH3D *pos3DMap1Hit = new TH3D("pos3DMap1Hit","pos3DMap1Hit",40,-40,40,40,-40,40,40,-10,100);
+  list->Add(pos3DMap1Hit);
+  TH3D *pos3DMap2Hit = new TH3D("pos3DMap2Hit","pos3DMap2Hit",40,-40,40,40,-40,40,40,-10,100);
+  list->Add(pos3DMap2Hit);
+  TH2D *posXYMap = new TH2D("posXYMap","posXYMap",40,-40,40,40,-40,40);
+  list->Add(posXYMap);
+  TH3D *coarseBasisInd3DMap = new TH3D("coarseBasisInd3DMap","coarseBasisInd3DMap",coarseBasisBinsR,0,coarseBasisBinsR,coarseBasisBinsAngle,0,coarseBasisBinsAngle,coarseBasisBinsZ,0,coarseBasisBinsZ);
+  list->Add(coarseBasisInd3DMap);
+  TH3D *basisInd3DMap = new TH3D("basisInd3DMap","basisInd3DMap",fineBasisBinsR,0,fineBasisBinsR,fineBasisBinsAngle,0,fineBasisBinsAngle,fineBasisBinsZ,0,fineBasisBinsZ);
+  list->Add(basisInd3DMap);
+
+  if(inpList){
+    FILE *listFile;
+    char name[256];
+    if((listFile=fopen(infile,"r"))==NULL){
+      cout << "ERROR: Could not open analysis tree list file!" << endl;
+      exit(-1);
+    }
+    while(fscanf(listFile,"%s",name)!=EOF){
+      TFile * inputfile = new TFile(name, "READ");
+      if (!inputfile->IsOpen()) {
+        cout << "ERROR: Could not open analysis tree file (" << name << ")" << endl;
+        exit(-1);
+      }
+      sortData(inputfile, calfile, basisHPCoarse, basisHPFine, coarseBasisInd3DMap, basisInd3DMap, numSegHitsHist, pos3DMap, posXYMap, pos3DMap1Hit, pos3DMap2Hit);
+      inputfile->Close();
+    }
+    fclose(listFile);
+  }else{
+    TFile * inputfile = new TFile(infile, "READ");
+    if (!inputfile->IsOpen()) {
+      cout << "ERROR: Could not open analysis tree file (" << infile << ")" << endl;
+      exit(-1);
+    }
+    sortData(inputfile, calfile, basisHPCoarse, basisHPFine, coarseBasisInd3DMap, basisInd3DMap, numSegHitsHist, pos3DMap, posXYMap, pos3DMap1Hit, pos3DMap2Hit);
+    inputfile->Close();
+  }
+
+
+
 
   cout << "Writing histograms to: " << outfile << endl;
   TFile * myfile = new TFile(outfile, "RECREATE");
@@ -577,6 +613,7 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
 int main(int argc, char ** argv) {
 
   const char *afile, *basisfileCoarse, *basisfileFine, *outfile, *calfile;
+  char *ext;
 
   if (argc < 2) {
     cout << endl << "This sortcode sorts interaction positions using a waveform basis (generated using the GammaTrackingMakeBasis code) using the grid search method." << endl << endl;
@@ -634,7 +671,14 @@ int main(int argc, char ** argv) {
 
   TParserLibrary::Get()->Load();
 
-  sort_from_basis(afile, basisfileCoarse, basisfileFine, calfile, outfile);
+  ext=strrchr(argv[1],'.'); /* returns a pointer to the last . to grab extention*/
+  if(strcmp(ext,".list")==0){
+    cout << "Sorting from a list of analysis trees..." << endl;
+    sort_from_basis(afile, basisfileCoarse, basisfileFine, calfile, outfile, true);
+  }else{
+    cout << "Sorting from a single analysis tree..." << endl;
+    sort_from_basis(afile, basisfileCoarse, basisfileFine, calfile, outfile, false);
+  }
 
   return 0;
 }

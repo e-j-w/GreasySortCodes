@@ -3,9 +3,88 @@
 TH1D *rDistHist[NSEG], *angleDistHist[NSEG*VOXEL_BINS_R], *zDistHist[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
 TH1 *rDistHistC[NSEG], *angleDistHistC[NSEG*VOXEL_BINS_R], *zDistHistC[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
 
+
+void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NSEG]){
+  TChain * AnalysisTree = (TChain * ) inputfile->Get("AnalysisTree");
+  cout << AnalysisTree->GetNtrees() << " tree files, details:" << endl;
+  AnalysisTree->ls();
+  TTree * tree = (TTree * ) AnalysisTree->GetTree();
+  cout << "Reading calibration file: " << calfile << endl;
+  TChannel::ReadCalFile(calfile);
+  Int_t nentries = AnalysisTree->GetEntries();
+
+  TTigress *tigress = 0;
+  TTigressHit *tigress_hit;
+  if (AnalysisTree->FindBranch("TTigress")) {
+    AnalysisTree->SetBranchAddress("TTigress", & tigress);
+  } else {
+    cout << "ERROR: no TTigress branch found!" << endl;
+    exit(-1);
+  }
+
+  Int_t hit_counter = 0;
+  Int_t map_hit_counter = 0;
+  Int_t overflow_rho_counter = 0;
+  Int_t overflow_phi_counter = 0;
+  Int_t overflow_zeta_counter = 0;
+
+  Int_t one;
+  Int_t offset = 0;
+  for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
+    tree->GetEntry(jentry);
+    for (one = 0; one < tigress->GetMultiplicity(); one++) {
+      tigress_hit = tigress->GetTigressHit(one);
+      if(tigress_hit->GetKValue() != 700) continue;  //exclude pileup
+      hit_counter++;
+      bool isHit = false;
+      for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
+        
+        TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
+
+        Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
+
+        //calculate all ordering parameters (see ordering_parameter_calc.cxx)
+        Double_t rho = calc_ordering(tigress_hit,i,jentry,0);
+        if(rho == BAD_RETURN){
+          continue;
+        }
+        Double_t phi = calc_ordering(tigress_hit,i,jentry,1);
+        if(phi == BAD_RETURN){
+          continue;
+        }
+        Double_t zeta = calc_ordering(tigress_hit,i,jentry,2);
+        if(zeta == BAD_RETURN){
+          continue;
+        }
+
+        if(fabs(rho) > RHO_MAX)
+          overflow_rho_counter++;
+        if(fabs(phi) > PHI_MAX)
+          overflow_phi_counter++;
+        if(fabs(zeta) > ZETA_MAX)
+          overflow_zeta_counter++;
+        
+        //cout << "seg: " << segNum << ", rho: " << rho << ", phi:" << phi << ", zeta: " << zeta << endl;
+        //cout << "bin: " << rhophizetaHist[segNum]->GetBin(rho,phi,zeta) << endl;
+        rhophizetaHist[segNum]->Fill(rho,phi,zeta);
+        isHit = true;
+      }
+      if(isHit){
+        map_hit_counter++;
+      }
+    }
+    if (jentry % 10000 == 0) cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << nentries << ", " << 100 * jentry / nentries << "% complete" << "\r" << flush;
+  }
+
+  cout << "Entry " << nentries << " of " << nentries << ", 100% Complete!" << endl;
+  cout << map_hit_counter << " of " << hit_counter << " hits retained (" << 100*map_hit_counter/hit_counter << " %)." << endl;
+  cout << "Hits with ordering parameters out of map range for [rho, phi, zeta]: [" << overflow_rho_counter << " " << overflow_phi_counter << " " << overflow_zeta_counter << "]" << endl;
+}
+
+
 //function which generates a mapping between ordering parameters and real spatial coordinates
 //and saves this mapping to disk
-void generate_mapping(const char *infile, const char *simfile, const char *calfile, const char *outfile) {
+void generate_mapping(const char *infile, const char *simfile, const char *calfile, const char *outfile, bool inpList) {
 
   TList * list = new TList;
   
@@ -143,85 +222,34 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
     //list->Add(rhophizetaHist[k]);
   }
 
-  TFile * inputfile = new TFile(infile, "READ");
-  if (!inputfile->IsOpen()) {
-    cout << "ERROR: Could not open analysis tree file!" << endl;
-    exit(-1);
-  }
-  TChain * AnalysisTree = (TChain * ) inputfile->Get("AnalysisTree");
-  cout << AnalysisTree->GetNtrees() << " tree files, details:" << endl;
-  AnalysisTree->ls();
-  TTree * tree = (TTree * ) AnalysisTree->GetTree();
-  cout << "Reading calibration file: " << calfile << endl;
-  TChannel::ReadCalFile(calfile);
-  Int_t nentries = AnalysisTree->GetEntries();
 
-  TTigress * tigress = 0;
-  TTigressHit * tigress_hit;
-  if (AnalysisTree->FindBranch("TTigress")) {
-    AnalysisTree->SetBranchAddress("TTigress", & tigress);
-  } else {
-    cout << "ERROR: no TTigress branch found!" << endl;
-    exit(-1);
-  }
-
-  Int_t hit_counter = 0;
-  Int_t map_hit_counter = 0;
-  Int_t overflow_rho_counter = 0;
-  Int_t overflow_phi_counter = 0;
-  Int_t overflow_zeta_counter = 0;
-
-  Int_t one;
-  Int_t offset = 0;
-  for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
-    tree->GetEntry(jentry);
-    for (one = 0; one < tigress->GetMultiplicity(); one++) {
-      tigress_hit = tigress->GetTigressHit(one);
-      if(tigress_hit->GetKValue() != 700) continue;  //exclude pileup
-      hit_counter++;
-      bool isHit = false;
-      for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
-        
-        TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
-
-        Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
-
-        //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-        Double_t rho = calc_ordering(tigress_hit,i,jentry,0);
-        if(rho == BAD_RETURN){
-          continue;
-        }
-        Double_t phi = calc_ordering(tigress_hit,i,jentry,1);
-        if(phi == BAD_RETURN){
-          continue;
-        }
-        Double_t zeta = calc_ordering(tigress_hit,i,jentry,2);
-        if(zeta == BAD_RETURN){
-          continue;
-        }
-
-        if(fabs(rho) > RHO_MAX)
-          overflow_rho_counter++;
-        if(fabs(phi) > PHI_MAX)
-          overflow_phi_counter++;
-        if(fabs(zeta) > ZETA_MAX)
-          overflow_zeta_counter++;
-        
-        //cout << "seg: " << segNum << ", rho: " << rho << ", phi:" << phi << ", zeta: " << zeta << endl;
-        //cout << "bin: " << rhophizetaHist[segNum]->GetBin(rho,phi,zeta) << endl;
-        rhophizetaHist[segNum]->Fill(rho,phi,zeta);
-        isHit = true;
-      }
-      if(isHit){
-        map_hit_counter++;
-      }
+  if(inpList){
+    FILE *listFile;
+    char name[256];
+    if((listFile=fopen(infile,"r"))==NULL){
+      cout << "ERROR: Could not open analysis tree list file!" << endl;
+      exit(-1);
     }
-    if (jentry % 10000 == 0) cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << nentries << ", " << 100 * jentry / nentries << "% complete" << "\r" << flush;
+    while(fscanf(listFile,"%s",name)!=EOF){
+      TFile *inputfile = new TFile(name, "READ");
+      if (!inputfile->IsOpen()) {
+        cout << "ERROR: Could not open analysis tree file (" << name << ")" << endl;
+        exit(-1);
+      }
+      sortData(inputfile,calfile,rhophizetaHist);
+      inputfile->Close();
+    }
+    fclose(listFile);
+  }else{
+    TFile *inputfile = new TFile(infile, "READ");
+    if (!inputfile->IsOpen()) {
+      cout << "ERROR: Could not open analysis tree file (" << infile << ")" << endl;
+      exit(-1);
+    }
+    sortData(inputfile,calfile,rhophizetaHist);
+    inputfile->Close();
   }
-
-  cout << "Entry " << nentries << " of " << nentries << ", 100% Complete!" << endl;
-  cout << map_hit_counter << " of " << hit_counter << " hits retained (" << 100*map_hit_counter/hit_counter << " %)." << endl;
-  cout << "Hits with ordering parameters out of map range for [rho, phi, zeta]: [" << overflow_rho_counter << " " << overflow_phi_counter << " " << overflow_zeta_counter << "]" << endl;
+  
 
   //generate normalized cumulative distributions of all ordering parameters,
   //and then ordering parameter to spatial coordinate maps
@@ -402,6 +430,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
 int main(int argc, char ** argv) {
 
   const char *afile, *simfile, *outfile, *calfile;
+  char *ext;
 
   if (argc < 3) {
     cout << endl << "This sortcode makes a map for the gamma tracking direct method which transforms ordering parameters to real spatial coordinates.  ";
@@ -435,6 +464,8 @@ int main(int argc, char ** argv) {
 
   cout << "Starting sortcode..." << endl;
 
+  
+
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
   if(grsi_path.length() > 0) {
 	  grsi_path += "/";
@@ -447,7 +478,15 @@ int main(int argc, char ** argv) {
 
   TParserLibrary::Get()->Load();
 
-  generate_mapping(afile, simfile, calfile, outfile);
+  ext=strrchr(argv[1],'.'); /* returns a pointer to the last . to grab extention*/
+  if(strcmp(ext,".list")==0){
+    cout << "Sorting from a list of analysis trees..." << endl;
+    generate_mapping(afile, simfile, calfile, outfile, true);
+  }else{
+    cout << "Sorting from a single analysis tree..." << endl;
+    generate_mapping(afile, simfile, calfile, outfile, false);
+  }
+  
 
   return 0;
 }
