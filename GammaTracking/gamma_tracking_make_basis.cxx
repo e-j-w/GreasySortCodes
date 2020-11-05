@@ -3,7 +3,7 @@
 TH1 *rMap[NSEG], *angleMap[NSEG*VOXEL_BINS_R], *zMap[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
 TH1D *basis[(Int_t)(VOXEL_BINS_R*4*VOXEL_BINS_ANGLE_MAX*VOXEL_BINS_Z*FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR)];
 
-void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFac, const bool makeFineBasis, Int_t *numEvtsBasis){
+void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFac, const bool makeFineBasis, unsigned long int *numEvtsBasis){
   
   const Int_t basisBinsR = VOXEL_BINS_R*basisScaleFac; 
   const Int_t basisBinsAngle = 4*VOXEL_BINS_ANGLE_MAX*basisScaleFac; 
@@ -29,7 +29,6 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
   Int_t hit_counter = 0;
   Int_t map_hit_counter = 0;
 
-  const std::vector<Short_t> *wf, *segwf;
   const Int_t one = 1;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
@@ -39,7 +38,7 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
       Double_t coreCharge = tigress_hit->GetCharge();
       if((coreCharge <= 0)||(coreCharge > BASIS_MAX_ENERGY)) continue; //bad energy
       tigress_hit->SetWavefit();
-      wf = tigress_hit->GetWaveform();
+      const std::vector<Short_t> *wf = tigress_hit->GetWaveform();
       if(wf->size()!=SAMPLES){
         cout << "Entry " << jentry << ", improper core waveform size (" << wf->size() << ")." << endl;
         continue;
@@ -97,7 +96,8 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
             //map to spatial parameters
             if(rMap[segNum]!=NULL){
               double r = rMap[segNum]->GetBinContent(rMap[segNum]->FindBin(rho));
-              Int_t rInd = (Int_t)(r*VOXEL_BINS_R/MAX_VAL_R);
+              Int_t rInd = (Int_t)(r*VOXEL_BINS_R/(1.0*MAX_VAL_R));
+              //cout << "seg: " << segNum << ", r: " << r << ", rho: " << rho << ", ind: " << rInd << endl;
               if(rInd < VOXEL_BINS_R){
                 if(angleMap[segNum*VOXEL_BINS_R + rInd]!=NULL){
                   double angle = angleMap[segNum*VOXEL_BINS_R + rInd]->GetBinContent(angleMap[segNum*VOXEL_BINS_R + rInd]->FindBin(phi));
@@ -105,11 +105,13 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
                     angle=MAX_VAL_ANGLE-0.001; //have seen rare events where angle is exactly 90 degrees
                   }
                   Int_t angleInd = (Int_t)(angle*getNumAngleBins(rInd,1.0)/MAX_VAL_ANGLE);
+                  //cout << "angle: " << angle << ", phi: " << phi << ", ind: " << angleInd << endl;
                   if(zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]!=NULL){
                     double z = zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->GetBinContent(zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->FindBin(zeta));
                     if(z>=MAX_VAL_Z){
                       z=MAX_VAL_Z-0.001; //have seen rare events where z is exactly 90 mm
                     }
+                    //cout << "z: " << z << endl;
 
                     if((r>0.)&&(z>0.)&&(angle>0.)){
                       if(segNum<=3){
@@ -118,6 +120,9 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
                       }
                       if((r==r)&&(angle==angle)&&(z==z)){
                         angle += 90.*(segNum%4); //transform angle to 2pi spanned val
+                        if(angle>=360.){
+                          angle=360.-0.001; //have seen rare events where angle is exactly 360 degrees
+                        }
 
                         //cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
 
@@ -149,7 +154,7 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
                           //cout << "basisInd: " << basisInd << endl;
 
                           Int_t segBasisInd = tigress_hit->GetSegmentHit(j).GetSegment();
-                          segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
+                          const std::vector<Short_t> *segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
                           Double_t seg_waveform_baseline = 0.;
                           for(int k = 0; k < BASELINE_SAMPLES; k++){
                             seg_waveform_baseline += segwf->at(k);
@@ -167,9 +172,15 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
                       }
                       //cout << "val: " << basis[basisInd]->GetBinContent(0) << ", num evts: " << numEvtsBasis[basisInd] << endl;
                     }
+                  }else{
+                    cout << "WARNING: NULL z map bin (seg: " << segNum << ", r: " << r << ", r ind: " << rInd << ", angle: " << angle << ", angleInd: " << angleInd << ")" << endl;
                   }
+                }else{
+                  cout << "WARNING: NULL angle map bin (seg: " << segNum << ", r: " << r << ", r ind: " << rInd << ")" << endl;
                 }
               }
+            }else{
+              cout << "WARNING: NULL r map bin (seg: " << segNum << ")" << endl;
             }
             
           }
@@ -202,7 +213,6 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
     exit(-1);
   }
 
-
   TList * list = new TList;
 
   //read in histograms from map file
@@ -213,7 +223,6 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
   }else{
     cout << "Opened map file: " << mapfile << endl;
   }
-
   
   for(int k = 0; k < NSEG; k++){
     sprintf(hname,"rMapSeg%i",k);
@@ -225,7 +234,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
       Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
       sprintf(hname,"angleMapSeg%ir%ito%i",k,rValMin,rValMax);
       if((angleMap[k*VOXEL_BINS_R + j] = (TH1*)inp->Get(hname))==NULL){
-        cout << "No angle coordinate map for segment " << k << ", radial bin " << j << endl;
+        cout << "No angle coordinate map for segment " << k << ", radial range " << rValMin << " to " << rValMax << endl;
       }
       Int_t numAngleBins = getNumAngleBins(j,1.0);
       for(int i = 0; i < numAngleBins; i++){
@@ -233,7 +242,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
         Int_t angleValMax = (Int_t)((i+1)*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
         sprintf(hname,"zMapSeg%ir%ito%iangle%ito%i",k,rValMin,rValMax,angleValMin,angleValMax);
         if((zMap[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = (TH1*)inp->Get(hname))==NULL){
-          cout << "No z coordinate map for segment " << k << ", radial bin " << j << ", angle bin " << i << endl;
+          cout << "No z coordinate map for segment " << k << ", radial range " << rValMin << " to " << rValMax << ", angle range " << angleValMin << " to " << angleValMax << endl;
         }
       }
     } 
@@ -254,7 +263,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
   const Int_t basisBinsZ = VOXEL_BINS_Z*basisScaleFac;
   TH1I *basisHP = new TH1I("basis_hitpattern","basis_hitpattern",basisBinsR*basisBinsAngle*basisBinsZ,0,basisBinsR*basisBinsAngle*basisBinsZ);
   list->Add(basisHP);
-  Int_t numEvtsBasis[basisBinsR*basisBinsAngle*basisBinsZ];
+  unsigned long int numEvtsBasis[basisBinsR*basisBinsAngle*basisBinsZ];
   memset(numEvtsBasis,0,sizeof(numEvtsBasis));
   for(int k = 0; k < basisBinsR; k++){
     Int_t numAngleBinsAtR = 4*getNumAngleBins(k,basisScaleFac,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2

@@ -287,12 +287,20 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
     }
   }
   //store rho bin numbers which correspond to discrete values of r
-  Int_t rhoBinVal[NSEG*(VOXEL_BINS_R)];
+  Int_t rhoBinVal[NSEG*(VOXEL_BINS_R + 1)];
   for(int k = 0; k < NSEG; k++){
     for(int j = 0; j <= VOXEL_BINS_R; j++){
       Double_t rBinVal = j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)); //keep r bins equal in size
-      rhoBinVal[k*VOXEL_BINS_R + j] = rMap[k]->FindFirstBinAbove(rBinVal);
+      rhoBinVal[k*(VOXEL_BINS_R+1) + j] = rMap[k]->FindFirstBinAbove(rBinVal-0.01); //-0.01 to handle bin values at the end of the mapping range
+      //get correct range for last bin (which may extend radially beyond the physical detector edge)
+      if((j > 0)&&(rhoBinVal[k*(VOXEL_BINS_R+1) + j] == -1)){
+        rhoBinVal[k*(VOXEL_BINS_R+1) + j] = rMap[k]->FindLastBinAbove((j-1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)) - 0.01);
+      }
+      
     }
+    /*for(int j = 0; j <= VOXEL_BINS_R; j++){
+      cout << "seg: " << k << ", rhoBin: " << j <<  ", rhoBinVal: " << rhoBinVal[k*(VOXEL_BINS_R+1) + j] << endl;
+    }*/
   }
 
   //now map phi based on mapped radius (binned) and segment number
@@ -304,12 +312,12 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
       //get the projection in phi (y) gated on a range in rho (x)
       phiHist[k*VOXEL_BINS_R + j] = new TH1D();
       phiHistC[k*VOXEL_BINS_R + j] = new TH1D();
-      Int_t lowerRhoBound = rhoBinVal[k*VOXEL_BINS_R + j];
-      Int_t upperRhoBound = rhoBinVal[k*VOXEL_BINS_R + j + 1];
+      Int_t lowerRhoBound = rhoBinVal[k*(VOXEL_BINS_R+1) + j];
+      Int_t upperRhoBound = rhoBinVal[k*(VOXEL_BINS_R+1) + j + 1];
       Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
       Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
+      //cout << "seg: " << k << ", bin: " << j << ", proj bounds: " << lowerRhoBound << " " << upperRhoBound << endl;
       if((lowerRhoBound > 0)&&(lowerRhoBound < upperRhoBound)){
-        //cout << "bin: " << j << ", proj bounds: " << lowerRBound << " " << upperRBound << endl;
         phiHist[k*VOXEL_BINS_R + j] = rhophizetaHist[k]->ProjectionY("",lowerRhoBound,upperRhoBound);
         if(phiHist[k*VOXEL_BINS_R + j]->GetEntries()>0){
           phiHist[k*VOXEL_BINS_R + j]->Scale(1.0/phiHist[k*VOXEL_BINS_R + j]->Integral());
@@ -350,8 +358,8 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
         //printf("k j i %i %i %i\n",k,j,i);
         //printf("bins %i %i\n",k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i, k*VOXEL_BINS_R + j);
         Double_t angleBinVal = i*(MAX_VAL_ANGLE/(numAngleBins*1.0)); //size of phi bins depends on r
-        phiBinVal[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = angleMap[k*VOXEL_BINS_R + j]->FindFirstBinAbove(angleBinVal);
-        //printf("k j i %i %i %i, binVal: %i\n",k,j,i,phiBinVal[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]);
+        phiBinVal[k*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + j*(VOXEL_BINS_ANGLE_MAX+1) + i] = angleMap[k*VOXEL_BINS_R + j]->FindFirstBinAbove(angleBinVal-0.01); //-0.01 to handle bin values at the end of the mapping range
+        //printf("k j i %i %i %i, binVal: %i\n",k,j,i,phiBinVal[k*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + j*(VOXEL_BINS_ANGLE_MAX+1) + i]);
       }
     }
   }
@@ -362,8 +370,8 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   TH1 *zetaHist[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)], *zetaHistC[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
   for(int k = 0; k < NSEG; k++){
     for(int j = 0; j < VOXEL_BINS_R; j++){
-      Int_t lowerRhoBound = rhoBinVal[k*VOXEL_BINS_R + j];
-      Int_t upperRhoBound = rhoBinVal[k*VOXEL_BINS_R + j + 1];
+      Int_t lowerRhoBound = rhoBinVal[k*(VOXEL_BINS_R+1) + j];
+      Int_t upperRhoBound = rhoBinVal[k*(VOXEL_BINS_R+1) + j + 1];
       Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
       Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
       Int_t numAngleBins = getNumAngleBins(j,1.0);
@@ -371,8 +379,8 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
         //get the projection in zeta (z) gated on a range in rho (x) and phi (y)
         zetaHist[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = new TH1D();
         zetaHistC[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = new TH1D();
-        Int_t lowerPhiBound = phiBinVal[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i];
-        Int_t upperPhiBound = phiBinVal[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i + 1];
+        Int_t lowerPhiBound = phiBinVal[k*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + j*(VOXEL_BINS_ANGLE_MAX+1) + i];
+        Int_t upperPhiBound = phiBinVal[k*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + j*(VOXEL_BINS_ANGLE_MAX+1) + i + 1];
         Int_t angleValMin = (Int_t)(i*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
         Int_t angleValMax = (Int_t)((i+1)*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
         //cout << "bin: " << k << " " << j << " " << i << ", proj bounds x: " << lowerBoundx << " " << upperBoundx << endl;

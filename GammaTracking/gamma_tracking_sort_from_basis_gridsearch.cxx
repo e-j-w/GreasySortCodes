@@ -91,8 +91,8 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
   const std::vector<Short_t> *segwf;
   const Int_t one = 1;
   const Int_t basisBinRatio = (Int_t)(FINE_BASIS_BINFACTOR/(COARSE_BASIS_BINFACTOR*1.0));
-  for (int jentry = 0; jentry < 100000; jentry++) {
-  //for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
+  //for (int jentry = 0; jentry < 100000; jentry++) {
+  for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
     for (int hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++) {
       tigress_hit = tigress->GetTigressHit(hitInd);
