@@ -73,7 +73,7 @@ bool goodIC(double tempIC[])
 double pi = TMath::Pi();
 double xp[2] = {-8.0, 8.0};     // PGAC X-position 1D gate, minimum and maximum . Change !!!
 double yp[2] = {-15.0, +15.0};  // PGAC T-position 1D gate, minimum and maximum. Change !!!
-double tigs3T[2] = {-100, 150}; // TIGRESS - S3 Timing. Change !!!
+double tigs3T[2] = {-100, 350}; // TIGRESS - S3 Timing. Change !!!
 double tigtigT[2] = {-100, 100}; // TIGRESS - TIGRESS Timing. Change !!!
 
 double tempIC;
@@ -195,10 +195,23 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
   TS3Hit *ring_hit, *sector_hit, *s3hit;
   TVector3 s3pos, recoil_vec;
 
-  s3->SetFrontBackTime(140); // Needed to build S3 pixels properly
+  if(s3){
+    //s3->SetFrontBackTime(140); // Needed to build S3 pixels properly
+    s3->SetFrontBackTime(500);
+    s3->SetFrontBackEnergy(0.9);
+  }
 
   printf("Reading calibration file: %s\n", calfile);
   TChannel::ReadCalFile(calfile);
+
+  /*cout << "TIGRESS positions: " << endl;
+  for(int det=1;det<17;det++){
+    for(int cry=0;cry<4;cry++){
+      TVector3 pos = tigress->GetPosition(det, cry, 0, 110., false);
+      cout << "det: " << det << ", cry: " << cry << ", position: [ " << pos.x() << " " << pos.y() << " " << pos.z() << " ]" << endl;
+    }
+  }*/
+  
 
   printf("\nSorting analysis events...\n");
   for (int jentry = 0; jentry < analentries; jentry++)
@@ -224,6 +237,7 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
         {
           addE->Fill(add_hit->GetEnergy());
           addE_ANum->Fill(add_hit->GetArrayNumber(), add_hit->GetEnergy());
+          num_addr->Fill(add_hit->GetArrayNumber(),add_hit->GetAddress());
 
           //TIGRESS-TIGRESS addback
           for (int t2 = t+1; t2 < tigress->GetAddbackMultiplicity(); t2++)
@@ -266,6 +280,11 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
           if (s3->GetRingMultiplicity() != 1 || s3->GetSectorMultiplicity() != 1)
             continue; //only look at multiplicity 1 rings and sector hits
           s3_rings_sectors_singles->Fill(ring_hit->GetEnergy(), s3->GetSectorHit(j)->GetEnergy());
+          s3_rings_sectors_singlesT->Fill(s3->GetSectorHit(j)->GetTime() - ring_hit->GetTime());
+          s3_rings_sectors_singlesTvT->Fill(ring_hit->GetTime()/(1E9*60.), s3->GetSectorHit(j)->GetTime() - ring_hit->GetTime());
+          s3_rings_sectors_singlesTvSec->Fill(s3->GetSectorHit(j)->GetSector(), s3->GetSectorHit(j)->GetTime() - ring_hit->GetTime());
+          s3_rings_sectors_singlesTvRing->Fill(ring_hit->GetRing(), s3->GetSectorHit(j)->GetTime() - ring_hit->GetTime());
+          s3_rings_sectors_singlesTvE->Fill(s3->GetSectorHit(j)->GetEnergy(), s3->GetSectorHit(j)->GetTime() - ring_hit->GetTime());
         }
       }
 
@@ -282,6 +301,7 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
         s3_rings_sectors_gated->Fill(ringEnergy, sectorEnergy);
       }
 
+      
       for (int i = 0; i < s3->GetPixelMultiplicity(); i++)
       {
         s3hit = s3->GetPixelHit(i);
@@ -322,6 +342,8 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
               addDopp->Fill(add_hit->GetDoppler(beta, &recoil_vec));
               addDopp_ANum->Fill(add_hit->GetArrayNumber(), add_hit->GetEnergy());
               addDopp_exc->Fill(add_hit->GetDoppler(beta, &recoil_vec), exc);
+              addE_s3_E->Fill(add_hit->GetEnergy(), s3hit->GetEnergy());
+              addDopp_s3_E->Fill(add_hit->GetDoppler(beta, &recoil_vec), s3hit->GetEnergy());
             }
           }
         }
@@ -334,8 +356,8 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
       for (int l = 0; l < emma->GetSSBMultiplicity(); l++)
       { // Get SSB hits
         ssb_hit = emma->GetSSBHit(l);
-        ssbE[ssb_hit->GetDetector() - 1]->Fill(ssb_hit->GetEnergy());
-        ssbET[ssb_hit->GetDetector() - 1]->Fill(ssb_hit->GetTime() / 1e9, ssb_hit->GetEnergy());
+        ssbE[ssb_hit->GetDetector()]->Fill(ssb_hit->GetEnergy());
+        ssbET[ssb_hit->GetDetector()]->Fill(ssb_hit->GetTime() / 1e9, ssb_hit->GetEnergy());
       }
 
       tempIC = 0; // intialise IC arrays
@@ -355,8 +377,8 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
       //   if (emma->GetSiMultiplicity() > 0 && emma->GetSiHit(0)->GetEnergy() > 200) { // Si Gated
       //    if (emma->GetICMultiplicity() == 4 && goodIC(tempICArray) ) {                // IC Gated
       //      if (emma->GetICMultiplicity() == 4) {                // IC Gated
-      if (emma->GetICMultiplicity() == 4 && emma->GetSiMultiplicity() > 0 && emma->GetSiHit(0)->GetEnergy() > 1000)
-      { // Si + ICGated --GH -- was 200
+      //if (emma->GetICMultiplicity() == 4 && emma->GetSiMultiplicity() > 0 && emma->GetSiHit(0)->GetEnergy() > 1000)
+      //{ // Si + ICGated --GH -- was 200
         for (int e = 0; e < emma->GetMultiplicity(); e++)
         {
           em_hit = emma->GetEmmaHit(e);
@@ -374,6 +396,7 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
           for (int one = 0; one < emma->GetTriggerMultiplicity(); one++)
           {
             trigger_hit = emma->GetTriggerHit(one);
+            cout << "hit " << one << ", energy: " << trigger_hit->GetEnergy() << endl;
             if (trigger_hit->GetEnergy() > 200)
               continue;
             tDE->Fill(trigger_hit->GetTime() / pow(10, 9), em_hit->GetTime() - trigger_hit->GetTime()); // get time between EMMA and TIGRESS events
@@ -485,12 +508,14 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
                         suppAdd = add_hit2->BGOFired();
                         if (gate1D((add_hit->GetTime() - add_hit2->GetTime()), tigtigT[0], tigtigT[1]))
                           {
+                            addE_addE_tofg->Fill(add_hit->GetEnergy(),add_hit2->GetEnergy());
+                            addE_addE_tofg->Fill(add_hit2->GetEnergy(),add_hit->GetEnergy()); //symmetrized
                             addDopp_addDopp_tg->Fill(add_hit->GetDoppler(beta, &recoil_vec), add_hit2->GetDoppler(beta, &recoil_vec));
                             addDopp_addDopp_tg->Fill(add_hit2->GetDoppler(beta, &recoil_vec), add_hit->GetDoppler(beta, &recoil_vec)); //symmetrized
                           }
                       }
 
-                      if (emma->GetICMultiplicity() == 4 && emma->GetSiMultiplicity() > 0 && emma->GetSiHit(0)->GetEnergy() > 1000 && add_hit->GetDoppler(beta, &recoil_vec) > 340 && add_hit->GetDoppler(beta, &recoil_vec) < 350)
+                      /*if (emma->GetICMultiplicity() == 4 && emma->GetSiMultiplicity() > 0 && emma->GetSiHit(0)->GetEnergy() > 1000 && add_hit->GetDoppler(beta, &recoil_vec) > 340 && add_hit->GetDoppler(beta, &recoil_vec) < 350)
                       { //add in the Si vs IC with the 350 keV gamma gate
                         for (int k = 0; k < emma->GetSiMultiplicity(); k++)
                         {
@@ -523,9 +548,9 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
                           addDopp_ANum_PIDG->Fill(add_hit->GetArrayNumber(), add_hit->GetEnergy());
                           addDopp_exc_PIDG->Fill(add_hit->GetDoppler(beta, &recoil_vec), exc);
                         }
-                      }
+                      }*/
                     }
-                    else if (BGtofGate((s3hit->GetTime() - em_hit->GetTime())))
+                    /*else if (BGtofGate((s3hit->GetTime() - em_hit->GetTime())))
                     { // TOF gate
                       excE_bg->Fill(exc);
                       excE_theta_bg->Fill(s3hit->GetTheta() * r2d, exc);
@@ -555,14 +580,14 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
                           addDopp_exc_PIDG_bg->Fill(add_hit->GetDoppler(beta, &recoil_vec), exc);
                         }
                       }
-                    }
+                    }*/
                   }
                 }
               }
             }
           } // if S3 & tigress
         }   // emma
-      }     //si
+      //}     //si
     }       //if emma
     if (jentry % 10000 == 0)
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << analentries << ", " << 100 * jentry / analentries << "% complete" << "\r" << flush;

@@ -67,6 +67,8 @@ void SortCode::Initialise() {
   tigList->Add(addE);
   addE_ANum = new TH2F("addE_ANum", "Addback_Energy_V_ArrayNumber", 64, 0, 64, 8192, 0, 8192);
   tigList->Add(addE_ANum);
+  num_addr = new TH2F("num_addr", "TIGRESS_position_vs_address", 64, 0, 64, 16384, 0, 16384);
+  tigList->Add(num_addr);
 
   //Raw S3 Spectra
   rings = new TH2F("rings","rings",24,0,24,2048,0,8192); 
@@ -83,6 +85,16 @@ void SortCode::Initialise() {
   s3List->Add(s3_rings_sectors);
   s3_rings_sectors_singles = new TH2F("s3_rings_sectors_singles","S3_sectorE_vs_ringE_Multiplicity_1;Ring Energy;Sector Energy",2048,0,8192,2048,0,8192);
   s3List->Add(s3_rings_sectors_singles);
+  s3_rings_sectors_singlesT = new TH1F("s3_rings_sectors_singles_timing","S3_sectorT_vs_ringT_Multiplicity_1;Sector Time - Ring Time",2048,-1024,1024);
+  s3List->Add(s3_rings_sectors_singlesT);
+  s3_rings_sectors_singlesTvT = new TH2F("s3_rings_sectors_singles_timing_v_time","S3_sectorT_vs_ringT_Multiplicity_1_vs_Time;Time (min);Sector Time - Ring Time",1600,0,1600,1024,-256,256);
+  s3List->Add(s3_rings_sectors_singlesTvT);
+  s3_rings_sectors_singlesTvSec = new TH2F("s3_rings_sectors_singles_timing_v_sector","S3_sectorT_vs_ringT_Multiplicity_1_vs_Sector;Sector;Sector Time - Ring Time",32,0,32,1024,-256,256);
+  s3List->Add(s3_rings_sectors_singlesTvSec);
+  s3_rings_sectors_singlesTvRing = new TH2F("s3_rings_sectors_singles_timing_v_ring","S3_sectorT_vs_ringT_Multiplicity_1_vs_Ring;Ring;Sector Time - Ring Time",24,0,24,1024,-256,256);
+  s3List->Add(s3_rings_sectors_singlesTvRing);
+  s3_rings_sectors_singlesTvE = new TH2F("s3_rings_sectors_singles_timing_v_energy","S3_sectorT_vs_ringT_Multiplicity_1_vs_Energy;Energy (keV);Sector Time - Ring Time",4096,4096,8192,1024,-256,256);
+  s3List->Add(s3_rings_sectors_singlesTvE);
   s3_rings_sectors_gated = new TH2F("s3_rings_sectors_gated","S3_sectorE_vs_ringE_gated_40keV;Ring Energy;Sector Energy",2048,0,8192,2048,0,8192);
   s3List->Add(s3_rings_sectors_gated);
 
@@ -107,7 +119,10 @@ void SortCode::Initialise() {
   tigs3List->Add(addDopp_ANum);
   addDopp_exc = new TH2F("addDopp_Exc", "Addback_Doppler_Energy_V_Excitation_Energy", 8192, 0, 8192, 2800, -2., 12.);
   tigs3List->Add(addDopp_exc);
-
+  addE_s3_E  = new TH2F("addE_s3E", "Addback_Energy_V_S3_Energy", 8192, 0, 8192, 2048, 0, 32768);
+  tigs3List->Add(addE_s3_E);
+  addDopp_s3_E  = new TH2F("addDopp_s3E", "Addback_Doppler_Energy_V_S3_Energy", 8192, 0, 8192, 2048, 0, 32768);
+  tigs3List->Add(addDopp_s3_E);
  
 
   // Raw EMMA
@@ -188,7 +203,9 @@ void SortCode::Initialise() {
   tgList->Add(addDopp_ANum_tg);
   addDopp_exc_tg = new TH2F("addDopp_Exc_tg", "Addback_Doppler_Energy_V_Excitation_Energy_Time_Gated", 8192, 0, 8192, 2800, -2., 12.);
   tgList->Add(addDopp_exc_tg);
-  addDopp_addDopp_tg = new TH2F("addDopp_addDopp_tg", "Addback_Gamma_Gamma_Time_Gated", 4096, 0, 8192, 4096, 0, 8192);
+  addE_addE_tofg = new TH2F("addE_addE_tofg", "Addback_Gamma_Gamma_Time_Gated", 4096, 0, 8192, 4096, 0, 8192);
+  tgList->Add(addE_addE_tofg);
+  addDopp_addDopp_tg = new TH2F("addDopp_addDopp_tg", "Addback_Gamma_Gamma_Time_Gated_Doppler_Corrected", 4096, 0, 8192, 4096, 0, 8192);
   tgList->Add(addDopp_addDopp_tg);
   s3_E_theta_gated = new TH2F("s3_E_theta_gated","s3_E_theta_gated",180,0,180, 820, 0, 16384); 
   tgList->Add(s3_E_theta_gated);
