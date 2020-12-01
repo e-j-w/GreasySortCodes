@@ -76,7 +76,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t jentr
     }
     rho /= dno;
     //rho = rho - term2; //may want to adjust weight of term2, Li uses x400
-    rho = term2;
+    rho = -1.*term2;
     if((dno==0.)||(rho!=rho)){
       cout << "Entry " << jentry << ", cannot compute rho parameter (NaN)." << endl;
       return BAD_RETURN;
@@ -153,53 +153,66 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t jentr
   }else if(parameterNum==2){
     //contruct zeta, the ordering parameter for the z direction
     //see Eq. 2 of NIM A 729 (2013) 198-206 (modified here)
-    const std::vector<Short_t> *segwf2;
-    bool found2 = false;
-    for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
-      if((j!=i)&&(tigress_hit->GetSegmentHit(j).GetCharge() >= SEGMENT_ENERGY_NOHIT_THRESHOLD)){
+
+    double zeta = 0.;
+    double dno; //placeholder for denominator
+    if(segNum>3){
+      //back segment
+       const std::vector<Short_t> *segwf2;
+      bool found2 = false;
+      for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
+        if((j!=i)&&(tigress_hit->GetSegmentHit(j).GetCharge() >= SEGMENT_ENERGY_NOHIT_THRESHOLD)){
+          return BAD_RETURN;
+        }
+        if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == zAdjSeg[segNum]){
+          found2=true;
+          segwf2 = tigress_hit->GetSegmentHit(j).GetWaveform();
+        }
+      }
+      if(!found2){
+        cout << "Entry " << jentry << ", cannot get neighbouring segment wavefoms to compute zeta parameter." << endl;
+        return BAD_RETURN;
+      }else if(segwf2->size() != SAMPLES){
+        cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
         return BAD_RETURN;
       }
-      if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == zAdjSeg[segNum]){
-        found2=true;
-        segwf2 = tigress_hit->GetSegmentHit(j).GetWaveform();
+      double maxVal = -1E30;
+      double minVal = 1E30;
+      dno = 0.;
+      for(int j=1;j<SAMPLES-1;j++){
+        if(segwf2->at(j) > maxVal){
+          maxVal = segwf2->at(j);
+        }
+        if(segwf2->at(j) < minVal){
+          minVal = segwf2->at(j);
+        }
+        dno += (segwf->at(j+1) - segwf->at(j-1))/2.0;
       }
-    }
-    if(!found2){
-      cout << "Entry " << jentry << ", cannot get neighbouring segment wavefoms to compute zeta parameter." << endl;
-      return BAD_RETURN;
-    }else if(segwf2->size() != SAMPLES){
-      cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
-      return BAD_RETURN;
-    }
-    double maxVal = -1E30;
-    double minVal = 1E30;
-    double dno = 0.; //placeholder for denominator
-    for(int j=1;j<SAMPLES-1;j++){
-      if(segwf2->at(j) > maxVal){
-        maxVal = segwf2->at(j);
+      if((minVal == 1E30)||(maxVal == 0)||(maxVal == minVal)){
+        cout << "Entry " << jentry << ", cannot find maximum or minimum values for zeta." << endl;
+        return BAD_RETURN;
       }
-      if(segwf2->at(j) < minVal){
-        minVal = segwf2->at(j);
+      zeta = (maxVal - minVal)/dno;
+      
+      //cout << "max: " << maxVal << ", min: " << minVal << ", dno: " << dno << ", zeta: " << zeta << endl;
+      zeta *= -2.; //back segment, reverse sign to make zeta increase with z
+      zeta += 1.0;
+    }else{
+      //front segment
+      dno = 0.;
+      for(int j=1;j<SAMPLES-1;j++){
+        zeta += (j)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
+        dno += (segwf->at(j+1) - segwf->at(j-1))/2.0;
       }
-      dno += (segwf->at(j+1) - segwf->at(j-1))/2.0;
+      zeta /= dno;
+      //get zeta values centered on 0
+      zeta *= 4./SAMPLES;
+      zeta -= 2.0;
     }
-    if((minVal == 1E30)||(maxVal == 0)||(maxVal == minVal)){
-      cout << "Entry " << jentry << ", cannot find maximum or minimum values for zeta." << endl;
-      return BAD_RETURN;
-    }
-    double zeta = (maxVal - minVal)/dno;
     if((dno==0.)||(zeta!=zeta)){
       cout << "Entry " << jentry << ", cannot compute zeta parameter (NaN)." << endl;
       return BAD_RETURN;
     }
-    //cout << "max: " << maxVal << ", min: " << minVal << ", dno: " << dno << ", zeta: " << zeta << endl;
-    if(segNum>3){
-      //back segment, reverse sign to make zeta increase with z
-      zeta *= -1.;
-      //zeta += ZETA_MAX;
-    }//else{
-    //  zeta -= ZETA_MAX;
-    //}
     //cout << "zeta: " << zeta << endl;
     return zeta;
   }else{

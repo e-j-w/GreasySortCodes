@@ -47,6 +47,7 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
       //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
       if(tigress_hit->GetSegmentMultiplicity() == NSEG){
         //all segments have waveforms
+        Int_t numSegHits = 0; //counter for the number of segments with a hit (ie. over the threshold energy)
         //check that the waveforms are the same size, and that there are no duplicate segments
         bool goodWaveforms = true;
         Int_t segsInData = 0;
@@ -68,6 +69,12 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
             goodWaveforms = false;
             break;
           }
+          if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.2*coreCharge){
+            numSegHits++;
+          }
+        }
+        if(numSegHits != 1){
+          goodWaveforms = false;
         }
         if(goodWaveforms){
           //cout << "Entry " << jentry << endl;
@@ -86,6 +93,9 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
             }
             double zeta = calc_ordering(tigress_hit,i,jentry,2);
             if(zeta == BAD_RETURN){
+              continue;
+            }
+            if((fabs(rho) > RHO_MAX)||(fabs(phi) > PHI_MAX)||(fabs(zeta) > ZETA_MAX)){
               continue;
             }
    
@@ -111,66 +121,78 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
                     if(z>=MAX_VAL_Z){
                       z=MAX_VAL_Z-0.001; //have seen rare events where z is exactly 90 mm
                     }
-                    //cout << "z: " << z << endl;
+                    //cout << "segnum: " << segNum << ", r: " << r << ", angle: " << angle << ", z: " << z << endl;
 
-                    if((r>0.)&&(z>0.)&&(angle>0.)){
-                      if(segNum<=3){
-                        //r corresponds to the distance from the central contact at z=30
-                        r = sqrt(r*r - (30.-z)*(30.-z));
-                      }
-                      if((r==r)&&(angle==angle)&&(z==z)){
-                        angle += 90.*(segNum%4); //transform angle to 2pi spanned val
-                        if(angle>=360.){
-                          angle=360.-0.001; //have seen rare events where angle is exactly 360 degrees
+                    if((30.-z) < r){
+                      if((r>0.)&&(z>0.)&&(angle>0.)){
+                        if(segNum<=3){
+                          //r corresponds to the distance from the central contact at z=30
+                          r = sqrt(r*r - (30.-z)*(30.-z));
                         }
-
-                        //cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
-
-                        //get indices for r, angle, z
-                        Int_t rBasisInd = (Int_t)(r*basisBinsR/MAX_VAL_R);
-                        Int_t numAngleBinsAtR = 4*getNumAngleBins(rBasisInd,basisScaleFac,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2
-                        if(makeFineBasis)
-                          numAngleBinsAtR *= FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR;
-                        Int_t angleBasisInd = (Int_t)(angle*numAngleBinsAtR/360.);
-                        Int_t zBasisInd = (Int_t)(z*basisBinsZ/MAX_VAL_Z);
-                        Int_t basisInd = rBasisInd*basisBinsAngle*basisBinsZ + angleBasisInd*basisBinsZ + zBasisInd;
-                        
-                        //cout << "seg: " << segNum << ", rBasisInd: " << rBasisInd << ", angleBasisInd: " << angleBasisInd << ", numAngleBinsAtR: " << numAngleBinsAtR << ", zBasisInd: " << zBasisInd << endl;
-                        //cout << "num basis bins: [ " << basisBinsR << " " << basisBinsAngle << " " << basisBinsZ << " ]" << endl;
-
-                        //save waveforms (in 'superpulse' format, core waveform followed by segment waveforms on the same histogram)
-
-                        //first core waveform
-                        Double_t core_waveform_baseline = 0.;
-                        for(int k = 0; k < BASELINE_SAMPLES; k++){
-                          core_waveform_baseline += wf->at(k);
-                        }
-                        core_waveform_baseline /= 1.0*BASELINE_SAMPLES;
-                        for(int k = 0; k < SAMPLES; k++){
-                          basis[basisInd]->SetBinContent(k+1,basis[basisInd]->GetBinContent(k+1) + ((wf->at(k) - core_waveform_baseline)/coreCharge));
-                        }
-                        //then segment waveforms
-                        for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
-                          //cout << "basisInd: " << basisInd << endl;
-
-                          Int_t segBasisInd = tigress_hit->GetSegmentHit(j).GetSegment();
-                          const std::vector<Short_t> *segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
-                          Double_t seg_waveform_baseline = 0.;
-                          for(int k = 0; k < BASELINE_SAMPLES; k++){
-                            seg_waveform_baseline += segwf->at(k);
+                        if((r==r)&&(angle==angle)&&(z==z)){
+                          angle += 90.*(segNum%4); //transform angle to 2pi spanned val
+                          if(angle>=360.){
+                            angle=360.-0.001; //have seen rare events where angle is exactly 360 degrees
                           }
-                          seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
 
-                          //cout << "core t0: " << waveform_t0 << ", core energy: " << coreCharge << ", segment " << segBasisInd << " baseline: " << seg_waveform_baseline << endl;
+                          //handle erronous mapping outside of real TIGRESS geometry due to map bin size
+                          if(r<5. && z>=20.){
+                            /*cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
+                            cout << "rInd: " << rInd << ", angleInd: " << angleInd << endl;
+                            cout << "segment: " << segNum << ", rho: " << rho << ", phi: " << phi << ", zeta: " << zeta << endl;
+                            getc(stdin);*/
+                            r = 5.0;
+                          }
+
+                          //get indices for r, angle, z
+                          const Int_t rBasisInd = (Int_t)(r*basisBinsR/MAX_VAL_R);
+                          Int_t numAngleBinsAtR = 4*getNumAngleBins(rBasisInd,basisScaleFac,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2
+                          if(makeFineBasis){
+                            numAngleBinsAtR *= FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR;
+                          }
+                          const Int_t angleBasisInd = (Int_t)(angle*numAngleBinsAtR/360.);
+                          const Int_t zBasisInd = (Int_t)(z*basisBinsZ/MAX_VAL_Z);
+                          const Int_t basisInd = rBasisInd*basisBinsAngle*basisBinsZ + angleBasisInd*basisBinsZ + zBasisInd;
                           
-                          for(int k = 0; k < SAMPLES; k++){
-                            //cout << "incrementing bin " << k << "by " << ((segwf->at(k) - seg_waveform_baseline)/coreCharge) << endl;
-                            basis[basisInd]->SetBinContent(k+1+(SAMPLES*segBasisInd),basis[basisInd]->GetBinContent(k+1+(SAMPLES*segBasisInd)) + ((segwf->at(k) - seg_waveform_baseline)/coreCharge) );
+                          //cout << "seg: " << segNum << ", rBasisInd: " << rBasisInd << ", angleBasisInd: " << angleBasisInd << ", numAngleBinsAtR: " << numAngleBinsAtR << ", zBasisInd: " << zBasisInd << endl;
+                          //cout << "num basis bins: [ " << basisBinsR << " " << basisBinsAngle << " " << basisBinsZ << " ]" << endl;
+
+                          //save waveforms (in 'superpulse' format, core waveform followed by segment waveforms on the same histogram)
+
+                          //first core waveform
+                          Double_t core_waveform_baseline = 0.;
+                          for(int k = 0; k < BASELINE_SAMPLES; k++){
+                            core_waveform_baseline += wf->at(k);
                           }
+                          core_waveform_baseline /= 1.0*BASELINE_SAMPLES;
+                          for(int k = 0; k < SAMPLES; k++){
+                            basis[basisInd]->SetBinContent(k+1,basis[basisInd]->GetBinContent(k+1) + ((wf->at(k) - core_waveform_baseline)/coreCharge));
+                          }
+                          //then segment waveforms
+                          for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
+                            //cout << "basisInd: " << basisInd << endl;
+
+                            const Int_t segBasisInd = tigress_hit->GetSegmentHit(j).GetSegment();
+                            const std::vector<Short_t> *segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
+                            Double_t seg_waveform_baseline = 0.;
+                            for(int k = 0; k < BASELINE_SAMPLES; k++){
+                              seg_waveform_baseline += segwf->at(k);
+                            }
+                            seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
+
+                            //cout << "core t0: " << waveform_t0 << ", core energy: " << coreCharge << ", segment " << segBasisInd << " baseline: " << seg_waveform_baseline << endl;
+                            
+                            for(int k = 0; k < SAMPLES; k++){
+                              //cout << "incrementing bin " << k << "by " << ((segwf->at(k) - seg_waveform_baseline)/coreCharge) << endl;
+                              basis[basisInd]->SetBinContent(k+1+(SAMPLES*segBasisInd),basis[basisInd]->GetBinContent(k+1+(SAMPLES*segBasisInd)) + ((segwf->at(k) - seg_waveform_baseline)/coreCharge) );
+                            }
+                          }
+                          numEvtsBasis[basisInd]++;
                         }
-                        numEvtsBasis[basisInd]++;
+                        //cout << "val: " << basis[basisInd]->GetBinContent(0) << ", num evts: " << numEvtsBasis[basisInd] << endl;
                       }
-                      //cout << "val: " << basis[basisInd]->GetBinContent(0) << ", num evts: " << numEvtsBasis[basisInd] << endl;
+                    }else{
+                      cout << "WARNING: lower segment invalid z value (" << z << ", r: " << r << ")" << endl;
                     }
                   }else{
                     cout << "WARNING: NULL z map bin (seg: " << segNum << ", r: " << r << ", r ind: " << rInd << ", angle: " << angle << ", angleInd: " << angleInd << ")" << endl;
@@ -267,8 +289,9 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
   memset(numEvtsBasis,0,sizeof(numEvtsBasis));
   for(int k = 0; k < basisBinsR; k++){
     Int_t numAngleBinsAtR = 4*getNumAngleBins(k,basisScaleFac,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2
-    if(makeFineBasis)
+    if(makeFineBasis){
       numAngleBinsAtR *= FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR;
+    }
     //cout << "numAngleBinsAtR: " << numAngleBinsAtR << endl;
     //printf("ind: %i, angle bins %i, actual %i, getnum: %i\n",k,basisBinsAngle,numAngleBinsAtR,getNumAngleBins(k,basisScaleFac,COARSE_BASIS_BINFACTOR));
     for(int j = 0; j < numAngleBinsAtR; j++){
@@ -311,13 +334,14 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
 
   for(int k = 0; k < basisBinsR; k++){
     Int_t numAngleBinsAtR = 4*getNumAngleBins(k,basisScaleFac,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2
-    if(makeFineBasis)
+    if(makeFineBasis){
       numAngleBinsAtR *= FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR;
+    } 
     for(int j = 0; j < numAngleBinsAtR; j++){
       for(int i = 0; i < basisBinsZ; i++){
-        Int_t basisInd = k*basisBinsAngle*basisBinsZ + j*basisBinsZ + i;
+        const Int_t basisInd = k*basisBinsAngle*basisBinsZ + j*basisBinsZ + i;
         uint32_t basisHPVal = 0;
-        uint32_t one = 1;
+        const uint32_t one = 1;
         if(numEvtsBasis[basisInd] > 0){
           for(int m = 0; m < SAMPLES*(NSEG+1); m++){
             basis[basisInd]->SetBinContent(m+1,basis[basisInd]->GetBinContent(m+1)/(1.0*numEvtsBasis[basisInd]));

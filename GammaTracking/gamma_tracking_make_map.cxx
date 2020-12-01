@@ -35,43 +35,86 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NSEG])
     for (one = 0; one < tigress->GetMultiplicity(); one++) {
       tigress_hit = tigress->GetTigressHit(one);
       if(tigress_hit->GetKValue() != 700) continue;  //exclude pileup
-      hit_counter++;
-      bool isHit = false;
-      for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
-        
-        TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
-
-        Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
-
-        //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-        Double_t rho = calc_ordering(tigress_hit,i,jentry,0);
-        if(rho == BAD_RETURN){
-          continue;
+      Double_t coreCharge = tigress_hit->GetCharge();
+      if((coreCharge <= 0)||(coreCharge > BASIS_MAX_ENERGY)) continue; //bad energy
+      hit_counter++; 
+      //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
+      if(tigress_hit->GetSegmentMultiplicity() == NSEG){
+        //all segments have waveforms
+        Int_t numSegHits = 0; //counter for the number of segments with a hit (ie. over the threshold energy)
+        //check that the waveforms are the same size, and that there are no duplicate segments
+        bool goodWaveforms = true;
+        Int_t segsInData = 0;
+        for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
+          //make sure all segments in the data are different
+          if(segsInData&(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1))){
+            cout << "Entry " << jentry << ", multiple hits in one segment." << endl;
+            goodWaveforms = false;
+            break;
+          }else{
+            segsInData|=(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
+          }
+          if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=SAMPLES){
+            cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
+            goodWaveforms = false;
+            break;
+          }
+          if((tigress_hit->GetSegmentHit(i).GetCharge() > BASIS_MAX_ENERGY)||(fabs(tigress_hit->GetSegmentHit(i).GetCharge()) > MAX_ENERGY_SINGLE_INTERACTION)){
+            goodWaveforms = false;
+            break;
+          }
+          if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.2*coreCharge){
+            numSegHits++;
+          }
         }
-        Double_t phi = calc_ordering(tigress_hit,i,jentry,1);
-        if(phi == BAD_RETURN){
-          continue;
+        if(numSegHits != 1){
+          goodWaveforms = false;
         }
-        Double_t zeta = calc_ordering(tigress_hit,i,jentry,2);
-        if(zeta == BAD_RETURN){
-          continue;
-        }
+        if(goodWaveforms){
+          bool isHit = false;
 
-        if(fabs(rho) > RHO_MAX)
-          overflow_rho_counter++;
-        if(fabs(phi) > PHI_MAX)
-          overflow_phi_counter++;
-        if(fabs(zeta) > ZETA_MAX)
-          overflow_zeta_counter++;
-        
-        //cout << "seg: " << segNum << ", rho: " << rho << ", phi:" << phi << ", zeta: " << zeta << endl;
-        //cout << "bin: " << rhophizetaHist[segNum]->GetBin(rho,phi,zeta) << endl;
-        rhophizetaHist[segNum]->Fill(rho,phi,zeta);
-        isHit = true;
+          for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
+            
+            TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
+
+            Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
+
+            //calculate all ordering parameters (see ordering_parameter_calc.cxx)
+            Double_t rho = calc_ordering(tigress_hit,i,jentry,0);
+            if(rho == BAD_RETURN){
+              continue;
+            }
+            Double_t phi = calc_ordering(tigress_hit,i,jentry,1);
+            if(phi == BAD_RETURN){
+              continue;
+            }
+            Double_t zeta = calc_ordering(tigress_hit,i,jentry,2);
+            if(zeta == BAD_RETURN){
+              continue;
+            }
+
+            if(fabs(rho) > RHO_MAX)
+              overflow_rho_counter++;
+            if(fabs(phi) > PHI_MAX)
+              overflow_phi_counter++;
+            if(fabs(zeta) > ZETA_MAX)
+              overflow_zeta_counter++;
+            if((fabs(rho) > RHO_MAX)||(fabs(phi) > PHI_MAX)||(fabs(zeta) > ZETA_MAX)){
+              continue;
+            }
+            
+            //cout << "seg: " << segNum << ", rho: " << rho << ", phi:" << phi << ", zeta: " << zeta << endl;
+            //cout << "bin: " << rhophizetaHist[segNum]->GetBin(rho,phi,zeta) << endl;
+            rhophizetaHist[segNum]->Fill(rho,phi,zeta);
+            isHit = true;
+          }
+          if(isHit){
+            map_hit_counter++;
+          }
+        }
       }
-      if(isHit){
-        map_hit_counter++;
-      }
+
+      
     }
     if (jentry % 10000 == 0) cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << nentries << ", " << 100 * jentry / nentries << "% complete" << "\r" << flush;
   }
@@ -92,18 +135,18 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   //these are read in from a ROOT tree generated by a GEANT4 simulation such as G4TIP
   for(int k = 0; k < NSEG; k++){
     sprintf(hname,"rDistSeg%i",k);
-    rDistHist[k] = new TH1D(hname,Form("rDistSeg%i",k),40,0,MAX_VAL_R);
+    rDistHist[k] = new TH1D(hname,Form("rDistSeg%i",k),160,0,MAX_VAL_R);
     for(int j = 0; j < VOXEL_BINS_R; j++){
       Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
       Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
       sprintf(hname,"angleDistSeg%ir%ito%i",k,rValMin,rValMax);
-      angleDistHist[k*VOXEL_BINS_R + j] = new TH1D(hname,Form("angleDistSeg%ir%ito%i",k,rValMin,rValMax),30,0,MAX_VAL_ANGLE);
+      angleDistHist[k*VOXEL_BINS_R + j] = new TH1D(hname,Form("angleDistSeg%ir%ito%i",k,rValMin,rValMax),120,0,MAX_VAL_ANGLE);
       Int_t numAngleBins = getNumAngleBins(j,1.0);
       for(int i = 0; i < numAngleBins; i++){
         Int_t angleValMin = (Int_t)(i*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
         Int_t angleValMax = (Int_t)((i+1)*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
         sprintf(hname,"zDistSeg%ir%ito%iangle%ito%i",k,rValMin,rValMax,angleValMin,angleValMax);
-        zDistHist[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = new TH1D(hname,Form("zDistSeg%ir%ito%iangle%ito%i",k,rValMin,rValMax,angleValMin,angleValMax),90,0,90);
+        zDistHist[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = new TH1D(hname,Form("zDistSeg%ir%ito%iangle%ito%i",k,rValMin,rValMax,angleValMin,angleValMax),360,0,90);
       }
     }
   }

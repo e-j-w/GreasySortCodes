@@ -36,10 +36,10 @@ using namespace std;
 #define     N_BINS_ORDERING 512 //number of bins to use when discretizing ordering parameter (WARNING: memory usage scales as ^3 with this, can also overflow TH3 integer bin index with values > 1024!)
 #define     RHO_MAX         1.2E4
 #define     PHI_MAX         1.0
-#define     ZETA_MAX        0.5
+#define     ZETA_MAX        1.0
 
-#define     MAX_VAL_R             40 //maximum r (in mm)
-#define     VOXEL_BINS_R          10 //number of r bins in the map (large values can cause memory pressure when sorting the basis)
+#define     MAX_VAL_R             36 //maximum r (in mm)
+#define     VOXEL_BINS_R          18 //number of r bins in the map (large values can cause memory pressure when sorting the basis)
 #define     MAX_VAL_ANGLE         90 //maximum angle (in deg)
 #define     VOXEL_BINS_ANGLE_MAX  9 //number of angle bins in the map, at the largest r value (scales with r) (large values can cause memory pressure when sorting the basis)
 #define     MAX_VAL_Z             90 //maximum z (in mm)
@@ -54,11 +54,12 @@ using namespace std;
 #define     FINE_BASIS_BINFACTOR    4.0 //for the fine basis, the number of bins in each dimension is multiplied by this factor with respect to the map
 
 #define     GRID_HIT_SEG_WEIGHT     1.0
-#define     GRID_NONHIT_SEG_WEIGHT  100.0
+#define     GRID_NONHIT_SEG_WEIGHT  1.0
 
 #define     SEGMENT_ENERGY_THRESHOLD       200 //threshold for a segment to be considered 'hit' in GetEnergy() units
 #define     SEGMENT_ENERGY_NOHIT_THRESHOLD 20  //threshold in GetCharge() units below which a segment is considered not to be hit
-#define     WAVEFORM_SAMPLING_WINDOW       10  //number of waveform samples used to construct ordering parameters
+
+#define     MAX_BASIS_SORT_CHISQ  0.3 //threshold chisq for basis sort
 
 //global variables here
 #define     BIG_NUMBER 1E30  //a big number
