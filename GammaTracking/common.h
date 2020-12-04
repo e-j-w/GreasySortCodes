@@ -31,7 +31,7 @@ using namespace std;
 #define     NSEG   8  //number of segments per core
 
 #define     SAMPLES          100 //number of samples in each waveform
-#define     BASELINE_SAMPLES 30  //number of samples at the start of the waveform used to calculate the baseline
+#define     BASELINE_SAMPLES 20  //number of samples at the start of the waveform used to calculate the baseline
 
 #define     N_BINS_ORDERING 512 //number of bins to use when discretizing ordering parameter (WARNING: memory usage scales as ^3 with this, can also overflow TH3 integer bin index with values > 1024!)
 #define     RHO_MAX         1.2E4
@@ -47,6 +47,7 @@ using namespace std;
 
 #define     MAX_ENERGY_SINGLE_INTERACTION  1500 //maximum energy allowed for a hit to be put into the map (higher energy events are more likely to result from multiple interactions)
 #define     BASIS_MAX_ENERGY        2000 //maximum energy allowed for a hit to be put into the basis (used to suppress high energy events)
+#define     BASIS_MIN_ENERGY        0
 
 //parameters defining how fine the basis grid is (number of bins in each dimension, per segment)
 //bounds of the grid determined by MAX_VAL_R, MAX_VAL_ANGLE, MAX_VAL_Z
@@ -54,12 +55,12 @@ using namespace std;
 #define     FINE_BASIS_BINFACTOR    4.0 //for the fine basis, the number of bins in each dimension is multiplied by this factor with respect to the map
 
 #define     GRID_HIT_SEG_WEIGHT     1.0
-#define     GRID_NONHIT_SEG_WEIGHT  1.0
+#define     GRID_NONHIT_SEG_WEIGHT  20.0
 
 #define     SEGMENT_ENERGY_THRESHOLD       200 //threshold for a segment to be considered 'hit' in GetEnergy() units
 #define     SEGMENT_ENERGY_NOHIT_THRESHOLD 20  //threshold in GetCharge() units below which a segment is considered not to be hit
 
-#define     MAX_BASIS_SORT_CHISQ  0.3 //threshold chisq for basis sort
+#define     MAX_BASIS_SORT_CHISQ  2.0 //threshold chisq for basis sort
 
 //global variables here
 #define     BIG_NUMBER 1E30  //a big number

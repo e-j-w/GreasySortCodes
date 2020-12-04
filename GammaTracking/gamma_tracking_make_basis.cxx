@@ -36,7 +36,7 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
       tigress_hit = tigress->GetTigressHit(hitInd);
       if(tigress_hit->GetKValue() != 700) continue; //exclude pileup
       Double_t coreCharge = tigress_hit->GetCharge();
-      if((coreCharge <= 0)||(coreCharge > BASIS_MAX_ENERGY)) continue; //bad energy
+      if((coreCharge <= BASIS_MIN_ENERGY)||(coreCharge > BASIS_MAX_ENERGY)) continue; //bad energy
       tigress_hit->SetWavefit();
       const std::vector<Short_t> *wf = tigress_hit->GetWaveform();
       if(wf->size()!=SAMPLES){
@@ -184,7 +184,7 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
                             
                             for(int k = 0; k < SAMPLES; k++){
                               //cout << "incrementing bin " << k << "by " << ((segwf->at(k) - seg_waveform_baseline)/coreCharge) << endl;
-                              basis[basisInd]->SetBinContent(k+1+(SAMPLES*segBasisInd),basis[basisInd]->GetBinContent(k+1+(SAMPLES*segBasisInd)) + ((segwf->at(k) - seg_waveform_baseline)/coreCharge) );
+                              basis[basisInd]->SetBinContent(k+1+(SAMPLES*segBasisInd),basis[basisInd]->GetBinContent(k+1+(SAMPLES*segBasisInd)) + fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge) );
                             }
                           }
                           numEvtsBasis[basisInd]++;

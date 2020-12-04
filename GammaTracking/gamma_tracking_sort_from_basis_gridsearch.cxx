@@ -1,8 +1,17 @@
+//#include "TCanvas.h"
+//#include "TApplication.h"
 #include "common.h" //define all global variables here!
 
 
+TApplication *theApp;
+
 TH1D *coarseBasis[(Int_t)(VOXEL_BINS_R*COARSE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*COARSE_BASIS_BINFACTOR*VOXEL_BINS_Z*COARSE_BASIS_BINFACTOR)];
 TH1D *fineBasis[(Int_t)(VOXEL_BINS_R*FINE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*FINE_BASIS_BINFACTOR*VOXEL_BINS_Z*FINE_BASIS_BINFACTOR)];
+TH1I *numSegHitsHist, *coarseBasisIndMap, *basisIndMap;
+TH1D *coarseChisqHist, *fineChisqHist;
+TH2D *posXYMap, *coarseChisqEHist;
+TH3D *pos3DMap, *pos3DMap1Hit, *pos3DMap2Hit;
+TH3I *coarseBasisInd3DMap, *basisInd3DMap;
 TRandom3 *randGen;
 
 void fillAtHitInd(const Int_t hitInd, const Int_t fineBasisBinsR, const Int_t fineBasisBinsAngle, const Int_t fineBasisBinsZ, TRandom3 *randGen, TH3D *pos3DMap){
@@ -34,10 +43,11 @@ void fillXYAtHitInd(const Int_t hitInd, const Int_t fineBasisBinsR, const Int_t 
     posXYMap->Fill(rVal*cos(angleVal*M_PI/180.),rVal*sin(angleVal*M_PI/180.));
   }
 }
-void fillAtHitIndBasis(const Int_t hitInd, const Int_t basisBinsR, const Int_t basisBinsAngle, const Int_t basisBinsZ, TH3D *basisInd3DMap){
+void fillAtHitIndBasis(const Int_t hitInd, const Int_t basisBinsR, const Int_t basisBinsAngle, const Int_t basisBinsZ, TH1I *basisIndMap, TH3I *basisInd3DMap){
   Int_t rBinFine, angleBinFine, zBinFine;
   if(hitInd >= 0){
     //a best-fit fine basis waveform was found, figure out the corresponding bin
+    basisIndMap->Fill(hitInd);
     rBinFine = (Int_t)(hitInd/(basisBinsAngle*basisBinsZ*1.0));
     angleBinFine = (Int_t)((hitInd - rBinFine*(basisBinsAngle*basisBinsZ*1.0))/(basisBinsZ*1.0));
     zBinFine = (hitInd - rBinFine*(basisBinsAngle*basisBinsZ) - angleBinFine*basisBinsZ);
@@ -62,7 +72,7 @@ int32_t commonHitInHP(int32_t hp1, int32_t hp2, int32_t max_search){
   return -1;
 }
 
-void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *basisHPFine, TH3D *coarseBasisInd3DMap, TH3D *basisInd3DMap, TH1I *numSegHitsHist, TH3D *pos3DMap, TH2D *posXYMap, TH3D *pos3DMap1Hit, TH3D *pos3DMap2Hit, TH1D *coarseChisqHist, TH1D *fineChisqHist){
+void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *basisHPFine){
   
   Int_t coarseBasisBinsR = VOXEL_BINS_R*COARSE_BASIS_BINFACTOR;
   Int_t coarseBasisBinsAngle = 4*VOXEL_BINS_ANGLE_MAX*COARSE_BASIS_BINFACTOR;
@@ -98,7 +108,7 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
       tigress_hit = tigress->GetTigressHit(hitInd);
       if(tigress_hit->GetKValue() != 700) continue;
       Double_t coreCharge = tigress_hit->GetCharge();
-      if(coreCharge <= 0) continue; //bad energy
+      if(coreCharge <= BASIS_MIN_ENERGY) continue; //bad energy
       bool isHit = false;
       //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
       Int_t numSegHits = 0; //counter for the number of segments with a hit (ie. over the threshold energy)
@@ -112,21 +122,24 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
         for(int i = 0; i < NSEG; i++){
           //make sure all segments in the data are different
           if(segsInData&(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1))){
-            cout << "Entry " << jentry << ", multiple hits in one segment." << endl;
+            //cout << "Entry " << jentry << ", multiple hits in one segment." << endl;
             goodWaveforms = false;
             break;
           }else{
             segsInData|=(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
           }
           if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=SAMPLES){
-            cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
+            //cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
             goodWaveforms = false;
             break;
           }
-          if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.2*coreCharge){
+          if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.5*coreCharge){
             evtSegHP|=(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1)); //GetSegment() is 1-indexed
             numSegHits++;
           }
+        }
+        if(evtSegHP==0){
+          goodWaveforms = false;
         }
         //cout << "HP: " << evtSegHP << ", num seg hits: " << numSegHits << endl;
         //cout << "good: " << goodWaveforms << ", num seg hits: " << numSegHits << endl;
@@ -163,7 +176,7 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
                     }
                     seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
                     for(int k=0; k<SAMPLES; k++){
-                      Double_t wfrmSampleVal = (segwf->at(k) - seg_waveform_baseline)/coreCharge;
+                      Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge);
                       Double_t basisSampleVal = coarseBasis[i]->GetBinContent(segNum*SAMPLES + k + 1);
                       chisq += pow(wfrmSampleVal - basisSampleVal,2)*hitWeight;
                       /*if(evtSegHP==2){
@@ -199,6 +212,12 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
                   Double_t chisq = 0;
                   for(int j=0; j<NSEG; j++){
                     Int_t segNum = tigress_hit->GetSegmentHit(j).GetSegment(); //1-indexed
+                    Double_t hitWeight = 1.0;
+                    if(evtSegHP&(one<<(segNum-1))){
+                      hitWeight = GRID_HIT_SEG_WEIGHT;
+                    }else{
+                      hitWeight = GRID_NONHIT_SEG_WEIGHT;
+                    }
                     segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
                     Double_t seg_waveform_baseline = 0.;
                     for(int k = 0; k < BASELINE_SAMPLES; k++){
@@ -206,9 +225,9 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
                     }
                     seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
                     for(int k=0; k<SAMPLES; k++){
-                      Double_t wfrmSampleVal = (segwf->at(k) - seg_waveform_baseline)/coreCharge;
+                      Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge);
                       Double_t basisSampleVal = coarseBasis[i]->GetBinContent(segNum*SAMPLES + k + 1);
-                      chisq += pow(wfrmSampleVal - basisSampleVal,2);
+                      chisq += pow(wfrmSampleVal - basisSampleVal,2)*hitWeight;
                       /*if(evtSegHP==2){
                         rBin = (Int_t)(i/(coarseBasisBinsAngle*coarseBasisBinsZ*1.0));
                         angleBin = (Int_t)((i - rBin*(coarseBasisBinsAngle*coarseBasisBinsZ*1.0))/(coarseBasisBinsZ*1.0));
@@ -252,6 +271,12 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
                           if((scaleFacHit1!=0.)&&(scaleFacHit2!=0.)){
                             for(int j=0; j<NSEG; j++){
                               Int_t segNum = tigress_hit->GetSegmentHit(j).GetSegment(); //1-indexed
+                              Double_t hitWeight = 1.0;
+                              if(evtSegHP&(one<<(segNum-1))){
+                                hitWeight = GRID_HIT_SEG_WEIGHT;
+                              }else{
+                                hitWeight = GRID_NONHIT_SEG_WEIGHT;
+                              }
                               segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
                               Double_t seg_waveform_baseline = 0.;
                               for(int k = 0; k < BASELINE_SAMPLES; k++){
@@ -259,10 +284,10 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
                               }
                               seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
                               for(int k=0; k<SAMPLES; k++){
-                                Double_t wfrmSampleVal = (segwf->at(k) - seg_waveform_baseline)/coreCharge;
+                                Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge);
                                 Double_t basisSampleVal = scaleFacHit1*coarseBasis[i]->GetBinContent(segNum*SAMPLES + k + 1);
                                 Double_t basisSampleVal2 = scaleFacHit2*coarseBasis[i2]->GetBinContent(segNum*SAMPLES + k + 1);
-                                chisq += pow(wfrmSampleVal - basisSampleVal - basisSampleVal2,2);
+                                chisq += pow(wfrmSampleVal - basisSampleVal - basisSampleVal2,2)*hitWeight;
                                 /*if(evtSegHP==2){
                                   rBin = (Int_t)(i/(coarseBasisBinsAngle*coarseBasisBinsZ*1.0));
                                   angleBin = (Int_t)((i - rBin*(coarseBasisBinsAngle*coarseBasisBinsZ*1.0))/(coarseBasisBinsZ*1.0));
@@ -291,14 +316,31 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
             //cout << "Entry " << jentry << " contains an unhandled number of hit segments (" << numSegHits << ")." << endl;
             continue;
           }
-
+          
           coarseChisqHist->Fill(minChisqCoarse);
+          coarseChisqEHist->Fill(minChisqCoarse,coreCharge);
+
+          /*if(minChisqCoarse > 1){
+            TCanvas *c1 = new TCanvas("c1","Histogram",200,10,1200,1000);
+            TH1D *ep = new TH1D("event_pulse","event_pulse",SAMPLES*(NSEG),0,SAMPLES*(NSEG));
+            for(int i = 0; i < NSEG; i++){
+              Double_t seg_waveform_baseline = 0.;
+              for(int k = 0; k < BASELINE_SAMPLES; k++){
+                seg_waveform_baseline += tigress_hit->GetSegmentHit(i).GetWaveform()->at(k);
+              }
+              seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
+              for(int k = 0; k < SAMPLES; k++){
+                ep->SetBinContent((tigress_hit->GetSegmentHit(i).GetSegment()-1)*SAMPLES + k,(tigress_hit->GetSegmentHit(i).GetWaveform()->at(k) - seg_waveform_baseline)/coreCharge);
+              }
+            }
+            cout << "entry " << jentry << ", hit " << hitInd << ", event HP: " << evtSegHP << ", chisq: " << minChisqCoarse << ", core charge: " << coreCharge << endl;
+            ep->Draw();
+            theApp->Run(kTRUE);
+          }*/
 
           //now do everything with the fine basis
           if(minChisqCoarse<MAX_BASIS_SORT_CHISQ){
             for(int cbh=0;cbh<2;cbh++){
-
-              Double_t minChisqFine = BIG_NUMBER;
 
               Int_t minIndFine[2];
               minIndFine[0] = -1;
@@ -308,7 +350,9 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
 
               if(minIndCoarse[cbh] >= 0){
 
-                fillAtHitIndBasis(minIndCoarse[cbh],coarseBasisBinsR,coarseBasisBinsAngle,coarseBasisBinsZ,coarseBasisInd3DMap);
+                Double_t minChisqFine = BIG_NUMBER;
+
+                fillAtHitIndBasis(minIndCoarse[cbh],coarseBasisBinsR,coarseBasisBinsAngle,coarseBasisBinsZ,coarseBasisIndMap,coarseBasisInd3DMap);
 
                 //a best-fit coarse basis waveform was found, figure out the corresponding bin
                 Int_t rBinCoarse = (Int_t)(minIndCoarse[cbh]/(coarseBasisBinsAngle*coarseBasisBinsZ*1.0));
@@ -364,7 +408,7 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
                           }
                           seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
                           for(int k=0; k<SAMPLES; k++){
-                            Double_t wfrmSampleVal = (segwf->at(k) - seg_waveform_baseline)/coreCharge;
+                            Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge);
                             Double_t basisSampleVal = fineBasis[basisInd]->GetBinContent(segNum*SAMPLES + k + 1);
                             chisq += pow(wfrmSampleVal - basisSampleVal,2)*hitWeight;
                             /*if(evtSegHP==2){
@@ -452,26 +496,26 @@ void sortData(TFile *inputfile, const char *calfile, TH1I *basisHPCoarse, TH1I *
                     }*/
                   }
                 }
-              }
 
-              fineChisqHist->Fill(minChisqFine);
-
-              //fill histograms
-              if(minChisqFine<MAX_BASIS_SORT_CHISQ){
-                for(int i=0;i<2;i++){
-                  if(minIndFine[i]>=0){
-                    numSegHitsHist->Fill(numSegHits);
-                    fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,randGen,pos3DMap);
-                    fillAtHitIndBasis(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,basisInd3DMap);
-                    fillXYAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,posXYMap);
-                    if(numSegHits==1){
-                      fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,randGen,pos3DMap1Hit);
-                    }else if(numSegHits==2){
-                      fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,randGen,pos3DMap2Hit);
+                fineChisqHist->Fill(minChisqFine);
+                //fill histograms
+                if(minChisqFine<MAX_BASIS_SORT_CHISQ){
+                  for(int i=0;i<2;i++){
+                    if(minIndFine[i]>=0){
+                      numSegHitsHist->Fill(numSegHits);
+                      fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,randGen,pos3DMap);
+                      fillAtHitIndBasis(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,basisIndMap,basisInd3DMap);
+                      fillXYAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,posXYMap);
+                      if(numSegHits==1){
+                        fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,randGen,pos3DMap1Hit);
+                      }else if(numSegHits==2){
+                        fillAtHitInd(minIndFine[i],fineBasisBinsR,fineBasisBinsAngle,fineBasisBinsZ,randGen,pos3DMap2Hit);
+                      }
                     }
                   }
                 }
               }
+              
             }
           }
           
@@ -569,24 +613,30 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
   }
   cout << "Fine waveform basis data read in." << endl;
 
-  TH1I *numSegHitsHist = new TH1I("numSegHits","numSegHits",10,0,10);
+  numSegHitsHist = new TH1I("numSegHits","numSegHits",10,0,10);
   list->Add(numSegHitsHist);
-  TH3D *pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
+  pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMap);
-  TH3D *pos3DMap1Hit = new TH3D("pos3DMap1Hit","pos3DMap1Hit",40,-40,40,40,-40,40,40,-10,100);
+  pos3DMap1Hit = new TH3D("pos3DMap1Hit","pos3DMap1Hit",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMap1Hit);
-  TH3D *pos3DMap2Hit = new TH3D("pos3DMap2Hit","pos3DMap2Hit",40,-40,40,40,-40,40,40,-10,100);
+  pos3DMap2Hit = new TH3D("pos3DMap2Hit","pos3DMap2Hit",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMap2Hit);
-  TH2D *posXYMap = new TH2D("posXYMap","posXYMap",40,-40,40,40,-40,40);
+  posXYMap = new TH2D("posXYMap","posXYMap",40,-40,40,40,-40,40);
   list->Add(posXYMap);
-  TH3D *coarseBasisInd3DMap = new TH3D("coarseBasisInd3DMap","coarseBasisInd3DMap",coarseBasisBinsR,0,coarseBasisBinsR,coarseBasisBinsAngle,0,coarseBasisBinsAngle,coarseBasisBinsZ,0,coarseBasisBinsZ);
+  coarseBasisIndMap = new TH1I("coarseBasisIndMap","coarseBasisIndMap",coarseBasisBinsR*coarseBasisBinsAngle*coarseBasisBinsZ,0,coarseBasisBinsR*coarseBasisBinsAngle*coarseBasisBinsZ);
+  list->Add(coarseBasisIndMap);
+  basisIndMap = new TH1I("basisIndMap","basisIndMap",fineBasisBinsR*fineBasisBinsAngle*fineBasisBinsZ,0,fineBasisBinsR*fineBasisBinsAngle*fineBasisBinsZ);
+  list->Add(basisIndMap);
+  coarseBasisInd3DMap = new TH3I("coarseBasisInd3DMap","coarseBasisInd3DMap",coarseBasisBinsR,0,coarseBasisBinsR,coarseBasisBinsAngle,0,coarseBasisBinsAngle,coarseBasisBinsZ,0,coarseBasisBinsZ);
   list->Add(coarseBasisInd3DMap);
-  TH3D *basisInd3DMap = new TH3D("basisInd3DMap","basisInd3DMap",fineBasisBinsR,0,fineBasisBinsR,fineBasisBinsAngle,0,fineBasisBinsAngle,fineBasisBinsZ,0,fineBasisBinsZ);
+  basisInd3DMap = new TH3I("basisInd3DMap","basisInd3DMap",fineBasisBinsR,0,fineBasisBinsR,fineBasisBinsAngle,0,fineBasisBinsAngle,fineBasisBinsZ,0,fineBasisBinsZ);
   list->Add(basisInd3DMap);
-  TH1D *coarseChisqHist = new TH1D("coarseChisqHist","coarseChisqHist",1000,0,10);
+  coarseChisqHist = new TH1D("coarseChisqHist","coarseChisqHist",1000,0,20);
   list->Add(coarseChisqHist);
-  TH1D *fineChisqHist = new TH1D("fineChisqHist","fineChisqHist",1000,0,10);
+  fineChisqHist = new TH1D("fineChisqHist","fineChisqHist",1000,0,20);
   list->Add(fineChisqHist);
+  coarseChisqEHist = new TH2D("coarseChisqEHist","coarseChisqEHist",1000,0,20,100,0,4000);
+  list->Add(coarseChisqEHist);
 
   if(inpList){
     FILE *listFile;
@@ -601,7 +651,7 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
         cout << "ERROR: Could not open analysis tree file (" << name << ")" << endl;
         exit(-1);
       }
-      sortData(inputfile, calfile, basisHPCoarse, basisHPFine, coarseBasisInd3DMap, basisInd3DMap, numSegHitsHist, pos3DMap, posXYMap, pos3DMap1Hit, pos3DMap2Hit, coarseChisqHist, fineChisqHist);
+      sortData(inputfile, calfile, basisHPCoarse, basisHPFine);
       inputfile->Close();
     }
     fclose(listFile);
@@ -611,7 +661,7 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
       cout << "ERROR: Could not open analysis tree file (" << infile << ")" << endl;
       exit(-1);
     }
-    sortData(inputfile, calfile, basisHPCoarse, basisHPFine, coarseBasisInd3DMap, basisInd3DMap, numSegHitsHist, pos3DMap, posXYMap, pos3DMap1Hit, pos3DMap2Hit, coarseChisqHist, fineChisqHist);
+    sortData(inputfile, calfile, basisHPCoarse, basisHPFine);
     inputfile->Close();
   }
 
@@ -690,6 +740,8 @@ int main(int argc, char ** argv) {
   TParserLibrary::Get()->Load();
 
   ext=strrchr(argv[1],'.'); /* returns a pointer to the last . to grab extention*/
+
+  //theApp=new TApplication("App", &argc, argv);
   if(strcmp(ext,".list")==0){
     cout << "Sorting from a list of analysis trees..." << endl;
     sort_from_basis(afile, basisfileCoarse, basisfileFine, calfile, outfile, true);

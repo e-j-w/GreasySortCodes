@@ -143,7 +143,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t jentr
       cout << "vals: " << minVall << " " << maxVall << " " << minValr << " " << maxValr << endl;
       return BAD_RETURN;
     }
-    phi = ((maxVall - minVall) - (maxValr - minValr))/((maxVall - minVall) + (maxValr - minValr));
+    phi = ((maxValr - minValr) - (maxVall - minVall))/((maxVall - minVall) + (maxValr - minValr));
     if((phi!=phi)){
       cout << "Entry " << jentry << ", cannot compute phi parameter (NaN)." << endl;
       return BAD_RETURN;
