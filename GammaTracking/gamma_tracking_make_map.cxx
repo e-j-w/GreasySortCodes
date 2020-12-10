@@ -489,7 +489,8 @@ int main(int argc, char ** argv) {
     cout << "spatial coordinates (which should be provided in a ROOT tree, the second argument).  GEANT4 simulations exist which can produce the simulated distribution data ";
     cout << "(for example, G4TIP (https://github.com/e-j-w/G4TIP/))." << endl << endl;
     cout << "Arguments: ./GammaTrackingMakeMap analysis_tree_file sim_tree_file cal_file output_file" << endl << endl;
-    cout << "The analysis tree and simulation tree are required arguments.  Omitting other arguments will cause the sortcode to fall back to default values." << endl << endl;
+    cout << "The analysis tree and simulation tree are required arguments.  Omitting other arguments will cause the sortcode to fall back to default values. The analyisis ";
+    cout << "tree can be a single ROOT file, or a list of ROOT files (using file extension .list) can be specified instead." << endl << endl;
     cout << "NOTE: this code requires a LOT of memory (around 10GB with N_BINS_ORDERING set to 512 in common.h, scaling as N_BINS_ORDERING^3) to run." << endl << endl;
 	  return 0;
   } else if (argc == 3) {

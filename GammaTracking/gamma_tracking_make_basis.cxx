@@ -383,7 +383,8 @@ int main(int argc, char ** argv) {
   if (argc < 2) {
     cout << endl << "This sortcode generates a waveform basis for gamma tracking, using the map file generated using the GammaTrackingMakeMap code." << endl << endl;
     cout << "Arguments: ./GammaTrackingMakeBasis analysis_tree_file map_file cal_file coarse_basis_output_file fine_basis_output_file" << endl << endl;
-    cout << "The analysis tree (containing the calibration data used to make the basis) is a required argument.  Omitting other arguments will cause the sortcode to fall back to default values." << endl << endl;
+    cout << "The analysis tree (containing the calibration data used to make the basis) is a required argument.  Omitting other arguments will cause the sortcode to fall "; 
+    cout << "back to default values.  The analysis tree can be a single ROOT file, or a list of ROOT files (using file extension .list) can be specified instead." << endl << endl;
 	  return 0;
   } else if (argc == 2) {
 	  afile = argv[1];
