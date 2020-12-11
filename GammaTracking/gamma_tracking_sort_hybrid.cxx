@@ -4,8 +4,9 @@
 
 //TApplication *theApp;
 
-TH2D *posXYMap;
-TH3D *pos3DMap;
+TH2D *posXYMap, *posXYMapGridSearch, *posXYMapDirect;
+TH3D *pos3DMap, *pos3DMapGridSearch, *pos3DMapDirect;
+GT_map trackingMap;
 GT_basis trackingBasis;
 
 void sortData(TFile *inputfile, const char *calfile){
@@ -29,6 +30,8 @@ void sortData(TFile *inputfile, const char *calfile){
 
   Int_t hit_counter = 0;
   Int_t sort_hit_counter = 0;
+  Int_t sort_hit_counter_gridsearch = 0;
+  Int_t sort_hit_counter_direct = 0;
 
   //for (int jentry = 0; jentry < 100000; jentry++) {
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
@@ -37,11 +40,24 @@ void sortData(TFile *inputfile, const char *calfile){
       tigress_hit = tigress->GetTigressHit(hitInd);
       if(tigress_hit->GetKValue() != 700) continue;
       hit_counter++;
-      TVector3 posVec = GT_get_pos_gridsearch(tigress_hit,&trackingBasis);
+      TVector3 posVec = GT_get_pos_gridsearch(tigress_hit,&trackingBasis); //sort using grid search
       if(posVec.X()!=BAD_RETURN){
         pos3DMap->Fill(posVec.X(),posVec.Y(),posVec.Z());
         posXYMap->Fill(posVec.X(),posVec.Y());
+        pos3DMapGridSearch->Fill(posVec.X(),posVec.Y(),posVec.Z());
+        posXYMapGridSearch->Fill(posVec.X(),posVec.Y());
         sort_hit_counter++;
+        sort_hit_counter_gridsearch++;
+      }else{
+        posVec = GT_get_pos_direct(tigress_hit,&trackingMap); //sort using direct method
+        if(posVec.X()!=BAD_RETURN){
+          pos3DMap->Fill(posVec.X(),posVec.Y(),posVec.Z());
+          posXYMap->Fill(posVec.X(),posVec.Y());
+          pos3DMapDirect->Fill(posVec.X(),posVec.Y(),posVec.Z());
+          posXYMapDirect->Fill(posVec.X(),posVec.Y());
+          sort_hit_counter++;
+          sort_hit_counter_direct++;
+        }
       }
       
     }
@@ -50,10 +66,16 @@ void sortData(TFile *inputfile, const char *calfile){
 
   cout << "Entry " << nentries << " of " << nentries << ", 100% Complete!" << endl;
   cout << sort_hit_counter << " of " << hit_counter << " hits retained (" << 100*sort_hit_counter/hit_counter << " %)." << endl;
+  cout << sort_hit_counter_gridsearch << " hits sorted using grid search (" << 100*sort_hit_counter_gridsearch/sort_hit_counter << " % of sorted hits)." << endl;
+  cout << sort_hit_counter_direct << " hits sorted using direct method (" << 100*sort_hit_counter_direct/sort_hit_counter << " % of sorted hits)." << endl;
 }
 
 //Function which sorts hit positions using a pre-generated waveform basis
-void sort_from_basis(const char *infile, const char *basisfileCoarse, const char *basisfileFine, const char *calfile, const char *outfile, bool inpList) {
+void sort_hybrid(const char *infile, const char *mapfile, const char *basisfileCoarse, const char *basisfileFine, const char *calfile, const char *outfile, bool inpList) {
+
+  //read in histograms from map file
+  TFile *mapInp = new TFile(mapfile,"read");
+  GT_import_map(mapInp,&trackingMap);
 
   //read in histograms from basis files
   TFile *coarseBasisInp = new TFile(basisfileCoarse,"read");
@@ -64,8 +86,16 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
   TList *list = new TList;
   pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMap);
+  pos3DMapGridSearch = new TH3D("pos3DMapGridSearch","pos3DMapGridSearch",40,-40,40,40,-40,40,40,-10,100);
+  list->Add(pos3DMapGridSearch);
+  pos3DMapDirect = new TH3D("pos3DMapDirect","pos3DMapDirect",40,-40,40,40,-40,40,40,-10,100);
+  list->Add(pos3DMapDirect);
   posXYMap = new TH2D("posXYMap","posXYMap",40,-40,40,40,-40,40);
   list->Add(posXYMap);
+  posXYMapGridSearch = new TH2D("posXYMapGridSearch","posXYMapGridSearch",40,-40,40,40,-40,40);
+  list->Add(posXYMapGridSearch);
+  posXYMapDirect = new TH2D("posXYMapDirect","posXYMapDirect",40,-40,40,40,-40,40);
+  list->Add(posXYMapDirect);
 
   //sort data from individual analysis tree or list of trees
   if(inpList){
@@ -101,6 +131,7 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
   list->Write();
   cout << "Histograms written, sorting complete!" << endl;
   myfile->Close();
+  mapInp->Close();
   coarseBasisInp->Close();
   fineBasisInp->Close();
 
@@ -108,48 +139,61 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
 
 int main(int argc, char ** argv) {
 
-  const char *afile, *basisfileCoarse, *basisfileFine, *outfile, *calfile;
+  const char *afile, *mapfile, *basisfileCoarse, *basisfileFine, *outfile, *calfile;
   char *ext;
 
   if (argc < 2) {
-    cout << endl << "This sortcode sorts interaction positions using a waveform basis (generated using the GammaTrackingMakeBasis code) using the grid search method." << endl << endl;
-    cout << "Arguments: ./GammaTrackingSortFromBasisGridSearch analysis_tree_file basis_file_coarse basis_file_fine cal_file output_file" << endl << endl;
+    cout << endl << "This sortcode sorts interaction positions using a waveform basis (generated using the GammaTrackingMakeBasis code) using the grid search method, ";
+    cout << "and falls back to the direct method if the drif search fails." << endl << endl;
+    cout << "Arguments: ./GammaTrackingSortHybrid analysis_tree_file map_file basis_file_coarse basis_file_fine cal_file output_file" << endl << endl;
     cout << "The analysis tree (containing the experimental data used to be sorted) is a required argument.  Omitting other arguments will cause the sortcode to fall ";
     cout << "back to default values.  The analysis tree can be a single ROOT file, or a list of ROOT files (using file extension .list) can be specified instead." << endl << endl;
 	  return 0;
   } else if (argc == 2) {
 	  afile = argv[1];
+    mapfile = "trackingMap.root";
     basisfileCoarse = "trackingWaveformBasisCoarse.root";
     basisfileFine = "trackingWaveformBasisFine.root";
 	  calfile = "CalibrationFile.cal";
-	  outfile = "trackingBasisSortTestGridSearch.root";
+	  outfile = "trackingBasisSortTestHybrid.root";
   } else if (argc == 3) {
 	  afile = argv[1];
-    basisfileCoarse = argv[2];
+    mapfile = argv[2];
+    basisfileCoarse = "trackingWaveformBasisCoarse.root";
     basisfileFine = "trackingWaveformBasisFine.root";
 	  calfile = "CalibrationFile.cal";
-	  outfile = "trackingBasisSortTestGridSearch.root";
+	  outfile = "trackingBasisSortTestHybrid.root";
   } else if (argc == 4) {
 	  afile = argv[1];
-    basisfileCoarse = argv[2];
-    basisfileFine = argv[3];
+    mapfile = argv[2];
+    basisfileCoarse = argv[3];
+    basisfileFine = "trackingWaveformBasisFine.root";
 	  calfile = "CalibrationFile.cal";
-	  outfile = "trackingBasisSortTestGridSearch.root";
+	  outfile = "trackingBasisSortTestHybrid.root";
   }else if (argc == 5) {
 	  afile = argv[1];
-    basisfileCoarse = argv[2];
-    basisfileFine = argv[3];
-	  calfile = argv[4];
-	  outfile = "trackingBasisSortTestGridSearch.root";
+    mapfile = argv[2];
+    basisfileCoarse = argv[3];
+    basisfileFine = argv[4];
+	  calfile = "CalibrationFile.cal";
+	  outfile = "trackingBasisSortTestHybrid.root";
   } else if (argc == 6) {
 	  afile = argv[1];
-    basisfileCoarse = argv[2];
-    basisfileFine = argv[3];
-	  calfile = argv[4];
-	  outfile = argv[5];
-  } else if (argc > 6) {
+    mapfile = argv[2];
+    basisfileCoarse = argv[3];
+    basisfileFine = argv[4];
+	  calfile = argv[5];
+	  outfile = "trackingBasisSortTestHybrid.root";
+  } else if (argc == 7) {
+	  afile = argv[1];
+    mapfile = argv[2];
+    basisfileCoarse = argv[3];
+    basisfileFine = argv[4];
+	  calfile = argv[5];
+	  outfile = argv[6];
+  } else if (argc > 7) {
 	  cout << "Too many arguments." << endl;
-    cout << "Arguments: ./GammaTrackingSortFromBasis analysis_tree_file basis_file_coarse basis_file_fine cal_file output_file" << endl;
+    cout << "Arguments: ./GammaTrackingSortHybrid analysis_tree_file map_file basis_file_coarse basis_file_fine cal_file output_file" << endl;
 	  return 0;
   }
 
@@ -163,7 +207,8 @@ int main(int argc, char ** argv) {
   grsi_path += ".grsirc";
   gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
 
-  cout << "Input file: " << afile << endl << "Coarse Waveform basis file: " << basisfileCoarse << endl << "Fine Waveform basis file: " << basisfileFine << endl;
+  cout << "Input file: " << afile << endl << "Map data file: " << mapfile << endl << "Coarse Waveform basis file: " << basisfileCoarse << endl;
+  cout << "Fine Waveform basis file: " << basisfileFine << endl;
   cout << "Calibration file: " << calfile << endl << "Output file: " << outfile << endl;
 
   TParserLibrary::Get()->Load();
@@ -173,10 +218,10 @@ int main(int argc, char ** argv) {
   //theApp=new TApplication("App", &argc, argv);
   if(strcmp(ext,".list")==0){
     cout << "Sorting from a list of analysis trees..." << endl;
-    sort_from_basis(afile, basisfileCoarse, basisfileFine, calfile, outfile, true);
+    sort_hybrid(afile, mapfile, basisfileCoarse, basisfileFine, calfile, outfile, true);
   }else{
     cout << "Sorting from a single analysis tree..." << endl;
-    sort_from_basis(afile, basisfileCoarse, basisfileFine, calfile, outfile, false);
+    sort_hybrid(afile, mapfile, basisfileCoarse, basisfileFine, calfile, outfile, false);
   }
 
   return 0;

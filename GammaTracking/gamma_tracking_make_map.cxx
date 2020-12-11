@@ -1,8 +1,8 @@
-#include "common.h" //define all global variables here!
+#include "GammaTrackingTIGRESS.h" //define all global variables here!
 
+char hname[64];
 TH1D *rDistHist[NSEG], *angleDistHist[NSEG*VOXEL_BINS_R], *zDistHist[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
 TH1 *rDistHistC[NSEG], *angleDistHistC[NSEG*VOXEL_BINS_R], *zDistHistC[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
-
 
 void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NSEG]){
   TChain * AnalysisTree = (TChain * ) inputfile->Get("AnalysisTree");
@@ -80,15 +80,15 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NSEG])
             Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
 
             //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-            Double_t rho = calc_ordering(tigress_hit,i,jentry,0);
+            Double_t rho = calc_ordering(tigress_hit,i,0);
             if(rho == BAD_RETURN){
               continue;
             }
-            Double_t phi = calc_ordering(tigress_hit,i,jentry,1);
+            Double_t phi = calc_ordering(tigress_hit,i,1);
             if(phi == BAD_RETURN){
               continue;
             }
-            Double_t zeta = calc_ordering(tigress_hit,i,jentry,2);
+            Double_t zeta = calc_ordering(tigress_hit,i,2);
             if(zeta == BAD_RETURN){
               continue;
             }

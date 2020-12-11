@@ -1,7 +1,8 @@
-#include "common.h" //define all global variables here!
+#include "GammaTrackingTIGRESS.h" //define all global variables here!
 
-TH1 *rMap[NSEG], *angleMap[NSEG*VOXEL_BINS_R], *zMap[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
+char hname[64];
 TH1D *basis[(Int_t)(VOXEL_BINS_R*4*VOXEL_BINS_ANGLE_MAX*VOXEL_BINS_Z*FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR)];
+GT_map trackingMap;
 
 void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFac, const bool makeFineBasis, unsigned long int *numEvtsBasis){
   
@@ -83,15 +84,15 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
           for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
 
             //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-            double rho = calc_ordering(tigress_hit,i,jentry,0);
+            double rho = calc_ordering(tigress_hit,i,0);
             if(rho == BAD_RETURN){
               continue;
             }
-            double phi = calc_ordering(tigress_hit,i,jentry,1);
+            double phi = calc_ordering(tigress_hit,i,1);
             if(phi == BAD_RETURN){
               continue;
             }
-            double zeta = calc_ordering(tigress_hit,i,jentry,2);
+            double zeta = calc_ordering(tigress_hit,i,2);
             if(zeta == BAD_RETURN){
               continue;
             }
@@ -104,20 +105,20 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
             isHit = true;
 
             //map to spatial parameters
-            if(rMap[segNum]!=NULL){
-              double r = rMap[segNum]->GetBinContent(rMap[segNum]->FindBin(rho));
+            if(trackingMap.rMap[segNum]!=NULL){
+              double r = trackingMap.rMap[segNum]->GetBinContent(trackingMap.rMap[segNum]->FindBin(rho));
               Int_t rInd = (Int_t)(r*VOXEL_BINS_R/(1.0*MAX_VAL_R));
               //cout << "seg: " << segNum << ", r: " << r << ", rho: " << rho << ", ind: " << rInd << endl;
               if(rInd < VOXEL_BINS_R){
-                if(angleMap[segNum*VOXEL_BINS_R + rInd]!=NULL){
-                  double angle = angleMap[segNum*VOXEL_BINS_R + rInd]->GetBinContent(angleMap[segNum*VOXEL_BINS_R + rInd]->FindBin(phi));
+                if(trackingMap.angleMap[segNum*VOXEL_BINS_R + rInd]!=NULL){
+                  double angle = trackingMap.angleMap[segNum*VOXEL_BINS_R + rInd]->GetBinContent(trackingMap.angleMap[segNum*VOXEL_BINS_R + rInd]->FindBin(phi));
                   if(angle>=MAX_VAL_ANGLE){
                     angle=MAX_VAL_ANGLE-0.001; //have seen rare events where angle is exactly 90 degrees
                   }
                   Int_t angleInd = (Int_t)(angle*getNumAngleBins(rInd,1.0)/MAX_VAL_ANGLE);
                   //cout << "angle: " << angle << ", phi: " << phi << ", ind: " << angleInd << endl;
-                  if(zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]!=NULL){
-                    double z = zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->GetBinContent(zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->FindBin(zeta));
+                  if(trackingMap.zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]!=NULL){
+                    double z = trackingMap.zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->GetBinContent(trackingMap.zMap[segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->FindBin(zeta));
                     if(z>=MAX_VAL_Z){
                       z=MAX_VAL_Z-0.001; //have seen rare events where z is exactly 90 mm
                     }
@@ -248,14 +249,14 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
   
   for(int k = 0; k < NSEG; k++){
     sprintf(hname,"rMapSeg%i",k);
-    if((rMap[k] = (TH1*)inp->Get(hname))==NULL){
+    if((trackingMap.rMap[k] = (TH1*)inp->Get(hname))==NULL){
       cout << "No r coordinate map for segment " << k << endl;
     }
     for(int j = 0; j < VOXEL_BINS_R; j++){
       Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
       Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
       sprintf(hname,"angleMapSeg%ir%ito%i",k,rValMin,rValMax);
-      if((angleMap[k*VOXEL_BINS_R + j] = (TH1*)inp->Get(hname))==NULL){
+      if((trackingMap.angleMap[k*VOXEL_BINS_R + j] = (TH1*)inp->Get(hname))==NULL){
         cout << "No angle coordinate map for segment " << k << ", radial range " << rValMin << " to " << rValMax << endl;
       }
       Int_t numAngleBins = getNumAngleBins(j,1.0);
@@ -263,7 +264,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
         Int_t angleValMin = (Int_t)(i*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
         Int_t angleValMax = (Int_t)((i+1)*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
         sprintf(hname,"zMapSeg%ir%ito%iangle%ito%i",k,rValMin,rValMax,angleValMin,angleValMax);
-        if((zMap[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = (TH1*)inp->Get(hname))==NULL){
+        if((trackingMap.zMap[k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = (TH1*)inp->Get(hname))==NULL){
           cout << "No z coordinate map for segment " << k << ", radial range " << rValMin << " to " << rValMax << ", angle range " << angleValMin << " to " << angleValMax << endl;
         }
       }
@@ -388,7 +389,7 @@ int main(int argc, char ** argv) {
 	  return 0;
   } else if (argc == 2) {
 	  afile = argv[1];
-    mapfile = "trackingMap.root";
+    mapfile = "trackingtrackingMap.root";
 	  calfile = "CalibrationFile.cal";
 	  outfileCoarse = "trackingWaveformBasisCoarse.root";
     outfileFine = "trackingWaveformBasisFine.root";

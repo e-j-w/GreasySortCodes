@@ -1,3 +1,6 @@
+#ifndef GAMMATRACKINGTIGRESS_H
+#define GAMMATRACKINGTIGRESS_H
+
 #include <iostream>
 #include <iomanip>
 #include "TCutG.h"
@@ -65,15 +68,28 @@ using namespace std;
 #define     BIG_NUMBER 1E30  //a big number
 #define     BAD_RETURN -1E10 //value to be returned if ordering parameter calculation fails
 
-//global variables here
-char hname[64];
-TH1 *rMap[NSEG], *angleMap[NSEG*VOXEL_BINS_R], *zMap[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
-TH1D *coarseBasis[(Int_t)(VOXEL_BINS_R*COARSE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*COARSE_BASIS_BINFACTOR*VOXEL_BINS_Z*COARSE_BASIS_BINFACTOR)];
-TH1D *fineBasis[(Int_t)(VOXEL_BINS_R*FINE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*FINE_BASIS_BINFACTOR*VOXEL_BINS_Z*FINE_BASIS_BINFACTOR)];
-TH1I *basisHPCoarse, *basisHPFine;
-TRandom3 *randGen;
+typedef struct
+{
+  TH1 *rMap[NSEG];
+  TH1 *angleMap[NSEG*VOXEL_BINS_R];
+  TH1 *zMap[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
+}GT_map;
 
-Int_t getNumAngleBins(Int_t rInd, Double_t rScaleFac, Double_t scaleFac){ return 1 + (Int_t)(pow((rInd/((VOXEL_BINS_R*rScaleFac) - 1.0)),2.0)*((VOXEL_BINS_ANGLE_MAX*scaleFac)-1));}; //the number of angle bins in the map depends on r
-Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac){ return getNumAngleBins(rInd,scaleFac,scaleFac); };
+typedef struct
+{
+  TH1D *coarseBasis[(Int_t)(VOXEL_BINS_R*COARSE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*COARSE_BASIS_BINFACTOR*VOXEL_BINS_Z*COARSE_BASIS_BINFACTOR)];
+  TH1D *fineBasis[(Int_t)(VOXEL_BINS_R*FINE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*FINE_BASIS_BINFACTOR*VOXEL_BINS_Z*FINE_BASIS_BINFACTOR)];
+  TH1I *basisHPCoarse, *basisHPFine;
+}GT_basis;
 
-#include "GammaTrackingTIGRESS.cxx"
+Int_t getNumAngleBins(Int_t rInd, Double_t rScaleFac, Double_t scaleFac);
+Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac);
+
+//gamma tracking functions
+double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t parameterNum);
+void GT_import_map(TFile *map_file, GT_map *gt_map);
+void GT_import_basis(TFile *coarse_basis_file, TFile *fine_basis_file, GT_basis *gt_basis);
+TVector3 GT_get_pos_direct(TTigressHit *tigress_hit, GT_map *gt_map);
+TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis);
+
+#endif
