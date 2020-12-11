@@ -2,16 +2,16 @@ CPPFLAGS = -std=c++0x -I$(GRSISYS)/include -L$(GRSISYS)/lib `grsi-config --cflag
 
 all: gamma_tracking_make_map gamma_tracking_make_basis gamma_tracking_sort_example gamma_tracking_sort_from_basis_gridsearch
 	
-gamma_tracking_make_map: gamma_tracking_make_map.cxx GammaTrackingTIGRESS.h
+gamma_tracking_make_map: gamma_tracking_make_map.cxx ordering_parameter_calc.cxx common.h
 	g++ gamma_tracking_make_map.cxx $(CPPFLAGS) -o GammaTrackingMakeMap
 
-gamma_tracking_make_basis: gamma_tracking_make_basis.cxx GammaTrackingTIGRESS.h
+gamma_tracking_make_basis: gamma_tracking_make_basis.cxx ordering_parameter_calc.cxx common.h
 	g++ gamma_tracking_make_basis.cxx $(CPPFLAGS) -o GammaTrackingMakeBasis
 	
-gamma_tracking_sort_example: gamma_tracking_sort_example.cxx GammaTrackingTIGRESS.h
+gamma_tracking_sort_example: gamma_tracking_sort_example.cxx ordering_parameter_calc.cxx common.h
 	g++ gamma_tracking_sort_example.cxx $(CPPFLAGS) -o GammaTrackingSortExample
 
-gamma_tracking_sort_from_basis_gridsearch: gamma_tracking_sort_from_basis_gridsearch.cxx GammaTrackingTIGRESS.h
+gamma_tracking_sort_from_basis_gridsearch: gamma_tracking_sort_from_basis_gridsearch.cxx common.h
 	g++ gamma_tracking_sort_from_basis_gridsearch.cxx $(CPPFLAGS) -o GammaTrackingSortFromBasisGridSearch
 	
 clean:
