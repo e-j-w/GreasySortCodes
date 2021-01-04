@@ -4,8 +4,8 @@
 
 //TApplication *theApp;
 
-TH2D *posXYMap;
 TH3D *pos3DMap;
+TH2D *posXYMapBottom, *posXYMapTop;
 GT_basis trackingBasis;
 
 void sortData(TFile *inputfile, const char *calfile){
@@ -40,7 +40,11 @@ void sortData(TFile *inputfile, const char *calfile){
       TVector3 posVec = GT_get_pos_gridsearch(tigress_hit,&trackingBasis);
       if(posVec.X()!=BAD_RETURN){
         pos3DMap->Fill(posVec.X(),posVec.Y(),posVec.Z());
-        posXYMap->Fill(posVec.X(),posVec.Y());
+        if(posVec.Z() <= 30.){
+            posXYMapBottom->Fill(posVec.X(),posVec.Y());
+          }else{
+            posXYMapTop->Fill(posVec.X(),posVec.Y());
+          }
         sort_hit_counter++;
       }
       
@@ -64,8 +68,10 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
   TList *list = new TList;
   pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMap);
-  posXYMap = new TH2D("posXYMap","posXYMap",40,-40,40,40,-40,40);
-  list->Add(posXYMap);
+  posXYMapBottom = new TH2D("posXYMapSeg0-3","posXYMapSeg0-3",40,-40,40,40,-40,40);
+  list->Add(posXYMapBottom);
+  posXYMapTop = new TH2D("posXYMapSeg4-7","posXYMapSeg4-7",40,-40,40,40,-40,40);
+  list->Add(posXYMapTop);
 
   //sort data from individual analysis tree or list of trees
   if(inpList){

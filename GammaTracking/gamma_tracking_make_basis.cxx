@@ -1,5 +1,10 @@
 #include "GammaTrackingTIGRESS.h" //define all global variables here!
 
+//forward declarations
+Int_t getNumAngleBins(Int_t rInd, Double_t rScaleFac, Double_t scaleFac);
+Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac);
+double calc_ordering(TTigressHit *, const Int_t, const Int_t);
+
 char hname[64];
 TH1D *basis[(Int_t)(VOXEL_BINS_R*4*VOXEL_BINS_ANGLE_MAX*VOXEL_BINS_Z*FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR)];
 GT_map trackingMap;

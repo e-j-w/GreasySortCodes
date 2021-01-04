@@ -1,5 +1,10 @@
 #include "GammaTrackingTIGRESS.h" //define all global variables here!
 
+//forward declarations
+Int_t getNumAngleBins(Int_t rInd, Double_t rScaleFac, Double_t scaleFac);
+Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac);
+double calc_ordering(TTigressHit *, const Int_t, const Int_t);
+
 char hname[64];
 TH1D *rDistHist[NSEG], *angleDistHist[NSEG*VOXEL_BINS_R], *zDistHist[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
 TH1 *rDistHistC[NSEG], *angleDistHistC[NSEG*VOXEL_BINS_R], *zDistHistC[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
@@ -72,7 +77,6 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NSEG])
         }
         if(goodWaveforms){
           bool isHit = false;
-
           for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
             
             TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
@@ -111,6 +115,7 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NSEG])
           if(isHit){
             map_hit_counter++;
           }
+          
         }
       }
 

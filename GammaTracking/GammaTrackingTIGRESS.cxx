@@ -14,6 +14,8 @@ Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac){
 //this enforces the single segment hit condition assumed by the mapping process, using SEGMENT_ENERGY_THRESHOLD
 double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t parameterNum) {
 
+  //cout << "array position: " << tigress_hit->GetArrayNumber() << endl;
+
   //lists of adjacent segments in the TIGRESS array (zero-indexed)
   const Int_t phiAdjSeg1[8] = {3,0,1,2,7,4,5,6};
   const Int_t phiAdjSeg2[8] = {1,2,3,0,5,6,7,4};
@@ -76,19 +78,21 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t param
     double term2 = 0.;
     for(int j=1;j<SAMPLES-1;j++){
       sampleAvg += (j)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
-      term2 += segwf2->at(j) + segwf3->at(j) + segwf4->at(j);
+      term2 += segwf2->at(j) + segwf3->at(j);
+      //term2 += segwf2->at(j) + segwf3->at(j) + segwf4->at(j);
       dno += (segwf->at(j+1) - segwf->at(j-1))/2.0;
     }
     sampleAvg /= dno;
-    term2 /= dno;
+    term2 /= dno*2.0;
     double rho = 0.;
     for(int j=1;j<SAMPLES-1;j++){
       rho += pow(j - sampleAvg,3.0)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
     }
     rho /= dno;
-    //rho = rho - term2; //may want to adjust weight of term2, Li uses x400
-    rho = -1.*term2;
+    rho = rho - term2; //may want to adjust weight of term2, Li uses x400
+    //rho = -1.*term2;
     if((dno==0.)||(rho!=rho)){
+    //if(rho!=rho){
       //cout << "Cannot compute rho parameter (NaN)." << endl;
       return BAD_RETURN;
     }
@@ -361,6 +365,39 @@ void GT_import_basis(TFile *coarse_basis_file, TFile *fine_basis_file, GT_basis 
     }
   }
   cout << "All waveform basis data read in." << endl;
+}
+
+//transforms a hit position within a core to an absolute hit position
+TVector3 GT_transform_position_to_absolute(TTigressHit *tigress_hit, TVector3 *hit_pos){
+
+  //rotate the sub-segment hit position vector into the lab frame
+  TVector3 aPos(*hit_pos);
+  TVector3 direction = tigress_hit->GetPosition().Unit();
+  aPos.RotateUz(direction); // direction must be TVector3 of unit length
+
+  return tigress_hit->GetPosition() + aPos;
+}
+
+//returns the Doppler corrected energy from the sub-segment position
+//source_beta: % speed of light that the source (beam/recoil) is travelling at (0-1)
+//source_vec: vector for the source (beam/recoil) direction
+//tigress_hit: GRSIsort TTigressHit object for the TIGRESS hit information
+//hit_pos: the sub-segment hit position, from GT_get_pos_direct, GT_get_pos_gridsearch, or similar
+double GT_get_doppler(double source_beta, TVector3 *source_vec = nullptr, TTigressHit *tigress_hit = nullptr, TVector3* hit_pos = nullptr){
+  if(source_vec == nullptr){
+    source_vec = tigress_hit->GetBeamDirection();
+  }
+  if(tigress_hit == nullptr){
+    cout << "GT_get_doppler: TIGRESS hit is NULL pointer." << endl;
+    return 0.;
+  }else if(hit_pos == nullptr){
+    cout << "GT_get_doppler: hit position is NULL pointer." << endl;
+    return 0.;
+  }
+  double tmp   = 0;
+  double gamma = 1 / (sqrt(1 - pow(source_beta, 2)));
+  tmp = tigress_hit->GetEnergy() * gamma * (1 - source_beta * TMath::Cos(GT_transform_position_to_absolute(tigress_hit,hit_pos).Angle(*source_vec)));
+  return tmp;
 }
 
 
@@ -704,3 +741,4 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
   return TVector3(BAD_RETURN,0,0);
       
 }
+

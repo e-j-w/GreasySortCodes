@@ -1,6 +1,8 @@
 #include "GammaTrackingTIGRESS.h" //define all global variables here!
 
-TH3D *pos3DMap;
+TH3D *pos3DMap, *pos3DMapAbs;
+TH2D *posXYMapBottom, *posXYMapTop;
+TH1D *dopplerESeg, *dopplerEGT;
 GT_map trackingMap;
 
 void sortData(TFile *inputfile, const char *calfile){
@@ -24,6 +26,10 @@ void sortData(TFile *inputfile, const char *calfile){
   Int_t hit_counter = 0;
   Int_t sort_hit_counter = 0;
 
+  TVector3 recoil_vec;
+  recoil_vec.SetX(0.); recoil_vec.SetY(0.); recoil_vec.SetZ(1.);
+  double beta = 0.05;
+
   Int_t one;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
@@ -35,8 +41,17 @@ void sortData(TFile *inputfile, const char *calfile){
       if(posVec.X()!=BAD_RETURN){
         //cout << "Filling: " << posVec.X() << " " << posVec.Y() << " " << posVec.Z() << endl;
         pos3DMap->Fill(posVec.X(),posVec.Y(),posVec.Z());
+        TVector3 posVecAbs = GT_transform_position_to_absolute(tigress_hit,&posVec);
+        pos3DMapAbs->Fill(posVecAbs.X(),posVecAbs.Y(),posVecAbs.Z());
+        if(posVec.Z() <= 30.){
+          posXYMapBottom->Fill(posVec.X(),posVec.Y());
+        }else{
+          posXYMapTop->Fill(posVec.X(),posVec.Y());
+        }
+        dopplerEGT->Fill(GT_get_doppler(beta,&recoil_vec,tigress_hit,&posVec));
         sort_hit_counter++;
       }
+      dopplerESeg->Fill(tigress_hit->GetDoppler(beta,&recoil_vec));
     }
     if (jentry % 10000 == 0) cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << nentries << ", " << 100 * jentry / nentries << "% complete" << "\r" << flush;
   }
@@ -57,6 +72,16 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
   TList * list = new TList;
   pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMap);
+  pos3DMapAbs = new TH3D("pos3DMapAbsolute","Absolute",40,-300,300,40,-300,300,40,-300,300);
+  list->Add(pos3DMapAbs);
+  posXYMapBottom = new TH2D("posXYMapSeg0-3","posXYMapSeg0-3",40,-40,40,40,-40,40);
+  list->Add(posXYMapBottom);
+  posXYMapTop = new TH2D("posXYMapSeg4-7","posXYMapSeg4-7",40,-40,40,40,-40,40);
+  list->Add(posXYMapTop);
+  dopplerESeg = new TH1D("dopplerESeg","dopplerESeg",4096,0,4096);
+  list->Add(dopplerESeg);
+  dopplerEGT = new TH1D("dopplerEGT","dopplerEGT",4096,0,4096);
+  list->Add(dopplerEGT);
 
   //sort data from individual analysis tree or list of trees
   if(inpList){

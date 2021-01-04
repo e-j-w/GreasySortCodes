@@ -37,7 +37,7 @@ using namespace std;
 #define     BASELINE_SAMPLES 20  //number of samples at the start of the waveform used to calculate the baseline
 
 #define     N_BINS_ORDERING 512 //number of bins to use when discretizing ordering parameter (WARNING: memory usage scales as ^3 with this, can also overflow TH3 integer bin index with values > 1024!)
-#define     RHO_MAX         1.2E4
+#define     RHO_MAX         2.0E4
 #define     PHI_MAX         1.0
 #define     ZETA_MAX        1.0
 
@@ -82,14 +82,14 @@ typedef struct
   TH1I *basisHPCoarse, *basisHPFine;
 }GT_basis;
 
-Int_t getNumAngleBins(Int_t rInd, Double_t rScaleFac, Double_t scaleFac);
-Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac);
+
 
 //gamma tracking functions
-double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t parameterNum);
-void GT_import_map(TFile *map_file, GT_map *gt_map);
-void GT_import_basis(TFile *coarse_basis_file, TFile *fine_basis_file, GT_basis *gt_basis);
-TVector3 GT_get_pos_direct(TTigressHit *tigress_hit, GT_map *gt_map);
-TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis);
+void GT_import_map(TFile*,GT_map*);
+void GT_import_basis(TFile*,TFile*,GT_basis*);
+TVector3 GT_get_pos_direct(TTigressHit*,GT_map*);
+TVector3 GT_get_pos_gridsearch(TTigressHit*,GT_basis*);
+TVector3 GT_transform_position_to_absolute(TTigressHit*,TVector3*);
+double GT_get_doppler(double,TVector3*,TTigressHit*,TVector3*);
 
 #endif
