@@ -1,8 +1,9 @@
 #include "GammaTrackingTIGRESS.h" //define all global variables here!
 
-TH3D *pos3DMap, *pos3DMapAbs;
+TH3D *pos3DMap, *pos3DMapClover, *pos3DMapAbs;
 TH2D *posXYMapBottom, *posXYMapTop;
-TH1D *dopplerESeg, *dopplerEGT;
+TH1D *rHist, *phiHistBottom, *phiHistTop, *zHist;
+TH1D *tigE, *dopplerESeg, *dopplerEGT;
 GT_map trackingMap;
 
 void sortData(TFile *inputfile, const char *calfile){
@@ -41,17 +42,30 @@ void sortData(TFile *inputfile, const char *calfile){
       if(posVec.X()!=BAD_RETURN){
         //cout << "Filling: " << posVec.X() << " " << posVec.Y() << " " << posVec.Z() << endl;
         pos3DMap->Fill(posVec.X(),posVec.Y(),posVec.Z());
+        rHist->Fill(posVec.Perp());
+        zHist->Fill(posVec.Z());
         TVector3 posVecAbs = GT_transform_position_to_absolute(tigress_hit,&posVec);
         pos3DMapAbs->Fill(posVecAbs.X(),posVecAbs.Y(),posVecAbs.Z());
+        TVector3 posVecClover = GT_transform_position_to_clover(tigress_hit,&posVec);
+        pos3DMapClover->Fill(posVecClover.X(),posVecClover.Y(),posVecClover.Z());
         if(posVec.Z() <= 30.){
+          phiHistBottom->Fill(posVec.Theta());
           posXYMapBottom->Fill(posVec.X(),posVec.Y());
         }else{
+          phiHistTop->Fill(posVec.Theta());
           posXYMapTop->Fill(posVec.X(),posVec.Y());
         }
-        dopplerEGT->Fill(GT_get_doppler(beta,&recoil_vec,tigress_hit,&posVec));
+        double egt = GT_get_doppler(beta,&recoil_vec,tigress_hit,&posVec);
+        if(egt>5.){
+          dopplerEGT->Fill(egt);
+        }
         sort_hit_counter++;
       }
-      dopplerESeg->Fill(tigress_hit->GetDoppler(beta,&recoil_vec));
+      double eseg = tigress_hit->GetDoppler(beta,&recoil_vec);
+      if(eseg>5.){
+        dopplerESeg->Fill(eseg);
+        tigE->Fill(tigress_hit->GetEnergy());
+      }
     }
     if (jentry % 10000 == 0) cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << nentries << ", " << 100 * jentry / nentries << "% complete" << "\r" << flush;
   }
@@ -70,17 +84,29 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
   
   //setup output histograms
   TList * list = new TList;
-  pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
+  pos3DMap = new TH3D("pos3DMap","Core Position Map",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMap);
-  pos3DMapAbs = new TH3D("pos3DMapAbsolute","Absolute",40,-300,300,40,-300,300,40,-300,300);
+  pos3DMapClover = new TH3D("pos3DMapClover","Clover Positon Map",80,-80,80,80,-80,80,40,-10,100);
+  list->Add(pos3DMapClover);
+  pos3DMapAbs = new TH3D("pos3DMapAbsolute","Absolute Positon Map",40,-300,300,40,-300,300,40,-300,300);
   list->Add(pos3DMapAbs);
   posXYMapBottom = new TH2D("posXYMapSeg0-3","posXYMapSeg0-3",40,-40,40,40,-40,40);
   list->Add(posXYMapBottom);
   posXYMapTop = new TH2D("posXYMapSeg4-7","posXYMapSeg4-7",40,-40,40,40,-40,40);
   list->Add(posXYMapTop);
-  dopplerESeg = new TH1D("dopplerESeg","dopplerESeg",4096,0,4096);
+  rHist = new TH1D("rHist","hit radius",500,0,50);
+  list->Add(rHist);
+  phiHistBottom = new TH1D("phiHistSeg0-3","hit phi segment 0-3",500,-2.*M_PI,2.*M_PI);
+  list->Add(phiHistBottom);
+  phiHistTop = new TH1D("phiHistSeg4-7","hit phi segment 4-7",500,-2.*M_PI,2.*M_PI);
+  list->Add(phiHistTop);
+  zHist = new TH1D("zHist","hit z",500,0,100);
+  list->Add(zHist);
+  tigE = new TH1D("tigE","TIGRESS energy (uncorrected)",16384,0,4096);
+  list->Add(tigE);
+  dopplerESeg = new TH1D("dopplerESeg","Doppler Corrected Energy (segment position)",16384,0,4096);
   list->Add(dopplerESeg);
-  dopplerEGT = new TH1D("dopplerEGT","dopplerEGT",4096,0,4096);
+  dopplerEGT = new TH1D("dopplerEGT","Doppler Corrected Energy (tracked position)",16384,0,4096);
   list->Add(dopplerEGT);
 
   //sort data from individual analysis tree or list of trees

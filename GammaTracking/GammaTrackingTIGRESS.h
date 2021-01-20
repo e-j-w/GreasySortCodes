@@ -37,7 +37,7 @@ using namespace std;
 #define     BASELINE_SAMPLES 20  //number of samples at the start of the waveform used to calculate the baseline
 
 #define     N_BINS_ORDERING 512 //number of bins to use when discretizing ordering parameter (WARNING: memory usage scales as ^3 with this, can also overflow TH3 integer bin index with values > 1024!)
-#define     RHO_MAX         2.0E4
+#define     RHO_MAX         5.0E4
 #define     PHI_MAX         1.0
 #define     ZETA_MAX        1.0
 
@@ -60,7 +60,7 @@ using namespace std;
 #define     GRID_HIT_SEG_WEIGHT     1.0
 #define     GRID_NONHIT_SEG_WEIGHT  20.0
 
-#define     SEGMENT_ENERGY_THRESHOLD       200 //threshold for a segment to be considered 'hit' in GetEnergy() units
+#define     SEGMENT_ENERGY_THRESHOLD       50 //threshold for a segment to be considered 'hit' in GetEnergy() units
 #define     SEGMENT_ENERGY_NOHIT_THRESHOLD 20  //threshold in GetCharge() units below which a segment is considered not to be hit
 
 #define     MAX_BASIS_SORT_CHISQ  2.0 //threshold chisq for basis sort
@@ -89,7 +89,9 @@ void GT_import_map(TFile*,GT_map*);
 void GT_import_basis(TFile*,TFile*,GT_basis*);
 TVector3 GT_get_pos_direct(TTigressHit*,GT_map*);
 TVector3 GT_get_pos_gridsearch(TTigressHit*,GT_basis*);
+TVector3 GT_transform_position_to_clover(TTigressHit*,TVector3*);
 TVector3 GT_transform_position_to_absolute(TTigressHit*,TVector3*);
 double GT_get_doppler(double,TVector3*,TTigressHit*,TVector3*);
+Int_t getMaxChargeSegHit(TTigressHit*);
 
 #endif

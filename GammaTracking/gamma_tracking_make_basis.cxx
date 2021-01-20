@@ -35,7 +35,6 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
   Int_t hit_counter = 0;
   Int_t map_hit_counter = 0;
 
-  const Int_t one = 1;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
     for (int hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++) {
@@ -59,12 +58,12 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
         Int_t segsInData = 0;
         for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
           //make sure all segments in the data are different
-          if(segsInData&(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1))){
+          if(segsInData&(1<<(tigress_hit->GetSegmentHit(i).GetSegment()-1))){
             cout << "Entry " << jentry << ", multiple hits in one segment." << endl;
             goodWaveforms = false;
             break;
           }else{
-            segsInData|=(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
+            segsInData|=(1<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
           }
           if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=SAMPLES){
             cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
@@ -347,7 +346,6 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
       for(int i = 0; i < basisBinsZ; i++){
         const Int_t basisInd = k*basisBinsAngle*basisBinsZ + j*basisBinsZ + i;
         uint32_t basisHPVal = 0;
-        const uint32_t one = 1;
         if(numEvtsBasis[basisInd] > 0){
           for(int m = 0; m < SAMPLES*(NSEG+1); m++){
             basis[basisInd]->SetBinContent(m+1,basis[basisInd]->GetBinContent(m+1)/(1.0*numEvtsBasis[basisInd]));
@@ -356,7 +354,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
             //try and find the sample value near the expected maximum of the pulse (estimate it is at 0.85*SAMPLES)
             if(basis[basisInd]->GetBinContent((Int_t)((m+1.85)*(SAMPLES))) > 0.2){
               //this segment is 'hit' in this basis bin
-              basisHPVal|=(one<<m);
+              basisHPVal|=(1<<m);
               //cout << "hit seg " << m << " with bin content: " << basis[basisInd]->GetBinContent((Int_t)((m+1.85)*(SAMPLES))) << endl;
             }
           }

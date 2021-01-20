@@ -33,34 +33,40 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NSEG])
   Int_t overflow_phi_counter = 0;
   Int_t overflow_zeta_counter = 0;
 
-  Int_t one;
   Int_t offset = 0;
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
-    for (one = 0; one < tigress->GetMultiplicity(); one++) {
-      tigress_hit = tigress->GetTigressHit(one);
+    for (int hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++) {
+      tigress_hit = tigress->GetTigressHit(hitInd);
       if(tigress_hit->GetKValue() != 700) continue;  //exclude pileup
       Double_t coreCharge = tigress_hit->GetCharge();
       if((coreCharge <= 0)||(coreCharge > BASIS_MAX_ENERGY)) continue; //bad energy
       hit_counter++; 
       //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
       if(tigress_hit->GetSegmentMultiplicity() == NSEG){
-        //all segments have waveforms
-        Int_t numSegHits = 0; //counter for the number of segments with a hit (ie. over the threshold energy)
+        //all segments have waveforms      
+
         //check that the waveforms are the same size, and that there are no duplicate segments
         bool goodWaveforms = true;
+        Int_t numSegHits = 0; //counter for the number of segments with a hit (ie. over the threshold energy)
         Int_t segsInData = 0;
-        for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
+        Int_t numSamples = -1;
+        Double_t maxSegCharge = 0.;
+        Int_t maxChargeSeg = -1;
+        for(int i = 0; i < NSEG; i++){
+          if(numSamples < 0){
+            numSamples = tigress_hit->GetSegmentHit(i).GetWaveform()->size();
+          }
           //make sure all segments in the data are different
-          if(segsInData&(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1))){
-            cout << "Entry " << jentry << ", multiple hits in one segment." << endl;
+          if(segsInData&(1<<(tigress_hit->GetSegmentHit(i).GetSegment()-1))){
+            //cout << "Entry " << jentry << ", multiple hits in one segment." << endl;
             goodWaveforms = false;
             break;
           }else{
-            segsInData|=(one<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
+            segsInData|=(1<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
           }
-          if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=SAMPLES){
-            cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
+          if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=numSamples){
+            //cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
             goodWaveforms = false;
             break;
           }
@@ -69,6 +75,10 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NSEG])
             break;
           }
           if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.2*coreCharge){
+            if(tigress_hit->GetSegmentHit(i).GetCharge() > maxSegCharge){
+              maxSegCharge = tigress_hit->GetSegmentHit(i).GetCharge();
+              maxChargeSeg = i;
+            }
             numSegHits++;
           }
         }
@@ -76,45 +86,40 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NSEG])
           goodWaveforms = false;
         }
         if(goodWaveforms){
-          bool isHit = false;
-          for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
             
-            TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
+          TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(maxChargeSeg);
 
-            Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
+          Int_t segNum = segment_hit.GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
 
-            //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-            Double_t rho = calc_ordering(tigress_hit,i,0);
-            if(rho == BAD_RETURN){
-              continue;
-            }
-            Double_t phi = calc_ordering(tigress_hit,i,1);
-            if(phi == BAD_RETURN){
-              continue;
-            }
-            Double_t zeta = calc_ordering(tigress_hit,i,2);
-            if(zeta == BAD_RETURN){
-              continue;
-            }
-
-            if(fabs(rho) > RHO_MAX)
-              overflow_rho_counter++;
-            if(fabs(phi) > PHI_MAX)
-              overflow_phi_counter++;
-            if(fabs(zeta) > ZETA_MAX)
-              overflow_zeta_counter++;
-            if((fabs(rho) > RHO_MAX)||(fabs(phi) > PHI_MAX)||(fabs(zeta) > ZETA_MAX)){
-              continue;
-            }
-            
-            //cout << "seg: " << segNum << ", rho: " << rho << ", phi:" << phi << ", zeta: " << zeta << endl;
-            //cout << "bin: " << rhophizetaHist[segNum]->GetBin(rho,phi,zeta) << endl;
-            rhophizetaHist[segNum]->Fill(rho,phi,zeta);
-            isHit = true;
+          //calculate all ordering parameters (see ordering_parameter_calc.cxx)
+          Double_t rho = calc_ordering(tigress_hit,maxChargeSeg,0);
+          if(rho == BAD_RETURN){
+            continue;
           }
-          if(isHit){
-            map_hit_counter++;
+          Double_t phi = calc_ordering(tigress_hit,maxChargeSeg,1);
+          if(phi == BAD_RETURN){
+            continue;
           }
+          Double_t zeta = calc_ordering(tigress_hit,maxChargeSeg,2);
+          if(zeta == BAD_RETURN){
+            continue;
+          }
+
+          //cout << "seg: " << segNum << ", rho: " << rho << ", phi:" << phi << ", zeta: " << zeta << endl;
+
+          if(fabs(rho) > RHO_MAX)
+            overflow_rho_counter++;
+          if(fabs(phi) > PHI_MAX)
+            overflow_phi_counter++;
+          if(fabs(zeta) > ZETA_MAX)
+            overflow_zeta_counter++;
+          if((fabs(rho) > RHO_MAX)||(fabs(phi) > PHI_MAX)||(fabs(zeta) > ZETA_MAX)){
+            continue;
+          }
+          
+          //cout << "bin: " << rhophizetaHist[segNum]->GetBin(rho,phi,zeta) << endl;
+          rhophizetaHist[segNum]->Fill(rho,phi,zeta);
+          map_hit_counter++;
           
         }
       }
