@@ -36,7 +36,7 @@ using namespace std;
 #define     SAMPLES          100 //number of samples in each waveform
 #define     BASELINE_SAMPLES 20  //number of samples at the start of the waveform used to calculate the baseline
 
-#define     N_BINS_ORDERING 512 //number of bins to use when discretizing ordering parameter (WARNING: memory usage scales as ^3 with this, can also overflow TH3 integer bin index with values > 1024!)
+#define     N_BINS_ORDERING 128 //number of bins to use when discretizing ordering parameter (WARNING: memory usage scales as ^3 with this, can also overflow TH3 integer bin index with values > 1024!)
 #define     RHO_MAX         5.0E4
 #define     PHI_MAX         1.0
 #define     ZETA_MAX        1.0
@@ -70,15 +70,15 @@ using namespace std;
 
 typedef struct
 {
-  TH1 *rMap[NSEG];
-  TH1 *angleMap[NSEG*VOXEL_BINS_R];
-  TH1 *zMap[NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
+  TH1 *rMap[NPOS*NCORE*NSEG];
+  TH1 *angleMap[NPOS*NCORE*NSEG*VOXEL_BINS_R];
+  TH1 *zMap[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
 }GT_map;
 
 typedef struct
 {
-  TH1D *coarseBasis[(Int_t)(VOXEL_BINS_R*COARSE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*COARSE_BASIS_BINFACTOR*VOXEL_BINS_Z*COARSE_BASIS_BINFACTOR)];
-  TH1D *fineBasis[(Int_t)(VOXEL_BINS_R*FINE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*FINE_BASIS_BINFACTOR*VOXEL_BINS_Z*FINE_BASIS_BINFACTOR)];
+  TH1D *coarseBasis[(Int_t)(NPOS*NCORE*VOXEL_BINS_R*COARSE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*COARSE_BASIS_BINFACTOR*VOXEL_BINS_Z*COARSE_BASIS_BINFACTOR)];
+  TH1D *fineBasis[(Int_t)(NPOS*NCORE*VOXEL_BINS_R*FINE_BASIS_BINFACTOR*4*VOXEL_BINS_ANGLE_MAX*FINE_BASIS_BINFACTOR*VOXEL_BINS_Z*FINE_BASIS_BINFACTOR)];
   TH1I *basisHPCoarse, *basisHPFine;
 }GT_basis;
 
