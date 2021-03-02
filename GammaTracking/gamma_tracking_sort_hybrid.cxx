@@ -5,7 +5,7 @@
 //TApplication *theApp;
 
 TH2D *posXYMap, *posXYMapGridSearch, *posXYMapDirect;
-TH3D *pos3DMap, *pos3DMapGridSearch, *pos3DMapDirect;
+TH3D *pos3DMap, *pos3DMapGridSearch, *pos3DMapDirect, *pos3DMapClover, *pos3DMapAbs;
 GT_map trackingMap;
 GT_basis trackingBasis;
 
@@ -40,23 +40,31 @@ void sortData(TFile *inputfile, const char *calfile){
       tigress_hit = tigress->GetTigressHit(hitInd);
       if(tigress_hit->GetKValue() != 700) continue;
       hit_counter++;
-      TVector3 posVec = GT_get_pos_gridsearch(tigress_hit,&trackingBasis); //sort using grid search
+      TVector3 posVec = GT_get_pos_direct(tigress_hit,&trackingMap); //sort using direct method
       if(posVec.X()!=BAD_RETURN){
         pos3DMap->Fill(posVec.X(),posVec.Y(),posVec.Z());
         posXYMap->Fill(posVec.X(),posVec.Y());
-        pos3DMapGridSearch->Fill(posVec.X(),posVec.Y(),posVec.Z());
-        posXYMapGridSearch->Fill(posVec.X(),posVec.Y());
+        pos3DMapDirect->Fill(posVec.X(),posVec.Y(),posVec.Z());
+        posXYMapDirect->Fill(posVec.X(),posVec.Y());
+        TVector3 posVecAbs = GT_transform_position_to_absolute(tigress_hit,&posVec);
+        pos3DMapAbs->Fill(posVecAbs.X(),posVecAbs.Y(),posVecAbs.Z());
+        TVector3 posVecClover = GT_transform_position_to_clover(tigress_hit,&posVec);
+        pos3DMapClover->Fill(posVecClover.X(),posVecClover.Y(),posVecClover.Z());
         sort_hit_counter++;
-        sort_hit_counter_gridsearch++;
+        sort_hit_counter_direct++;
       }else{
-        posVec = GT_get_pos_direct(tigress_hit,&trackingMap); //sort using direct method
+        posVec = GT_get_pos_gridsearch(tigress_hit,&trackingBasis); //sort using grid search
         if(posVec.X()!=BAD_RETURN){
           pos3DMap->Fill(posVec.X(),posVec.Y(),posVec.Z());
           posXYMap->Fill(posVec.X(),posVec.Y());
-          pos3DMapDirect->Fill(posVec.X(),posVec.Y(),posVec.Z());
-          posXYMapDirect->Fill(posVec.X(),posVec.Y());
+          pos3DMapGridSearch->Fill(posVec.X(),posVec.Y(),posVec.Z());
+          posXYMapGridSearch->Fill(posVec.X(),posVec.Y());
+          TVector3 posVecAbs = GT_transform_position_to_absolute(tigress_hit,&posVec);
+          pos3DMapAbs->Fill(posVecAbs.X(),posVecAbs.Y(),posVecAbs.Z());
+          TVector3 posVecClover = GT_transform_position_to_clover(tigress_hit,&posVec);
+          pos3DMapClover->Fill(posVecClover.X(),posVecClover.Y(),posVecClover.Z());
           sort_hit_counter++;
-          sort_hit_counter_direct++;
+          sort_hit_counter_gridsearch++;
         }
       }
       
@@ -66,8 +74,11 @@ void sortData(TFile *inputfile, const char *calfile){
 
   cout << "Entry " << nentries << " of " << nentries << ", 100% Complete!" << endl;
   cout << sort_hit_counter << " of " << hit_counter << " hits retained (" << 100*sort_hit_counter/hit_counter << " %)." << endl;
-  cout << sort_hit_counter_gridsearch << " hits sorted using grid search (" << 100*sort_hit_counter_gridsearch/sort_hit_counter << " % of sorted hits)." << endl;
-  cout << sort_hit_counter_direct << " hits sorted using direct method (" << 100*sort_hit_counter_direct/sort_hit_counter << " % of sorted hits)." << endl;
+  if(sort_hit_counter > 0){
+    cout << sort_hit_counter_gridsearch << " hits sorted using grid search (" << 100*sort_hit_counter_gridsearch/sort_hit_counter << " % of sorted hits)." << endl;
+    cout << sort_hit_counter_direct << " hits sorted using direct method (" << 100*sort_hit_counter_direct/sort_hit_counter << " % of sorted hits)." << endl;
+  }
+  
 }
 
 //Function which sorts hit positions using a pre-generated waveform basis
@@ -84,12 +95,16 @@ void sort_hybrid(const char *infile, const char *mapfile, const char *basisfileC
 
   //setup output histograms
   TList *list = new TList;
-  pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
+  pos3DMap = new TH3D("pos3DMap","Core Position Map",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMap);
-  pos3DMapGridSearch = new TH3D("pos3DMapGridSearch","pos3DMapGridSearch",40,-40,40,40,-40,40,40,-10,100);
+  pos3DMapGridSearch = new TH3D("pos3DMapGridSearch","Core Position Map (grid search only)",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMapGridSearch);
-  pos3DMapDirect = new TH3D("pos3DMapDirect","pos3DMapDirect",40,-40,40,40,-40,40,40,-10,100);
+  pos3DMapDirect = new TH3D("pos3DMapDirect","Core Position Map (direct method only)",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMapDirect);
+  pos3DMapClover = new TH3D("pos3DMapClover","Clover Positon Map",80,-80,80,80,-80,80,40,-10,100);
+  list->Add(pos3DMapClover);
+  pos3DMapAbs = new TH3D("pos3DMapAbsolute","Absolute Positon Map",40,-300,300,40,-300,300,40,-300,300);
+  list->Add(pos3DMapAbs);
   posXYMap = new TH2D("posXYMap","posXYMap",40,-40,40,40,-40,40);
   list->Add(posXYMap);
   posXYMapGridSearch = new TH2D("posXYMapGridSearch","posXYMapGridSearch",40,-40,40,40,-40,40);

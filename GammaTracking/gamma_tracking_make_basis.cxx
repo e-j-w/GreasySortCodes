@@ -370,7 +370,7 @@ int main(int argc, char ** argv) {
 	  return 0;
   } else if (argc == 2) {
 	  afile = argv[1];
-    mapfile = "trackingtrackingMap.root";
+    mapfile = "trackingMap.root";
 	  calfile = "CalibrationFile.cal";
 	  outfileCoarse = "trackingWaveformBasisCoarse.root";
     outfileFine = "trackingWaveformBasisFine.root";

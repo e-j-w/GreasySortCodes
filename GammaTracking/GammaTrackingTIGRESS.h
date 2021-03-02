@@ -54,8 +54,8 @@ using namespace std;
 
 //parameters defining how fine the basis grid is (number of bins in each dimension, per segment)
 //bounds of the grid determined by MAX_VAL_R, MAX_VAL_ANGLE, MAX_VAL_Z
-#define     COARSE_BASIS_BINFACTOR  1.0 //for the coarse basis, the number of bins in each dimension is multiplied by this factor with respect to the map
-#define     FINE_BASIS_BINFACTOR    4.0 //for the fine basis, the number of bins in each dimension is multiplied by this factor with respect to the map
+#define     COARSE_BASIS_BINFACTOR  0.5 //for the coarse basis, the number of bins in each dimension is multiplied by this factor with respect to the map
+#define     FINE_BASIS_BINFACTOR    1.0 //for the fine basis, the number of bins in each dimension is multiplied by this factor with respect to the map
 
 #define     GRID_HIT_SEG_WEIGHT     1.0
 #define     GRID_NONHIT_SEG_WEIGHT  20.0
