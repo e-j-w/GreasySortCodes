@@ -66,15 +66,16 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NPOS*N
             segsInData|=(1<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
           }
           if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=numSamples){
-            //cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
+            //cout << "Entry " << jentry << ", mismatched waveform size (" << tigress_hit->GetSegmentHit(i).GetWaveform()->size() << ")." << endl;
             goodWaveforms = false;
             break;
           }
           if((tigress_hit->GetSegmentHit(i).GetCharge() > BASIS_MAX_ENERGY)||(fabs(tigress_hit->GetSegmentHit(i).GetCharge()) > MAX_ENERGY_SINGLE_INTERACTION)){
+            //cout << "Entry " << jentry << ", charge out of range." << endl;
             goodWaveforms = false;
             break;
           }
-          if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.2*coreCharge){
+          if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.3*coreCharge){
             if(tigress_hit->GetSegmentHit(i).GetCharge() > maxSegCharge){
               maxSegCharge = tigress_hit->GetSegmentHit(i).GetCharge();
               maxChargeSeg = i;
@@ -82,7 +83,8 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NPOS*N
             numSegHits++;
           }
         }
-        if(numSegHits != 1){
+        if((goodWaveforms)&&(numSegHits != 1)){
+          cout << "Entry " << jentry << ", incorrect number of segments hit (" << numSegHits << ")." << endl;
           goodWaveforms = false;
         }
         if(goodWaveforms){
@@ -139,10 +141,106 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NPOS*N
   cout << "Hits with ordering parameters out of map range for [rho, phi, zeta]: [" << overflow_rho_counter << " " << overflow_phi_counter << " " << overflow_zeta_counter << "]" << endl;
 }
 
+void read_sim_file(const char *simfile){
+  cout << "Reading simulation tree in file: " << simfile << endl;
+  TTree *simTree;
+  TFile *inp = new TFile(simfile,"read");
+  if((simTree = (TTree*)inp->Get("tree"))==NULL){
+    cout << "ERROR: No spatial coordinate distribution info in the specified ROOT file (" << simfile << ")!" << endl;
+    exit(-1);
+  }
+  TBranch *rBranch, *phiBranch, *zBranch, *posIDBranch, *coreIDBranch, *segIDBranch, *numHitsBranch;
+  TLeaf *rLeaf, *phiLeaf, *zLeaf, *posIDLeaf, *coreIDLeaf, *segIDLeaf, *numHitsLeaf;
+  if((rBranch = simTree->GetBranch("TigressSegmentFullECylSphr"))==NULL){
+    cout << "ERROR: Sort data path 'TigressSegmentFullECylr' doesn't correspond to a branch or leaf in the tree (" << simfile << ")!" << endl;
+    exit(-1);
+  }else{
+    rLeaf = (TLeaf*)rBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
+  }
+  if((phiBranch = simTree->GetBranch("TigressSegmentFullECylSphphi"))==NULL){
+    cout << "ERROR: Sort data path 'TigressSegmentFullECylphi' doesn't correspond to a branch or leaf in the tree (" << simfile << ")!" << endl;
+    exit(-1);
+  }else{
+    phiLeaf = (TLeaf*)phiBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
+  }
+  if((zBranch = simTree->GetBranch("TigressSegmentFullECylSphz"))==NULL){
+    cout << "ERROR: Sort data path 'TigressSegmentMaxECylz' doesn't correspond to a branch or leaf in the tree (" << simfile << ")!" << endl;
+    exit(-1);
+  }else{
+    zLeaf = (TLeaf*)zBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
+  }
+  if((posIDBranch = simTree->GetBranch("TigressSegmentFullEPosId"))==NULL){
+    cout << "ERROR: Sort data path 'TigressSegmentFullEPosId' doesn't correspond to a branch or leaf in the tree (" << simfile << ")!" << endl;
+    exit(-1);
+  }else{
+    posIDLeaf = (TLeaf*)posIDBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
+  }
+  if((coreIDBranch = simTree->GetBranch("TigressSegmentFullECoreId"))==NULL){
+    cout << "ERROR: Sort data path 'TigressSegmentFullECoreId' doesn't correspond to a branch or leaf in the tree (" << simfile << ")!" << endl;
+    exit(-1);
+  }else{
+    coreIDLeaf = (TLeaf*)coreIDBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
+  }
+  if((segIDBranch = simTree->GetBranch("TigressSegmentFullESegId"))==NULL){
+    cout << "ERROR: Sort data path 'TigressSegmentFullESegId' doesn't correspond to a branch or leaf in the tree (" << simfile << ")!" << endl;
+    exit(-1);
+  }else{
+    segIDLeaf = (TLeaf*)segIDBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
+  }
+  if((numHitsBranch = simTree->GetBranch("TigressSegmentFullENumHits"))==NULL){
+    cout << "ERROR: Sort data path 'TigressSegmentFullENumHits' doesn't correspond to a branch or leaf in the tree (" << simfile << ")!" << endl;
+    exit(-1);
+  }else{
+    numHitsLeaf = (TLeaf*)numHitsBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
+  }
+  Int_t sentries = simTree->GetEntries();
+  Double_t rVal, angleVal, zVal;
+  Int_t arrayPosVal, segIDVal, numHitsVal;
+  for (int i=0;i<sentries;i++){
+    simTree->GetEntry(i);
+    for(int j=0; j<rLeaf->GetNdata(); j++) { //deal with multiple fold events
+      if((rLeaf->GetNdata()==phiLeaf->GetNdata())&&((rLeaf->GetNdata()==zLeaf->GetNdata()))&&(rLeaf->GetNdata()==segIDLeaf->GetNdata())){
+        rVal = rLeaf->GetValue(j);
+        angleVal = phiLeaf->GetValue(j)*180./M_PI;
+        zVal = zLeaf->GetValue(j);
+        arrayPosVal = (posIDLeaf->GetValue(j)-1)*NCORE + (coreIDLeaf->GetValue(j)-1);
+        segIDVal = segIDLeaf->GetValue(j)-1; //convert to zero-indexed
+        numHitsVal = numHitsLeaf->GetValue(j);
+        //cout << "sim data seg ID: " << segIDVal << ", r: " << rVal << ", rInd: " << rInd << ", angle: " << angleVal << ", z: " << zVal << endl;
+        //if(numHitsVal==1){ //restrict to single interaction events
+        if(numHitsVal>0){
+          if((arrayPosVal>=0)&&(arrayPosVal<(NPOS*NCORE))){
+            if((segIDVal>=0)&&(segIDVal<NSEG)){
+              if((rVal==rVal)&&(rVal>=0)&&(rVal<=MAX_VAL_R)){ 
+                rDistHist[arrayPosVal*NSEG + segIDVal]->Fill(rVal);
+                Int_t rInd = (Int_t)(rVal*VOXEL_BINS_R/MAX_VAL_R);
+                if((angleVal==angleVal)&&(angleVal>=0)&&(angleVal<=MAX_VAL_ANGLE)){
+                  angleDistHist[arrayPosVal*NSEG*VOXEL_BINS_R + segIDVal*VOXEL_BINS_R + rInd]->Fill(angleVal);
+                  Int_t angleInd = (Int_t)(angleVal*getNumAngleBins(rInd,1.0)/MAX_VAL_ANGLE);
+                  zDistHist[arrayPosVal*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segIDVal*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->Fill(zVal);
+                }
+              }
+            }else{
+              cout << "Sim tree (" << simfile << "): invalid segment." << endl;
+            }
+          }else{
+            cout << "Sim tree (" << simfile << "): invalid array position." << endl;
+          }
+        }
+      }else{
+        cout << "Sim tree (" << simfile << "): data size mismatch." << endl;
+      }
+
+    }
+  }
+  inp->Close();
+}
+
+
 
 //function which generates a mapping between ordering parameters and real spatial coordinates
 //and saves this mapping to disk
-void generate_mapping(const char *infile, const char *simfile, const char *calfile, const char *outfile, bool inpList) {
+void generate_mapping(const char *infile, const char *simfile, const char *calfile, const char *outfile, bool inpList, bool simList) {
 
   TList * list = new TList;
   
@@ -168,97 +266,21 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
     }
   }
   
-
-  TTree *simTree;
-  TFile *inp = new TFile(simfile,"read");
-  if((simTree = (TTree*)inp->Get("tree"))==NULL){
-    cout << "ERROR: No spatial coordinate distribution info in the specified ROOT file!" << endl;
-    exit(-1);
-  }
-  TBranch *rBranch, *phiBranch, *zBranch, *posIDBranch, *coreIDBranch, *segIDBranch, *numHitsBranch;
-  TLeaf *rLeaf, *phiLeaf, *zLeaf, *posIDLeaf, *coreIDLeaf, *segIDLeaf, *numHitsLeaf;
-  if((rBranch = simTree->GetBranch("TigressSegmentMaxECylSphr"))==NULL){
-    cout << "ERROR: Sort data path 'TigressSegmentMaxECylr' doesn't correspond to a branch or leaf in the tree!" << endl;
-    exit(-1);
-  }else{
-    rLeaf = (TLeaf*)rBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
-  }
-  if((phiBranch = simTree->GetBranch("TigressSegmentMaxECylSphphi"))==NULL){
-    cout << "ERROR: Sort data path 'TigressSegmentMaxECylphi' doesn't correspond to a branch or leaf in the tree!" << endl;
-    exit(-1);
-  }else{
-    phiLeaf = (TLeaf*)phiBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
-  }
-  if((zBranch = simTree->GetBranch("TigressSegmentMaxECylSphz"))==NULL){
-    cout << "ERROR: Sort data path 'TigressSegmentMaxECylz' doesn't correspond to a branch or leaf in the tree!" << endl;
-    exit(-1);
-  }else{
-    zLeaf = (TLeaf*)zBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
-  }
-  if((posIDBranch = simTree->GetBranch("TigressSegmentMaxEPosId"))==NULL){
-    cout << "ERROR: Sort data path 'TigressSegmentMaxEPosId' doesn't correspond to a branch or leaf in the tree!" << endl;
-    exit(-1);
-  }else{
-    posIDLeaf = (TLeaf*)posIDBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
-  }
-  if((coreIDBranch = simTree->GetBranch("TigressSegmentMaxECoreId"))==NULL){
-    cout << "ERROR: Sort data path 'TigressSegmentMaxECoreId' doesn't correspond to a branch or leaf in the tree!" << endl;
-    exit(-1);
-  }else{
-    coreIDLeaf = (TLeaf*)coreIDBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
-  }
-  if((segIDBranch = simTree->GetBranch("TigressSegmentMaxESegId"))==NULL){
-    cout << "ERROR: Sort data path 'TigressSegmentMaxESegId' doesn't correspond to a branch or leaf in the tree!" << endl;
-    exit(-1);
-  }else{
-    segIDLeaf = (TLeaf*)segIDBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
-  }
-  if((numHitsBranch = simTree->GetBranch("TigressSegmentMaxENumHits"))==NULL){
-    cout << "ERROR: Sort data path 'TigressSegmentMaxENumHits' doesn't correspond to a branch or leaf in the tree!" << endl;
-    exit(-1);
-  }else{
-    numHitsLeaf = (TLeaf*)numHitsBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
-  }
-  Int_t sentries = simTree->GetEntries();
-  Double_t rVal, angleVal, zVal;
-  Int_t arrayPosVal, segIDVal, numHitsVal;
-  for (int i=0;i<sentries;i++){
-    simTree->GetEntry(i);
-    for(int j=0; j<rLeaf->GetNdata(); j++) { //deal with multiple fold events
-      if((rLeaf->GetNdata()==phiLeaf->GetNdata())&&((rLeaf->GetNdata()==zLeaf->GetNdata()))&&(rLeaf->GetNdata()==segIDLeaf->GetNdata())){
-        rVal = rLeaf->GetValue(j);
-        angleVal = phiLeaf->GetValue(j)*180./M_PI;
-        zVal = zLeaf->GetValue(j);
-        arrayPosVal = (posIDLeaf->GetValue(j)-1)*NCORE + (coreIDLeaf->GetValue(j)-1);
-        segIDVal = segIDLeaf->GetValue(j)-1; //convert to zero-indexed
-        numHitsVal = numHitsLeaf->GetValue(j);
-        //cout << "sim data seg ID: " << segIDVal << ", r: " << rVal << ", rInd: " << rInd << ", angle: " << angleVal << ", z: " << zVal << endl;
-        if(numHitsVal==1){ //restrict to single interaction events
-        //if(numHitsVal>0){
-          if((arrayPosVal>=0)&&(arrayPosVal<(NPOS*NCORE))){
-            if((segIDVal>=0)&&(segIDVal<NSEG)){
-              if((rVal==rVal)&&(rVal>=0)&&(rVal<=MAX_VAL_R)){ 
-                rDistHist[arrayPosVal*NSEG + segIDVal]->Fill(rVal);
-                Int_t rInd = (Int_t)(rVal*VOXEL_BINS_R/MAX_VAL_R);
-                if((angleVal==angleVal)&&(angleVal>=0)&&(angleVal<=MAX_VAL_ANGLE)){
-                  angleDistHist[arrayPosVal*NSEG*VOXEL_BINS_R + segIDVal*VOXEL_BINS_R + rInd]->Fill(angleVal);
-                  Int_t angleInd = (Int_t)(angleVal*getNumAngleBins(rInd,1.0)/MAX_VAL_ANGLE);
-                  zDistHist[arrayPosVal*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segIDVal*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->Fill(zVal);
-                }
-              }
-            }else{
-              cout << "Sim tree: invalid segment." << endl;
-            }
-          }else{
-            cout << "Sim tree: invalid array position." << endl;
-          }
-        }
-      }else{
-        cout << "Sim tree: data size mismatch." << endl;
-      }
-
+  if(simList){
+    FILE *listFile;
+    char name[256];
+    if((listFile=fopen(simfile,"r"))==NULL){
+      cout << "ERROR: Could not open simulation tree list file!" << endl;
+      exit(-1);
     }
+    while(fscanf(listFile,"%s",name)!=EOF){
+      read_sim_file(name);
+    }
+    fclose(listFile);
+  }else{
+    read_sim_file(simfile);
   }
+  
 
   //normalize distributions and get cumulative versions
   for(int l = 0; l < NPOS*NCORE; l++){
@@ -532,7 +554,6 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   myfile->cd();
   list->Write();
   myfile->Close();
-  inp->Close();
   cout << "Histograms written, mapping complete!" << endl;
 }
 
@@ -588,14 +609,24 @@ int main(int argc, char ** argv) {
 
   TParserLibrary::Get()->Load();
 
+  bool inpList = false;
+  bool simList = false;
   ext=strrchr(argv[1],'.'); /* returns a pointer to the last . to grab extention*/
   if(strcmp(ext,".list")==0){
+    inpList = true;
     cout << "Sorting from a list of analysis trees..." << endl;
-    generate_mapping(afile, simfile, calfile, outfile, true);
   }else{
     cout << "Sorting from a single analysis tree..." << endl;
-    generate_mapping(afile, simfile, calfile, outfile, false);
   }
+  ext=strrchr(argv[2],'.'); /* returns a pointer to the last . to grab extention*/
+  if(strcmp(ext,".list")==0){
+    simList = true;
+    cout << "Sorting from a list of simulation trees..." << endl;
+  }else{
+    cout << "Sorting from a single simulation tree..." << endl;
+  }
+
+  generate_mapping(afile, simfile, calfile, outfile, inpList, simList);
   
 
   return 0;

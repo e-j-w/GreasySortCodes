@@ -46,7 +46,7 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
       if((coreCharge <= BASIS_MIN_ENERGY)||(coreCharge > BASIS_MAX_ENERGY)) continue; //bad energy
       tigress_hit->SetWavefit();
       const std::vector<Short_t> *wf = tigress_hit->GetWaveform();
-      if(wf->size()!=SAMPLES){
+      if(wf->size()<SAMPLES){
         cout << "Entry " << jentry << ", improper core waveform size (" << wf->size() << ")." << endl;
         continue;
       }
@@ -54,33 +54,45 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
       //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
       if(tigress_hit->GetSegmentMultiplicity() == NSEG){
         //all segments have waveforms
-        Int_t numSegHits = 0; //counter for the number of segments with a hit (ie. over the threshold energy)
         //check that the waveforms are the same size, and that there are no duplicate segments
         bool goodWaveforms = true;
+        Int_t numSegHits = 0; //counter for the number of segments with a hit (ie. over the threshold energy)
         Int_t segsInData = 0;
-        for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
+        Int_t numSamples = -1;
+        Double_t maxSegCharge = 0.;
+        Int_t maxChargeSeg = -1;
+        for(int i = 0; i < NSEG; i++){
+          if(numSamples < 0){
+            numSamples = tigress_hit->GetSegmentHit(i).GetWaveform()->size();
+          }
           //make sure all segments in the data are different
           if(segsInData&(1<<(tigress_hit->GetSegmentHit(i).GetSegment()-1))){
-            cout << "Entry " << jentry << ", multiple hits in one segment." << endl;
+            //cout << "Entry " << jentry << ", multiple hits in one segment." << endl;
             goodWaveforms = false;
             break;
           }else{
             segsInData|=(1<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
           }
-          if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=SAMPLES){
-            cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
+          if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=numSamples){
+            //cout << "Entry " << jentry << ", mismatched waveform size (" << tigress_hit->GetSegmentHit(i).GetWaveform()->size() << ")." << endl;
             goodWaveforms = false;
             break;
           }
           if((tigress_hit->GetSegmentHit(i).GetCharge() > BASIS_MAX_ENERGY)||(fabs(tigress_hit->GetSegmentHit(i).GetCharge()) > MAX_ENERGY_SINGLE_INTERACTION)){
+            //cout << "Entry " << jentry << ", charge out of range." << endl;
             goodWaveforms = false;
             break;
           }
-          if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.2*coreCharge){
+          if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.3*coreCharge){
+            if(tigress_hit->GetSegmentHit(i).GetCharge() > maxSegCharge){
+              maxSegCharge = tigress_hit->GetSegmentHit(i).GetCharge();
+              maxChargeSeg = i;
+            }
             numSegHits++;
           }
         }
-        if(numSegHits != 1){
+        if((goodWaveforms)&&(numSegHits != 1)){
+          //cout << "Entry " << jentry << ", incorrect number of segments hit (" << numSegHits << ")." << endl;
           goodWaveforms = false;
         }
         if(goodWaveforms){
@@ -90,131 +102,131 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
 
             bool isHit = false;
 
-            for(int i = 0; i < tigress_hit->GetSegmentMultiplicity(); i++){
+            //calculate all ordering parameters (see ordering_parameter_calc.cxx)
+            double rho = calc_ordering(tigress_hit,maxChargeSeg,0);
+            if(rho == BAD_RETURN){
+              continue;
+            }
+            double phi = calc_ordering(tigress_hit,maxChargeSeg,1);
+            if(phi == BAD_RETURN){
+              continue;
+            }
+            double zeta = calc_ordering(tigress_hit,maxChargeSeg,2);
+            if(zeta == BAD_RETURN){
+              continue;
+            }
+            if((fabs(rho) > RHO_MAX)||(fabs(phi) > PHI_MAX)||(fabs(zeta) > ZETA_MAX)){
+              continue;
+            }
+  
+            Int_t segNum = tigress_hit->GetSegmentHit(maxChargeSeg).GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
 
-              //calculate all ordering parameters (see ordering_parameter_calc.cxx)
-              double rho = calc_ordering(tigress_hit,i,0);
-              if(rho == BAD_RETURN){
-                continue;
-              }
-              double phi = calc_ordering(tigress_hit,i,1);
-              if(phi == BAD_RETURN){
-                continue;
-              }
-              double zeta = calc_ordering(tigress_hit,i,2);
-              if(zeta == BAD_RETURN){
-                continue;
-              }
-              if((fabs(rho) > RHO_MAX)||(fabs(phi) > PHI_MAX)||(fabs(zeta) > ZETA_MAX)){
-                continue;
-              }
-    
-              Int_t segNum = tigress_hit->GetSegmentHit(i).GetSegment()-1; //1-indexed from GRSIsort, convert to 0-indexed
+            isHit = true;
 
-              isHit = true;
-
-              //map to spatial parameters
-              if(trackingMap.rMap[arrayPos*NSEG + segNum]!=NULL){
-                double r = trackingMap.rMap[arrayPos*NSEG + segNum]->GetBinContent(trackingMap.rMap[arrayPos*NSEG + segNum]->FindBin(rho));
-                Int_t rInd = (Int_t)(r*VOXEL_BINS_R/(1.0*MAX_VAL_R));
-                //cout << "seg: " << segNum << ", r: " << r << ", rho: " << rho << ", ind: " << rInd << endl;
-                if(rInd < VOXEL_BINS_R){
-                  if(trackingMap.angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]!=NULL){
-                    double angle = trackingMap.angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]->GetBinContent(trackingMap.angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]->FindBin(phi));
-                    if(angle>=MAX_VAL_ANGLE){
-                      angle=MAX_VAL_ANGLE-0.001; //have seen rare events where angle is exactly 90 degrees
+            //map to spatial parameters
+            if(trackingMap.rMap[arrayPos*NSEG + segNum]!=NULL){
+              double r = trackingMap.rMap[arrayPos*NSEG + segNum]->GetBinContent(trackingMap.rMap[arrayPos*NSEG + segNum]->FindBin(rho));
+              Int_t rInd = (Int_t)(r*VOXEL_BINS_R/(1.0*MAX_VAL_R));
+              //cout << "seg: " << segNum << ", r: " << r << ", rho: " << rho << ", ind: " << rInd << endl;
+              if(rInd < VOXEL_BINS_R){
+                if(trackingMap.angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]!=NULL){
+                  double angle = trackingMap.angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]->GetBinContent(trackingMap.angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]->FindBin(phi));
+                  if(angle>=MAX_VAL_ANGLE){
+                    angle=MAX_VAL_ANGLE-0.001; //have seen rare events where angle is exactly 90 degrees
+                  }
+                  Int_t angleInd = (Int_t)(angle*getNumAngleBins(rInd,1.0)/MAX_VAL_ANGLE);
+                  //cout << "angle: " << angle << ", phi: " << phi << ", ind: " << angleInd << endl;
+                  if(trackingMap.zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]!=NULL){
+                    double z = trackingMap.zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->GetBinContent(trackingMap.zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->FindBin(zeta));
+                    if(z>=MAX_VAL_Z){
+                      z=MAX_VAL_Z-0.001; //have seen rare events where z is exactly 90 mm
                     }
-                    Int_t angleInd = (Int_t)(angle*getNumAngleBins(rInd,1.0)/MAX_VAL_ANGLE);
-                    //cout << "angle: " << angle << ", phi: " << phi << ", ind: " << angleInd << endl;
-                    if(trackingMap.zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]!=NULL){
-                      double z = trackingMap.zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->GetBinContent(trackingMap.zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->FindBin(zeta));
-                      if(z>=MAX_VAL_Z){
-                        z=MAX_VAL_Z-0.001; //have seen rare events where z is exactly 90 mm
-                      }
-                      //cout << "segnum: " << segNum << ", r: " << r << ", angle: " << angle << ", z: " << z << endl;
+                    //cout << "segnum: " << segNum << ", r: " << r << ", angle: " << angle << ", z: " << z << endl;
 
-                      if((30.-z) < r){
-                        if((r>0.)&&(z>0.)&&(angle>0.)){
-                          if(segNum<=3){
-                            //r corresponds to the distance from the central contact at z=30
-                            r = sqrt(r*r - (30.-z)*(30.-z));
+                    if((30.-z) < r){
+                      if((r>0.)&&(z>0.)&&(angle>0.)){
+                        if(segNum<=3){
+                          //r corresponds to the distance from the central contact at z=30
+                          r = sqrt(r*r - (30.-z)*(30.-z));
+                        }
+                        if((r==r)&&(angle==angle)&&(z==z)){
+                          angle += 90.*(segNum%4); //transform angle to 2pi spanned val
+                          if(angle>=360.){
+                            angle=360.-0.001; //have seen rare events where angle is exactly 360 degrees
                           }
-                          if((r==r)&&(angle==angle)&&(z==z)){
-                            angle += 90.*(segNum%4); //transform angle to 2pi spanned val
-                            if(angle>=360.){
-                              angle=360.-0.001; //have seen rare events where angle is exactly 360 degrees
-                            }
 
-                            //handle erronous mapping outside of real TIGRESS geometry due to map bin size
-                            if(r<5. && z>=20.){
-                              /*cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
-                              cout << "rInd: " << rInd << ", angleInd: " << angleInd << endl;
-                              cout << "segment: " << segNum << ", rho: " << rho << ", phi: " << phi << ", zeta: " << zeta << endl;
-                              getc(stdin);*/
-                              r = 5.0;
-                            }
+                          //handle erronous mapping outside of real TIGRESS geometry due to map bin size
+                          if(r<5. && z>=20.){
+                            /*cout << "r: " << r << ", angle: " << angle << ", z: " << z << endl;
+                            cout << "rInd: " << rInd << ", angleInd: " << angleInd << endl;
+                            cout << "segment: " << segNum << ", rho: " << rho << ", phi: " << phi << ", zeta: " << zeta << endl;
+                            getc(stdin);*/
+                            r = 5.0;
+                          }
 
-                            //get indices for r, angle, z
-                            const Int_t rBasisInd = (Int_t)(r*basisBinsR/MAX_VAL_R);
-                            Int_t numAngleBinsAtR = 4*getNumAngleBins(rBasisInd,basisScaleFac,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2
-                            if(makeFineBasis){
-                              numAngleBinsAtR *= FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR;
-                            }
-                            const Int_t angleBasisInd = (Int_t)(angle*numAngleBinsAtR/360.);
-                            const Int_t zBasisInd = (Int_t)(z*basisBinsZ/MAX_VAL_Z);
-                            const Int_t basisInd = arrayPos*basisBinsR*basisBinsAngle*basisBinsZ + rBasisInd*basisBinsAngle*basisBinsZ + angleBasisInd*basisBinsZ + zBasisInd;
-                            
-                            //cout << "seg: " << segNum << ", rBasisInd: " << rBasisInd << ", angleBasisInd: " << angleBasisInd << ", numAngleBinsAtR: " << numAngleBinsAtR << ", zBasisInd: " << zBasisInd << endl;
-                            //cout << "num basis bins: [ " << basisBinsR << " " << basisBinsAngle << " " << basisBinsZ << " ]" << endl;
+                          //get indices for r, angle, z
+                          const Int_t rBasisInd = (Int_t)(r*basisBinsR/MAX_VAL_R);
+                          Int_t numAngleBinsAtR = 4*getNumAngleBins(rBasisInd,basisScaleFac,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2
+                          if(makeFineBasis){
+                            numAngleBinsAtR *= FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR;
+                          }
+                          const Int_t angleBasisInd = (Int_t)(angle*numAngleBinsAtR/360.);
+                          const Int_t zBasisInd = (Int_t)(z*basisBinsZ/MAX_VAL_Z);
+                          const Int_t basisInd = arrayPos*basisBinsR*basisBinsAngle*basisBinsZ + rBasisInd*basisBinsAngle*basisBinsZ + angleBasisInd*basisBinsZ + zBasisInd;
+                          
+                          //cout << "seg: " << segNum << ", rBasisInd: " << rBasisInd << ", angleBasisInd: " << angleBasisInd << ", numAngleBinsAtR: " << numAngleBinsAtR << ", zBasisInd: " << zBasisInd << endl;
+                          //cout << "num basis bins: [ " << basisBinsR << " " << basisBinsAngle << " " << basisBinsZ << " ]" << endl;
 
-                            //save waveforms (in 'superpulse' format, core waveform followed by segment waveforms on the same histogram)
+                          //save waveforms (in 'superpulse' format, core waveform followed by segment waveforms on the same histogram)
 
-                            //first core waveform
-                            Double_t core_waveform_baseline = 0.;
-                            for(int k = 0; k < BASELINE_SAMPLES; k++){
-                              core_waveform_baseline += wf->at(k);
-                            }
-                            core_waveform_baseline /= 1.0*BASELINE_SAMPLES;
-                            for(int k = 0; k < SAMPLES; k++){
+                          //first core waveform
+                          Double_t core_waveform_baseline = 0.;
+                          for(int k = 1; k < BASELINE_SAMPLES; k++){
+                            core_waveform_baseline += wf->at(k);
+                          }
+                          core_waveform_baseline /= 1.0*(BASELINE_SAMPLES-1);
+                          for(int k = 0; k < SAMPLES; k++){
+                            if(k<numSamples){
                               basis[basisInd]->SetBinContent(k+1,basis[basisInd]->GetBinContent(k+1) + ((wf->at(k) - core_waveform_baseline)/coreCharge));
                             }
-                            //then segment waveforms
-                            for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
-                              //cout << "basisInd: " << basisInd << endl;
+                          }
+                          //then segment waveforms
+                          for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
+                            //cout << "basisInd: " << basisInd << endl;
 
-                              const Int_t segBasisInd = tigress_hit->GetSegmentHit(j).GetSegment();
-                              const std::vector<Short_t> *segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
-                              Double_t seg_waveform_baseline = 0.;
-                              for(int k = 0; k < BASELINE_SAMPLES; k++){
-                                seg_waveform_baseline += segwf->at(k);
-                              }
-                              seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
+                            const Int_t segBasisInd = tigress_hit->GetSegmentHit(j).GetSegment();
+                            const std::vector<Short_t> *segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
+                            Double_t seg_waveform_baseline = 0.;
+                            for(int k = 0; k < BASELINE_SAMPLES; k++){
+                              seg_waveform_baseline += segwf->at(k);
+                            }
+                            seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
 
-                              //cout << "core t0: " << waveform_t0 << ", core energy: " << coreCharge << ", segment " << segBasisInd << " baseline: " << seg_waveform_baseline << endl;
-                              
-                              for(int k = 0; k < SAMPLES; k++){
+                            //cout << "core t0: " << waveform_t0 << ", core energy: " << coreCharge << ", segment " << segBasisInd << " baseline: " << seg_waveform_baseline << endl;
+                            
+                            for(int k = 0; k < SAMPLES; k++){
+                              if(k<numSamples){
                                 //cout << "incrementing bin " << k << "by " << ((segwf->at(k) - seg_waveform_baseline)/coreCharge) << endl;
                                 basis[basisInd]->SetBinContent(k+1+(SAMPLES*segBasisInd),basis[basisInd]->GetBinContent(k+1+(SAMPLES*segBasisInd)) + fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge) );
                               }
                             }
-                            numEvtsBasis[basisInd]++;
                           }
-                          //cout << "val: " << basis[basisInd]->GetBinContent(0) << ", num evts: " << numEvtsBasis[basisInd] << endl;
+                          numEvtsBasis[basisInd]++;
                         }
-                      }else{
-                        cout << "WARNING: lower segment invalid z value (" << z << ", r: " << r << ")" << endl;
+                        //cout << "val: " << basis[basisInd]->GetBinContent(0) << ", num evts: " << numEvtsBasis[basisInd] << endl;
                       }
                     }else{
-                      cout << "WARNING: NULL z map bin (seg: " << segNum << ", r: " << r << ", r ind: " << rInd << ", angle: " << angle << ", angleInd: " << angleInd << ")" << endl;
+                      cout << "WARNING: lower segment invalid z value (" << z << ", r: " << r << ")" << endl;
                     }
                   }else{
-                    cout << "WARNING: NULL angle map bin (seg: " << segNum << ", r: " << r << ", r ind: " << rInd << ")" << endl;
+                    cout << "WARNING: NULL z map bin (seg: " << segNum << ", r: " << r << ", r ind: " << rInd << ", angle: " << angle << ", angleInd: " << angleInd << ")" << endl;
                   }
+                }else{
+                  cout << "WARNING: NULL angle map bin (seg: " << segNum << ", r: " << r << ", r ind: " << rInd << ")" << endl;
                 }
-              }else{
-                cout << "WARNING: NULL r map bin (seg: " << segNum << ")" << endl;
               }
-              
+            }else{
+              cout << "WARNING: NULL r map bin (seg: " << segNum << ")" << endl;
             }
             if(isHit){
               map_hit_counter++;
@@ -331,7 +343,7 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
             }
             for(int m = 0; m < NSEG; m++){
               //try and find the sample value near the expected maximum of the pulse (estimate it is at 0.85*SAMPLES)
-              if(basis[basisInd]->GetBinContent((Int_t)((m+1.85)*(SAMPLES))) > 0.2){
+              if(basis[basisInd]->GetBinContent((Int_t)((m+1.85)*(SAMPLES))) > 0.3){
                 //this segment is 'hit' in this basis bin
                 basisHPVal|=(1<<m);
                 //cout << "hit seg " << m << " with bin content: " << basis[basisInd]->GetBinContent((Int_t)((m+1.85)*(SAMPLES))) << endl;

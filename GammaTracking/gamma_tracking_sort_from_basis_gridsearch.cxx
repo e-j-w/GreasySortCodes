@@ -4,8 +4,10 @@
 
 //TApplication *theApp;
 
-TH3D *pos3DMap;
-TH2D *posXYMapBottom, *posXYMapTop;
+TH3D *pos3DMap, *pos3DMapClover, *pos3DMapAbs;
+TH2D *posXYMapBottom, *posXYMapTop, *posXZMap, *posYZMap;
+TH2D *posXYMapBottom137Cs, *posXYMapTop137Cs, *posXZMap137Cs, *posYZMap137Cs;
+TH1D *tigE, *dopplerESeg, *dopplerEGT;
 GT_basis trackingBasis;
 
 void sortData(TFile *inputfile, const char *calfile){
@@ -30,6 +32,10 @@ void sortData(TFile *inputfile, const char *calfile){
   Int_t hit_counter = 0;
   Int_t sort_hit_counter = 0;
 
+  TVector3 recoil_vec;
+  recoil_vec.SetX(0.); recoil_vec.SetY(0.); recoil_vec.SetZ(1.);
+  double beta = 0.05;
+
   //for (int jentry = 0; jentry < 100000; jentry++) {
   for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
     tree->GetEntry(jentry);
@@ -39,13 +45,39 @@ void sortData(TFile *inputfile, const char *calfile){
       hit_counter++;
       TVector3 posVec = GT_get_pos_gridsearch(tigress_hit,&trackingBasis);
       if(posVec.X()!=BAD_RETURN){
+        //cout << "Filling: " << posVec.X() << " " << posVec.Y() << " " << posVec.Z() << endl;
         pos3DMap->Fill(posVec.X(),posVec.Y(),posVec.Z());
+        TVector3 posVecAbs = GT_transform_position_to_absolute(tigress_hit,&posVec);
+        pos3DMapAbs->Fill(posVecAbs.X(),posVecAbs.Y(),posVecAbs.Z());
+        TVector3 posVecClover = GT_transform_position_to_clover(tigress_hit,&posVec);
+        pos3DMapClover->Fill(posVecClover.X(),posVecClover.Y(),posVecClover.Z());
         if(posVec.Z() <= 30.){
-            posXYMapBottom->Fill(posVec.X(),posVec.Y());
+          posXYMapBottom->Fill(posVec.X(),posVec.Y());
+        }else{
+          posXYMapTop->Fill(posVec.X(),posVec.Y());
+        }
+        posXZMap->Fill(posVec.X(),posVec.Z());
+        posYZMap->Fill(posVec.Y(),posVec.Z());
+        //map positions of hits corresponding to 137Cs photopeak
+        if((tigress_hit->GetEnergy() > 659)&&(tigress_hit->GetEnergy() < 664)){
+          if(posVec.Z() <= 30.){
+            posXYMapBottom137Cs->Fill(posVec.X(),posVec.Y());
           }else{
-            posXYMapTop->Fill(posVec.X(),posVec.Y());
+            posXYMapTop137Cs->Fill(posVec.X(),posVec.Y());
           }
+          posXZMap137Cs->Fill(posVec.X(),posVec.Z());
+          posYZMap137Cs->Fill(posVec.Y(),posVec.Z());
+        }
+        double egt = GT_get_doppler(beta,&recoil_vec,tigress_hit,&posVec);
+        if(egt>5.){
+          dopplerEGT->Fill(egt);
+        }
         sort_hit_counter++;
+      }
+      double eseg = tigress_hit->GetDoppler(beta,&recoil_vec);
+      if(eseg>5.){
+        dopplerESeg->Fill(eseg);
+        tigE->Fill(tigress_hit->GetEnergy());
       }
       
     }
@@ -66,12 +98,34 @@ void sort_from_basis(const char *infile, const char *basisfileCoarse, const char
 
   //setup output histograms
   TList *list = new TList;
-  pos3DMap = new TH3D("pos3DMap","pos3DMap",40,-40,40,40,-40,40,40,-10,100);
+  pos3DMap = new TH3D("pos3DMap","Core Position Map",40,-40,40,40,-40,40,40,-10,100);
   list->Add(pos3DMap);
+  pos3DMapClover = new TH3D("pos3DMapClover","Clover Positon Map",80,-80,80,80,-80,80,40,-10,100);
+  list->Add(pos3DMapClover);
+  pos3DMapAbs = new TH3D("pos3DMapAbsolute","Absolute Positon Map",40,-300,300,40,-300,300,40,-300,300);
+  list->Add(pos3DMapAbs);
   posXYMapBottom = new TH2D("posXYMapSeg0-3","posXYMapSeg0-3",40,-40,40,40,-40,40);
   list->Add(posXYMapBottom);
   posXYMapTop = new TH2D("posXYMapSeg4-7","posXYMapSeg4-7",40,-40,40,40,-40,40);
   list->Add(posXYMapTop);
+  posXZMap = new TH2D("posXZMap","posXZMap",40,-40,90,40,-10,100);
+  list->Add(posXZMap);
+  posYZMap = new TH2D("posYZMap","posYZMap",40,-40,90,40,-10,100);
+  list->Add(posYZMap);
+  posXYMapBottom137Cs = new TH2D("posXYMapSeg0-3 - 137Cs full energy","posXYMapSeg0-3 - 137Cs full energy",40,-40,40,40,-40,40);
+  list->Add(posXYMapBottom137Cs);
+  posXYMapTop137Cs = new TH2D("posXYMapSeg4-7 - 137Cs full energy","posXYMapSeg4-7 - 137Cs full energy",40,-40,40,40,-40,40);
+  list->Add(posXYMapTop137Cs);
+  posXZMap137Cs = new TH2D("posXZMap - 137Cs full energy","posXZMap - 137Cs full energy",40,-40,90,40,-10,100);
+  list->Add(posXZMap137Cs);
+  posYZMap137Cs = new TH2D("posYZMap - 137Cs full energy","posYZMap - 137Cs full energy",40,-40,90,40,-10,100);
+  list->Add(posYZMap137Cs);
+  tigE = new TH1D("tigE","TIGRESS energy (uncorrected)",16384,0,4096);
+  list->Add(tigE);
+  dopplerESeg = new TH1D("dopplerESeg","Doppler Corrected Energy (segment position)",16384,0,4096);
+  list->Add(dopplerESeg);
+  dopplerEGT = new TH1D("dopplerEGT","Doppler Corrected Energy (tracked position)",16384,0,4096);
+  list->Add(dopplerEGT);
 
   //sort data from individual analysis tree or list of trees
   if(inpList){

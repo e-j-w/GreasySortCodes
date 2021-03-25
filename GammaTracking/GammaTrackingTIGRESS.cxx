@@ -3,7 +3,7 @@
 TRandom3 *randGen;
 
 Int_t getNumAngleBins(Int_t rInd, Double_t rScaleFac, Double_t scaleFac){ 
-  return 1 + (Int_t)(pow((rInd/((VOXEL_BINS_R*rScaleFac) - 1.0)),2.0)*((VOXEL_BINS_ANGLE_MAX*scaleFac)-1)); //the number of angle bins in the map depends on r
+  return 1 + (Int_t)((rInd/((VOXEL_BINS_R*rScaleFac) - 1.0))*((VOXEL_BINS_ANGLE_MAX*scaleFac)-1)); //the number of angle bins in the map depends on r
 } 
 
 Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac){ 
@@ -12,7 +12,7 @@ Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac){
 
 //function for calculation of ordering parameters
 //this enforces the single segment hit condition assumed by the mapping process, using SEGMENT_ENERGY_THRESHOLD
-double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t parameterNum) {
+double calc_ordering(TTigressHit * tigress_hit, const Int_t segHitInd, const Int_t parameterNum) {
 
   //cout << "array position: " << tigress_hit->GetArrayNumber() << endl;
 
@@ -21,7 +21,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t param
   const Int_t phiAdjSeg2[8] = {1,2,3,0,5,6,7,4};
   const Int_t    zAdjSeg[8] = {4,5,6,7,0,1,2,3};
   
-  const TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(i);
+  const TGRSIDetectorHit segment_hit = tigress_hit->GetSegmentHit(segHitInd);
   const Int_t numSamples = segment_hit.GetWaveform()->size();
   if(numSamples < BASELINE_SAMPLES){
     return BAD_RETURN;
@@ -53,7 +53,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t param
     bool found2 = false;
     bool found3 = false;
     for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
-      if(j!=i){
+      if(j!=segHitInd){
         if(tigress_hit->GetSegmentHit(j).GetCharge() >= SEGMENT_ENERGY_NOHIT_THRESHOLD){
           return BAD_RETURN;
         }
@@ -93,18 +93,18 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t param
     }
     double dno = 0.; //placeholder for denominator
     double sampleAvg = 0.;
-    double term2 = 0.;
-    for(int j=1;j<numSamples-1;j++){
+    //double term2 = 0.;
+    for(int j=1;j<numSamples-2;j++){ //sometimes the last sample isn't written correctly 
       sampleAvg += (j)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
-      term2 += segwf2->at(j) + segwf3->at(j);
+      //term2 += segwf2->at(j) + segwf3->at(j);
       //term2 += segwf2->at(j) + segwf3->at(j) + segwf4->at(j);
       dno += (segwf->at(j+1) - segwf->at(j-1))/2.0;
     }
     sampleAvg /= dno;
     //cout << "sampleAvg: " << sampleAvg << endl;
-    term2 /= dno*2.0;
+    //term2 /= dno*2.0;
     double rho = 0.;
-    for(int j=1;j<numSamples-1;j++){
+    for(int j=1;j<numSamples-2;j++){ //sometimes the last sample isn't written correctly 
       rho += pow(j - sampleAvg,3.0)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
     }
     rho /= dno;
@@ -115,7 +115,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t param
       //cout << "Cannot compute rho parameter (NaN)." << endl;
       return BAD_RETURN;
     }
-    //cout << "term2: " << term2 << ", rho: " << rho << endl;
+    //cout << "rho: " << rho << endl;
     return rho;
   }else if(parameterNum==1){
     //contruct phi, the ordering parameter for the angle
@@ -124,7 +124,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t param
     bool found1 = false;
     bool found2 = false;
     for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
-      if(j!=i){
+      if(j!=segHitInd){
         if(tigress_hit->GetSegmentHit(j).GetCharge() >= SEGMENT_ENERGY_NOHIT_THRESHOLD){
           return BAD_RETURN;
         }
@@ -159,7 +159,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t param
     double minVall = 1E30;
     double maxValr = -1E30;
     double minValr = 1E30;
-    for(int j=0;j<numSamples ;j++){
+    for(int j=1;j<numSamples-2;j++){ //sometimes the last sample isn't written correctly
       if(segwf2->at(j) > maxVall){
         maxVall = segwf2->at(j);
       }
@@ -196,7 +196,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t param
        const std::vector<Short_t> *segwf2;
       bool found1 = false;
       for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
-        if(j!=i){
+        if(j!=segHitInd){
           if(tigress_hit->GetSegmentHit(j).GetCharge() >= SEGMENT_ENERGY_NOHIT_THRESHOLD){
             return BAD_RETURN;
           }
@@ -220,7 +220,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t param
       double maxVal = -1E30;
       double minVal = 1E30;
       dno = 0.;
-      for(int j=1;j<numSamples-1;j++){
+      for(int j=1;j<numSamples-2;j++){ //sometimes the last sample isn't written correctly 
         if(segwf2->at(j) > maxVal){
           maxVal = segwf2->at(j);
         }
@@ -241,13 +241,13 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t i, const Int_t param
     }else{
       //front segment
       dno = 0.;
-      for(int j=1;j<numSamples-1;j++){
+      for(int j=1;j<numSamples-2;j++){ //sometimes the last sample isn't written correctly 
         zeta += (j)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
         dno += (segwf->at(j+1) - segwf->at(j-1))/2.0;
       }
       zeta /= dno;
       //get zeta values centered on 0
-      zeta *= 4./numSamples;
+      zeta *= 4./(numSamples-2);
       zeta -= 2.0;
     }
     if((dno==0.)||(zeta!=zeta)){
@@ -352,11 +352,14 @@ void GT_import_basis(TFile *coarse_basis_file, TFile *fine_basis_file, GT_basis 
     cout << "ERROR: no hitpattern in the coarse waveform basis." << endl;
     exit(-1);
   }
+  Int_t posInBasis[NPOS*NCORE];
+  memset(posInBasis,0,sizeof(posInBasis));
   Int_t coarseBasisBinsR = VOXEL_BINS_R*COARSE_BASIS_BINFACTOR;
   Int_t coarseBasisBinsAngle = 4*VOXEL_BINS_ANGLE_MAX*COARSE_BASIS_BINFACTOR;
   Int_t coarseBasisBinsZ = VOXEL_BINS_Z*COARSE_BASIS_BINFACTOR;
   for(int l = 0; l < NPOS*NCORE; l++){
     cout << "Reading coarse basis position [ " << l+1 << " / " << NPOS*NCORE << " ]"  << endl;
+    Int_t basisEntryCtr = 0;
     for(int k = 0; k < coarseBasisBinsR; k++){
       Int_t numAngleBinsAtR = 4*getNumAngleBins(k,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2
       for(int j = 0; j < numAngleBinsAtR; j++){
@@ -365,10 +368,15 @@ void GT_import_basis(TFile *coarse_basis_file, TFile *fine_basis_file, GT_basis 
           sprintf(hname,"basisPos%i_r%ito%i_angle%ito%i_z%ito%i",l,k*MAX_VAL_R/coarseBasisBinsR,(k+1)*MAX_VAL_R/coarseBasisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR,i*MAX_VAL_Z/coarseBasisBinsZ,(i+1)*MAX_VAL_Z/coarseBasisBinsZ);
           if((gt_basis->coarseBasis[basisInd] = (TH1D*)coarse_basis_file->Get(hname))==NULL){
             //cout << "No coarse waveform basis data for position " << l << ", radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
+          }else{
+            basisEntryCtr++;
           }
           //list->Add(gt_basis->coarseBasis[basisInd]);
         }
       }
+    }
+    if(basisEntryCtr > 0){
+      posInBasis[l] = 1; //there are basis entries for this position
     }
   }
   cout << endl;
@@ -383,19 +391,23 @@ void GT_import_basis(TFile *coarse_basis_file, TFile *fine_basis_file, GT_basis 
   Int_t fineBasisBinsAngle = 4*VOXEL_BINS_ANGLE_MAX*FINE_BASIS_BINFACTOR;
   Int_t fineBasisBinsZ = VOXEL_BINS_Z*FINE_BASIS_BINFACTOR;
   for(int l = 0; l < NPOS*NCORE; l++){
-    cout << "Reading fine basis position [ " << l+1 << " / " << NPOS*NCORE << " ]" << endl;
-    for(int k = 0; k < fineBasisBinsR; k++){
-      Int_t numAngleBinsAtR = 4*getNumAngleBins(k,FINE_BASIS_BINFACTOR,COARSE_BASIS_BINFACTOR)*FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR; //x4 since covering 2pi rather than pi/2
-      for(int j = 0; j < numAngleBinsAtR; j++){
-        for(int i = 0; i < fineBasisBinsZ; i++){
-          Int_t basisInd = l*fineBasisBinsR*fineBasisBinsAngle*fineBasisBinsZ + k*fineBasisBinsAngle*fineBasisBinsZ + j*fineBasisBinsZ + i;
-          sprintf(hname,"basisPos%i_r%ito%i_angle%ito%i_z%ito%i",l,k*MAX_VAL_R/fineBasisBinsR,(k+1)*MAX_VAL_R/fineBasisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR,i*MAX_VAL_Z/fineBasisBinsZ,(i+1)*MAX_VAL_Z/fineBasisBinsZ);
-          if((gt_basis->fineBasis[basisInd] = (TH1D*)fine_basis_file->Get(hname))==NULL){
-            //cout << "No fine waveform basis data for position " << l << ", radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
+    if(posInBasis[l] > 0){ //check whether any entries are expected in the basis for this position
+      cout << "Reading fine basis position [ " << l+1 << " / " << NPOS*NCORE << " ]" << endl;
+      for(int k = 0; k < fineBasisBinsR; k++){
+        Int_t numAngleBinsAtR = 4*getNumAngleBins(k,FINE_BASIS_BINFACTOR,COARSE_BASIS_BINFACTOR)*FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR; //x4 since covering 2pi rather than pi/2
+        for(int j = 0; j < numAngleBinsAtR; j++){
+          for(int i = 0; i < fineBasisBinsZ; i++){
+            Int_t basisInd = l*fineBasisBinsR*fineBasisBinsAngle*fineBasisBinsZ + k*fineBasisBinsAngle*fineBasisBinsZ + j*fineBasisBinsZ + i;
+            sprintf(hname,"basisPos%i_r%ito%i_angle%ito%i_z%ito%i",l,k*MAX_VAL_R/fineBasisBinsR,(k+1)*MAX_VAL_R/fineBasisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR,i*MAX_VAL_Z/fineBasisBinsZ,(i+1)*MAX_VAL_Z/fineBasisBinsZ);
+            if((gt_basis->fineBasis[basisInd] = (TH1D*)fine_basis_file->Get(hname))==NULL){
+              //cout << "No fine waveform basis data for position " << l << ", radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
+            }
+            //list->Add(gt_basis->fineBasis[basisInd]);
           }
-          //list->Add(gt_basis->fineBasis[basisInd]);
         }
       }
+    }else{
+      cout << "No fine basis entries for position [ " << l+1 << " / " << NPOS*NCORE << " ]" << endl;
     }
   }
   cout << endl;
@@ -514,7 +526,7 @@ Int_t getMaxChargeSegHit(TTigressHit *tigress_hit){
   bool goodWaveforms = true;
   if(tigress_hit->GetSegmentMultiplicity() == NSEG){
     for(int i = 0; i < NSEG; i++){
-      if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.2*coreCharge){
+      if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.3*coreCharge){
         if(tigress_hit->GetSegmentHit(i).GetCharge() > maxSegCharge){
           maxSegCharge = tigress_hit->GetSegmentHit(i).GetCharge();
           maxChargeSeg = i;
@@ -561,7 +573,7 @@ TVector3 GT_get_pos_direct(TTigressHit *tigress_hit, GT_map *gt_map){
         goodWaveforms = false;
         break;
       }
-      if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.2*coreCharge){
+      if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.3*coreCharge){
         if(tigress_hit->GetSegmentHit(i).GetCharge() > maxSegCharge){
           maxSegCharge = tigress_hit->GetSegmentHit(i).GetCharge();
           maxChargeSeg = i;
@@ -683,7 +695,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
         goodWaveforms = false;
         break;
       }
-      if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.2*coreCharge){
+      if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.3*coreCharge){
         if(tigress_hit->GetSegmentHit(i).GetCharge() > maxSegCharge){
           maxSegCharge = tigress_hit->GetSegmentHit(i).GetCharge();
           maxChargeSeg = tigress_hit->GetSegmentHit(i).GetSegment()-1; //0-indexed
@@ -773,11 +785,11 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                     }
                     segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
                     Double_t seg_waveform_baseline = 0.;
-                    for(int k = 0; k < BASELINE_SAMPLES; k++){
+                    for(int k = 1; k < BASELINE_SAMPLES; k++){
                       seg_waveform_baseline += segwf->at(k);
                     }
-                    seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
-                    for(int k=0; k<numSamples; k++){
+                    seg_waveform_baseline /= 1.0*(BASELINE_SAMPLES-1);
+                    for(int k=1; k<(numSamples-2); k++){ //sometimes the last sample isn't written correctly
                       Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge);
                       Double_t basisSampleVal = 0.;
                       for(int hitNum=0; hitNum<numSegHits; hitNum++){
@@ -785,7 +797,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                       }
                       chisq += pow(wfrmSampleVal - basisSampleVal,2)*hitWeight;
                     }
-                    chisq /= numSamples*1.0; //waveforms can vary in size, try to account for this
+                    chisq /= (numSamples-3)*1.0; //waveforms can vary in size, try to account for this
                   }
                   //check if chisq is at minimum
                   if((chisq>0)&&(chisq<minChisqCoarse)){
@@ -869,16 +881,16 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                     }
                     segwf = tigress_hit->GetSegmentHit(j).GetWaveform();
                     Double_t seg_waveform_baseline = 0.;
-                    for(int k = 0; k < BASELINE_SAMPLES; k++){
+                    for(int k = 1; k < BASELINE_SAMPLES; k++){
                       seg_waveform_baseline += segwf->at(k);
                     }
-                    seg_waveform_baseline /= 1.0*BASELINE_SAMPLES;
-                    for(int k=0; k<numSamples; k++){
+                    seg_waveform_baseline /= 1.0*(BASELINE_SAMPLES-1);
+                    for(int k=1; k<(numSamples-2); k++){ //sometimes the last sample isn't written correctly
                       Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge);
                       Double_t basisSampleVal = scaleFacHit*gt_basis->fineBasis[basisInd]->GetBinContent(segNum*SAMPLES + k + 1);
                       chisq += pow(wfrmSampleVal - basisSampleVal,2)*hitWeight;
                     }
-                    chisq /= numSamples*1.0; //waveforms can vary in size, try to account for this
+                    chisq /= (numSamples-3)*1.0; //waveforms can vary in size, try to account for this
                   }
 
                   //check if chisq is at minimum

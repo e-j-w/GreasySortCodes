@@ -1,7 +1,8 @@
 #include "GammaTrackingTIGRESS.h" //define all global variables here!
 
 TH3D *pos3DMap, *pos3DMapClover, *pos3DMapAbs;
-TH2D *posXYMapBottom, *posXYMapTop;
+TH2D *posXYMapBottom, *posXYMapTop, *posXZMap, *posYZMap;
+TH2D *posXYMapBottom137Cs, *posXYMapTop137Cs, *posXZMap137Cs, *posYZMap137Cs;
 TH1D *rHist, *phiHistBottom, *phiHistTop, *zHist;
 TH1D *tigE, *dopplerESeg, *dopplerEGT;
 GT_map trackingMap;
@@ -55,6 +56,18 @@ void sortData(TFile *inputfile, const char *calfile){
           phiHistTop->Fill(posVec.Theta());
           posXYMapTop->Fill(posVec.X(),posVec.Y());
         }
+        posXZMap->Fill(posVec.X(),posVec.Z());
+        posYZMap->Fill(posVec.Y(),posVec.Z());
+        //map positions of hits corresponding to 137Cs photopeak
+        if((tigress_hit->GetEnergy() > 659)&&(tigress_hit->GetEnergy() < 664)){
+          if(posVec.Z() <= 30.){
+            posXYMapBottom137Cs->Fill(posVec.X(),posVec.Y());
+          }else{
+            posXYMapTop137Cs->Fill(posVec.X(),posVec.Y());
+          }
+          posXZMap137Cs->Fill(posVec.X(),posVec.Z());
+          posYZMap137Cs->Fill(posVec.Y(),posVec.Z());
+        }
         double egt = GT_get_doppler(beta,&recoil_vec,tigress_hit,&posVec);
         if(egt>5.){
           dopplerEGT->Fill(egt);
@@ -94,6 +107,18 @@ void sort_test(const char *infile, const char *mapfile, const char *calfile, con
   list->Add(posXYMapBottom);
   posXYMapTop = new TH2D("posXYMapSeg4-7","posXYMapSeg4-7",40,-40,40,40,-40,40);
   list->Add(posXYMapTop);
+  posXZMap = new TH2D("posXZMap","posXZMap",40,-40,90,40,-10,100);
+  list->Add(posXZMap);
+  posYZMap = new TH2D("posYZMap","posYZMap",40,-40,90,40,-10,100);
+  list->Add(posYZMap);
+  posXYMapBottom137Cs = new TH2D("posXYMapSeg0-3 - 137Cs full energy","posXYMapSeg0-3 - 137Cs full energy",40,-40,40,40,-40,40);
+  list->Add(posXYMapBottom137Cs);
+  posXYMapTop137Cs = new TH2D("posXYMapSeg4-7 - 137Cs full energy","posXYMapSeg4-7 - 137Cs full energy",40,-40,40,40,-40,40);
+  list->Add(posXYMapTop137Cs);
+  posXZMap137Cs = new TH2D("posXZMap - 137Cs full energy","posXZMap - 137Cs full energy",40,-40,90,40,-10,100);
+  list->Add(posXZMap137Cs);
+  posYZMap137Cs = new TH2D("posYZMap - 137Cs full energy","posYZMap - 137Cs full energy",40,-40,90,40,-10,100);
+  list->Add(posYZMap137Cs);
   rHist = new TH1D("rHist","hit radius",500,0,50);
   list->Add(rHist);
   phiHistBottom = new TH1D("phiHistSeg0-3","hit phi segment 0-3",500,-2.*M_PI,2.*M_PI);
