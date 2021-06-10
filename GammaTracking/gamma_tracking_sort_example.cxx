@@ -5,7 +5,7 @@ TH2D *posXYMapBottom, *posXYMapTop, *posXZMap, *posYZMap;
 TH2D *posXYMapBottom137Cs, *posXYMapTop137Cs, *posXZMap137Cs, *posYZMap137Cs;
 TH1D *rHist, *phiHistBottom, *phiHistTop, *zHist;
 TH1D *tigE, *dopplerESeg, *dopplerEGT;
-GT_map trackingMap;
+GT_map *trackingMap;
 
 void sortData(TFile *inputfile, const char *calfile){
   TChain * AnalysisTree = (TChain * ) inputfile->Get("AnalysisTree");
@@ -39,7 +39,7 @@ void sortData(TFile *inputfile, const char *calfile){
       tigress_hit = tigress->GetTigressHit(one);
       if(tigress_hit->GetKValue() != 700) continue;
       hit_counter++;
-      TVector3 posVec = GT_get_pos_direct(tigress_hit,&trackingMap);
+      TVector3 posVec = GT_get_pos_direct(tigress_hit,trackingMap);
       if(posVec.X()!=BAD_RETURN){
         //cout << "Filling: " << posVec.X() << " " << posVec.Y() << " " << posVec.Z() << endl;
         pos3DMap->Fill(posVec.X(),posVec.Y(),posVec.Z());
@@ -92,8 +92,9 @@ void sortData(TFile *inputfile, const char *calfile){
 void sort_test(const char *infile, const char *mapfile, const char *calfile, const char *outfile, bool inpList) {
 
   //read in histograms from map file
+  trackingMap = (GT_map*)malloc(sizeof(GT_map));
   TFile *mapInp = new TFile(mapfile,"read");
-  GT_import_map(mapInp,&trackingMap);
+  GT_import_map(mapInp,trackingMap);
   
   //setup output histograms
   TList * list = new TList;

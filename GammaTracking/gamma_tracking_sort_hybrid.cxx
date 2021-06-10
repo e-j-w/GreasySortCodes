@@ -6,7 +6,7 @@
 
 TH2D *posXYMap, *posXYMapGridSearch, *posXYMapDirect;
 TH3D *pos3DMap, *pos3DMapGridSearch, *pos3DMapDirect, *pos3DMapClover, *pos3DMapAbs;
-GT_map trackingMap;
+GT_map *trackingMap;
 GT_basis trackingBasis;
 
 void sortData(TFile *inputfile, const char *calfile){
@@ -40,7 +40,7 @@ void sortData(TFile *inputfile, const char *calfile){
       tigress_hit = tigress->GetTigressHit(hitInd);
       if(tigress_hit->GetKValue() != 700) continue;
       hit_counter++;
-      TVector3 posVec = GT_get_pos_direct(tigress_hit,&trackingMap); //sort using direct method
+      TVector3 posVec = GT_get_pos_direct(tigress_hit,trackingMap); //sort using direct method
       if(posVec.X()!=BAD_RETURN){
         pos3DMap->Fill(posVec.X(),posVec.Y(),posVec.Z());
         posXYMap->Fill(posVec.X(),posVec.Y());
@@ -85,8 +85,9 @@ void sortData(TFile *inputfile, const char *calfile){
 void sort_hybrid(const char *infile, const char *mapfile, const char *basisfileCoarse, const char *basisfileFine, const char *calfile, const char *outfile, bool inpList) {
 
   //read in histograms from map file
+  trackingMap = (GT_map*)malloc(sizeof(GT_map));
   TFile *mapInp = new TFile(mapfile,"read");
-  GT_import_map(mapInp,&trackingMap);
+  GT_import_map(mapInp,trackingMap);
 
   //read in histograms from basis files
   TFile *coarseBasisInp = new TFile(basisfileCoarse,"read");

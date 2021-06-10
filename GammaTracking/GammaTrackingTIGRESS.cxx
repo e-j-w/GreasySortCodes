@@ -3,7 +3,14 @@
 TRandom3 *randGen;
 
 Int_t getNumAngleBins(Int_t rInd, Double_t rScaleFac, Double_t scaleFac){ 
-  return 1 + (Int_t)((rInd/((VOXEL_BINS_R*rScaleFac) - 1.0))*((VOXEL_BINS_ANGLE_MAX*scaleFac)-1)); //the number of angle bins in the map depends on r
+  Int_t numBins = 1 + (Int_t)((rInd/((VOXEL_BINS_R*rScaleFac) - 1.0))*((VOXEL_BINS_ANGLE_MAX*scaleFac)-1)); //the number of angle bins in the map depends on r
+  if(numBins < 1){
+    return 1;
+  }else if(numBins > VOXEL_BINS_ANGLE_MAX){
+    return VOXEL_BINS_ANGLE_MAX;
+  }else{
+    return numBins;
+  }
 } 
 
 Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac){ 
@@ -48,10 +55,9 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t segHitInd, const Int
     //construct rho, the ordering parameter for the radius
     //see Eq. 4 of NIM A 729 (2013) 198-206
     
-    const std::vector<Short_t> *segwf2, *segwf3, *segwf4;
+    /*const std::vector<Short_t> *segwf2, *segwf3;
     bool found1 = false;
     bool found2 = false;
-    bool found3 = false;
     for(int j = 0; j < tigress_hit->GetSegmentMultiplicity(); j++){
       if(j!=segHitInd){
         if(tigress_hit->GetSegmentHit(j).GetCharge() >= SEGMENT_ENERGY_NOHIT_THRESHOLD){
@@ -74,42 +80,59 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t segHitInd, const Int
             return BAD_RETURN;
           }
         }
-        if(tigress_hit->GetSegmentHit(j).GetSegment()-1 == zAdjSeg[segNum]){
-          if(found3==false){
-            found3=true;
-            segwf4 = tigress_hit->GetSegmentHit(j).GetWaveform();
-          }else{
-            return BAD_RETURN;
-          }
-        }
       }
     }
-    if((!found1)||(!found2)||(!found3)){
-      //cout << "Cannot get neighbouring segment wavefoms to compute zeta parameter." << endl;
+    if((!found1)||(!found2)){
+      //cout << "Cannot get neighbouring segment wavefoms to compute rho parameter." << endl;
       return BAD_RETURN;
-    }else if((segwf2->size() != numSamples)||(segwf3->size() != numSamples)||(segwf4->size() != numSamples)){
+    }else if((segwf2->size() != numSamples)||(segwf3->size() != numSamples)){
       //cout << "Mismatched waveform sizes." << endl;
       return BAD_RETURN;
     }
+    double maxVall = -1E30;
+    double minVall = 1E30;
+    double maxValr = -1E30;
+    double minValr = 1E30;
+    for(int j=1;j<numSamples-2;j++){ //sometimes the last sample isn't written correctly
+      double seglVal = fabs(segwf2->at(j));
+      double segrVal = fabs(segwf3->at(j));
+      if(seglVal > maxVall){
+        maxVall = seglVal;
+      }
+      if(seglVal < minVall){
+        minVall = seglVal;
+      }
+      if(segrVal > maxValr){
+        maxValr = segrVal;
+      }
+      if(segrVal < minValr){
+        minValr = segrVal;
+      }
+    }
+    if((minVall == 1E30)||(maxVall == -1E30)||(minValr == 1E30)||(maxValr == -1E30)){
+      //cout << "Cannot find maximum or minimum values." << endl;
+      //cout << "vals: " << minVall << " " << maxVall << " " << minValr << " " << maxValr << endl;
+      return BAD_RETURN;
+    }*/
     double dno = 0.; //placeholder for denominator
     double sampleAvg = 0.;
-    //double term2 = 0.;
-    for(int j=1;j<numSamples-2;j++){ //sometimes the last sample isn't written correctly 
+    for(int j=BASELINE_SAMPLES;j<numSamples-2;j++){ //sometimes the last sample isn't written correctly 
       sampleAvg += (j)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
-      //term2 += segwf2->at(j) + segwf3->at(j);
-      //term2 += segwf2->at(j) + segwf3->at(j) + segwf4->at(j);
+      //term2 += fabs(segwf2->at(j)) + fabs(segwf3->at(j));
       dno += (segwf->at(j+1) - segwf->at(j-1))/2.0;
     }
     sampleAvg /= dno;
-    //cout << "sampleAvg: " << sampleAvg << endl;
-    //term2 /= dno*2.0;
+    //double term2 = 20.0*((maxValr - minValr) + (maxVall - minVall))/dno;
     double rho = 0.;
-    for(int j=1;j<numSamples-2;j++){ //sometimes the last sample isn't written correctly 
-      rho += pow(j - sampleAvg,3.0)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
+    /*for(int j=BASELINE_SAMPLES;j<numSamples-2;j++){ //sometimes the last sample isn't written correctly 
+      rho += pow(sampleAvg - j,3.0)*(segwf->at(j+1) - segwf->at(j-1))/2.0;
     }
-    rho /= dno;
-    //rho = rho - term2; //may want to adjust weight of term2, Li uses x400
-    //rho = -1.*term2;
+    rho /= dno;*/
+    //cout << "rho: " << rho << ", term2: " << term2 << endl;
+    //rho = rho - term2 + 5000;
+    //rho = 70.0 - (sampleAvg + term2);
+    rho = 60.0 - sampleAvg;
+    //cout << "rho: " << rho << ", term2: " << term2 << endl;
     if((dno==0.)||(rho!=rho)){
     //if(rho!=rho){
       //cout << "Cannot compute rho parameter (NaN)." << endl;

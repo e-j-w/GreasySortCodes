@@ -1,6 +1,8 @@
 TimingFromScalerRF/TimingFromScalerRF
 GammaTracking/GammaTrackingTest
 S1873/SortData
+S2043/SortCode/SortData
+S2043/SortCode/DrawTIPWaveforms
 *~
 .nfs*
 *.root

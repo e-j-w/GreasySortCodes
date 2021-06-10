@@ -37,7 +37,7 @@ using namespace std;
 #define     BASELINE_SAMPLES 20  //number of samples at the start of the waveform used to calculate the baseline
 
 #define     N_BINS_ORDERING 152 //number of bins to use when discretizing ordering parameter (WARNING: memory usage scales as ^3 with this, can also overflow TH3 integer bin index with values > 1024!)
-#define     RHO_MAX         5.0E4
+#define     RHO_MAX         20
 #define     PHI_MAX         1.0
 #define     ZETA_MAX        1.0
 

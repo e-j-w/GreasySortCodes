@@ -6,8 +6,6 @@ Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac);
 double calc_ordering(TTigressHit *, const Int_t, const Int_t);
 
 char hname[64];
-TH1D *rDistHist[NPOS*NCORE*NSEG], *angleDistHist[NPOS*NCORE*NSEG*VOXEL_BINS_R], *zDistHist[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
-TH1 *rDistHistC[NPOS*NCORE*NSEG], *angleDistHistC[NPOS*NCORE*NSEG*VOXEL_BINS_R], *zDistHistC[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
 
 void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NPOS*NCORE*NSEG]){
   TChain * AnalysisTree = (TChain * ) inputfile->Get("AnalysisTree");
@@ -84,7 +82,7 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NPOS*N
           }
         }
         if((goodWaveforms)&&(numSegHits != 1)){
-          cout << "Entry " << jentry << ", incorrect number of segments hit (" << numSegHits << ")." << endl;
+          //cout << "Entry " << jentry << ", incorrect number of segments hit (" << numSegHits << ")." << endl;
           goodWaveforms = false;
         }
         if(goodWaveforms){
@@ -141,7 +139,7 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NPOS*N
   cout << "Hits with ordering parameters out of map range for [rho, phi, zeta]: [" << overflow_rho_counter << " " << overflow_phi_counter << " " << overflow_zeta_counter << "]" << endl;
 }
 
-void read_sim_file(const char *simfile){
+void read_sim_file(const char *simfile, TH1D *zDistHist[NPOS*NCORE*NSEG], TH1D *rDistHist[NPOS*NCORE*NSEG*VOXEL_BINS_Z], TH1D *angleDistHist[NPOS*NCORE*NSEG*(VOXEL_BINS_Z)*(VOXEL_BINS_R)]){
   cout << "Reading simulation tree in file: " << simfile << endl;
   TTree *simTree;
   TFile *inp = new TFile(simfile,"read");
@@ -199,25 +197,36 @@ void read_sim_file(const char *simfile){
   for (int i=0;i<sentries;i++){
     simTree->GetEntry(i);
     for(int j=0; j<rLeaf->GetNdata(); j++) { //deal with multiple fold events
-      if((rLeaf->GetNdata()==phiLeaf->GetNdata())&&((rLeaf->GetNdata()==zLeaf->GetNdata()))&&(rLeaf->GetNdata()==segIDLeaf->GetNdata())){
+      if((rLeaf->GetNdata()==phiLeaf->GetNdata())&&((rLeaf->GetNdata()==zLeaf->GetNdata()))&&(rLeaf->GetNdata()==segIDLeaf->GetNdata())&&(rLeaf->GetNdata()==coreIDLeaf->GetNdata())&&(rLeaf->GetNdata()==posIDLeaf->GetNdata())&&(rLeaf->GetNdata()==numHitsLeaf->GetNdata())){
         rVal = rLeaf->GetValue(j);
+        if(rVal == MAX_VAL_R){
+          rVal -= 0.01;
+        }
         angleVal = phiLeaf->GetValue(j)*180./M_PI;
+        if(angleVal == MAX_VAL_ANGLE){
+          angleVal -= 0.01;
+        }
         zVal = zLeaf->GetValue(j);
+        if(zVal == MAX_VAL_Z){
+          zVal -= 0.01;
+        }
         arrayPosVal = (posIDLeaf->GetValue(j)-1)*NCORE + (coreIDLeaf->GetValue(j)-1);
         segIDVal = segIDLeaf->GetValue(j)-1; //convert to zero-indexed
         numHitsVal = numHitsLeaf->GetValue(j);
-        //cout << "sim data seg ID: " << segIDVal << ", r: " << rVal << ", rInd: " << rInd << ", angle: " << angleVal << ", z: " << zVal << endl;
+        //cout << "sim data seg ID: " << segIDVal << ", r: " << rVal << ", angle: " << angleVal << ", z: " << zVal << endl;
         //if(numHitsVal==1){ //restrict to single interaction events
         if(numHitsVal>0){
           if((arrayPosVal>=0)&&(arrayPosVal<(NPOS*NCORE))){
             if((segIDVal>=0)&&(segIDVal<NSEG)){
-              if((rVal==rVal)&&(rVal>=0)&&(rVal<=MAX_VAL_R)){ 
-                rDistHist[arrayPosVal*NSEG + segIDVal]->Fill(rVal);
-                Int_t rInd = (Int_t)(rVal*VOXEL_BINS_R/MAX_VAL_R);
-                if((angleVal==angleVal)&&(angleVal>=0)&&(angleVal<=MAX_VAL_ANGLE)){
-                  angleDistHist[arrayPosVal*NSEG*VOXEL_BINS_R + segIDVal*VOXEL_BINS_R + rInd]->Fill(angleVal);
-                  Int_t angleInd = (Int_t)(angleVal*getNumAngleBins(rInd,1.0)/MAX_VAL_ANGLE);
-                  zDistHist[arrayPosVal*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segIDVal*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->Fill(zVal);
+              if((zVal==zVal)&&(zVal>=0)&&(zVal<MAX_VAL_Z)){ 
+                zDistHist[arrayPosVal*NSEG + segIDVal]->Fill(zVal);
+                Int_t zInd = (Int_t)(zVal*VOXEL_BINS_Z/MAX_VAL_Z);
+                if((rVal==rVal)&&(rVal>=0)&&(rVal<MAX_VAL_R)){
+                  rDistHist[arrayPosVal*NSEG*VOXEL_BINS_Z + segIDVal*VOXEL_BINS_Z + zInd]->Fill(rVal);
+                  Int_t rInd = (Int_t)(rVal*VOXEL_BINS_R/MAX_VAL_R);
+                  if((angleVal==angleVal)&&(angleVal>=0)&&(angleVal<MAX_VAL_ANGLE)){
+                    angleDistHist[arrayPosVal*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + segIDVal*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + zInd*VOXEL_BINS_R + rInd]->Fill(angleVal);
+                  }
                 }
               }
             }else{
@@ -242,25 +251,32 @@ void read_sim_file(const char *simfile){
 //and saves this mapping to disk
 void generate_mapping(const char *infile, const char *simfile, const char *calfile, const char *outfile, bool inpList, bool simList) {
 
-  TList * list = new TList;
+  //allocate very large arrays of object pointers
+  TH1D **zDistHist = new TH1D*[NPOS*NCORE*NSEG];
+  TH1D **rDistHist = new TH1D*[NPOS*NCORE*NSEG*VOXEL_BINS_Z];
+  TH1D **angleDistHist = new TH1D*[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z)];
+  TH1 **zDistHistC = new TH1*[NPOS*NCORE*NSEG];
+  TH1 **rDistHistC = new TH1*[NPOS*NCORE*NSEG*VOXEL_BINS_Z];
+  TH1 **angleDistHistC = new TH1*[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z)];
+
+  TList *writeList = new TList;
   
   //setup density functions for the real spatial coordinates r, angle, and z in cylindrical coordinates
   //these are read in from a ROOT tree generated by a GEANT4 simulation such as G4TIP
   for(int l = 0; l < NPOS*NCORE; l++){
     for(int k = 0; k < NSEG; k++){
       sprintf(hname,"rDistPos%iSeg%i",l,k);
-      rDistHist[l*(NSEG) + k] = new TH1D(hname,Form("rDistPos%iSeg%i",l,k),160,0,MAX_VAL_R);
-      for(int j = 0; j < VOXEL_BINS_R; j++){
-        Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        sprintf(hname,"angleDistPos%iSeg%ir%ito%i",l,k,rValMin,rValMax);
-        angleDistHist[l*(NSEG)*VOXEL_BINS_R + k*VOXEL_BINS_R + j] = new TH1D(hname,Form("angleDistPos%iSeg%ir%ito%i",l,k,rValMin,rValMax),120,0,MAX_VAL_ANGLE);
-        Int_t numAngleBins = getNumAngleBins(j,1.0);
-        for(int i = 0; i < numAngleBins; i++){
-          Int_t angleValMin = (Int_t)(i*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
-          Int_t angleValMax = (Int_t)((i+1)*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
-          sprintf(hname,"zDistPos%iSeg%ir%ito%iangle%ito%i",l,k,rValMin,rValMax,angleValMin,angleValMax);
-          zDistHist[l*(NSEG)*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = new TH1D(hname,Form("zDistPos%iSeg%ir%ito%iangle%ito%i",l,k,rValMin,rValMax,angleValMin,angleValMax),360,0,90);
+      zDistHist[l*(NSEG) + k] = new TH1D(hname,Form("zDistPos%iSeg%i",l,k),100,0,MAX_VAL_Z);
+      for(int j = 0; j < VOXEL_BINS_Z; j++){
+        Int_t zValMin = (Int_t)(j*(MAX_VAL_Z/(VOXEL_BINS_Z*1.0)));
+        Int_t zValMax = (Int_t)((j+1)*(MAX_VAL_Z/(VOXEL_BINS_Z*1.0)));
+        sprintf(hname,"rDistPos%iSeg%iz%ito%i",l,k,zValMin,zValMax);
+        rDistHist[l*(NSEG)*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j] = new TH1D(hname,Form("rDistPos%iSeg%iz%ito%i",l,k,zValMin,zValMax),100,0,MAX_VAL_R);
+        for(int i = 0; i < VOXEL_BINS_R; i++){
+          Int_t rValMin = (Int_t)(i*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
+          Int_t rValMax = (Int_t)((i+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
+          sprintf(hname,"angleDistPos%iSeg%iz%ito%ir%ito%i",l,k,zValMin,zValMax,rValMin,rValMax);
+          angleDistHist[l*(NSEG)*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i] = new TH1D(hname,Form("angleDistPos%iSeg%iz%ito%ir%ito%i",l,k,zValMin,zValMax,rValMin,rValMax),100,0,MAX_VAL_ANGLE);
         }
       }
     }
@@ -274,33 +290,32 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
       exit(-1);
     }
     while(fscanf(listFile,"%s",name)!=EOF){
-      read_sim_file(name);
+      read_sim_file(name,zDistHist,rDistHist,angleDistHist);
     }
     fclose(listFile);
   }else{
-    read_sim_file(simfile);
+    read_sim_file(simfile,zDistHist,rDistHist,angleDistHist);
   }
-  
 
   //normalize distributions and get cumulative versions
+  cout << "Generating normalized and cumulative spatial parameter distributions..." << endl;
   for(int l = 0; l < NPOS*NCORE; l++){
     for(int k = 0; k < NSEG; k++){
-      rDistHist[l*NSEG + k]->Scale(1.0/rDistHist[l*NSEG + k]->Integral());
-      rDistHistC[l*NSEG + k] = rDistHist[l*NSEG + k]->GetCumulative();
-      list->Add(rDistHist[l*NSEG + k]);
-      for(int j = 0; j < VOXEL_BINS_R; j++){
-        //printf("ind: %i, integral: %f\n",angleDistHist[k*VOXEL_BINS_R + j]->Integral())
-        if(angleDistHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->Integral()>0.){
-          angleDistHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->Scale(1.0/angleDistHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->Integral());
-          angleDistHistC[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j] = angleDistHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->GetCumulative();
-          list->Add(angleDistHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]);
+      zDistHist[l*NSEG + k]->Scale(1.0/zDistHist[l*NSEG + k]->Integral());
+      zDistHistC[l*NSEG + k] = zDistHist[l*NSEG + k]->GetCumulative();
+      //writeList->Add(rDistHist[l*NSEG + k]);
+      for(int j = 0; j < VOXEL_BINS_Z; j++){
+        //printf("ind: %i, integral: %f\n",rDistHist[k*VOXEL_BINS_Z + j]->Integral())
+        if(rDistHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->Integral()>0.){
+          rDistHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->Scale(1.0/rDistHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->Integral());
+          rDistHistC[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j] = rDistHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->GetCumulative();
+          //writeList->Add(rDistHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]);
         }
-        Int_t numAngleBins = getNumAngleBins(j,1.0);
-        for(int i = 0; i < numAngleBins; i++){
-          if(zDistHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->Integral()>0.){
-            zDistHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->Scale(1.0/zDistHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->Integral());
-            zDistHistC[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = zDistHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->GetCumulative();
-            list->Add(zDistHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]);
+        for(int i = 0; i < VOXEL_BINS_R; i++){
+          if(angleDistHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->Integral()>0.){
+            angleDistHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->Scale(1.0/angleDistHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->Integral());
+            angleDistHistC[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i] = angleDistHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->GetCumulative();
+            //writeList->Add(angleDistHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]);
           }
           
         }
@@ -308,10 +323,8 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
     }
   }
   
-
   cout << "Spatial parameter distributions read in." << endl;
-
-  //setup a histogram for the ordering parameters
+  //setup histograms for the ordering parameters
   //ROOT histograms are used to store this data since ROOT provides useful
   //methods such as GetCumulative() and GetQuantiles() which will be used later
   //TH3D is used to preverse correlated values of rho, phi, zeta, 
@@ -321,11 +334,9 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
     for(int k = 0; k < NSEG; k++){
       sprintf(hname,"rhophizetaPos%iSeg%i",l,k);
       rhophizetaHist[l*NSEG + k] = new TH3D(hname,Form("rhophizetaPos%iSeg%i",l,k),N_BINS_ORDERING,-1.*RHO_MAX,1.*RHO_MAX,N_BINS_ORDERING,-1.*PHI_MAX,1.*PHI_MAX,N_BINS_ORDERING,-1.*ZETA_MAX,1.*ZETA_MAX);
-      //list->Add(rhophizetaHist[k]);
+      //writeList->Add(rhophizetaHist[k]);
     }
   }
-  
-
 
   if(inpList){
     FILE *listFile;
@@ -360,158 +371,161 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   Double_t xVal[1], qVal[1];
   Int_t nQuantiles;
 
-  //first we map rho on a per segment basis
-  cout << "Mapping ordering parameter rho to radius spatial parameter..." << endl;
+  //first we map zeta on a per segment basis
+  cout << "Mapping ordering parameter zeta to radius spatial parameter..." << endl;
   //generate cumulative distributions
-  TH1 *rhoHist[NPOS*NCORE*NSEG], *rhoHistC[NPOS*NCORE*NSEG];
+  TH1 **zetaHist = new TH1*[NPOS*NCORE*NSEG];
+  TH1 **zetaHistC = new TH1*[NPOS*NCORE*NSEG];
+  TH1 **zMap = new TH1*[NPOS*NCORE*NSEG];
+  Int_t *zetaBinVal = (Int_t*)malloc((NPOS*NCORE*NSEG*(VOXEL_BINS_Z + 1))*sizeof(Int_t));
+  memset(zetaBinVal,0,sizeof(zetaBinVal));
   for(int l = 0; l < NPOS*NCORE; l++){
     for(int k = 0; k < NSEG; k++){
-      rhoHist[l*NSEG + k] = new TH1D();
-      rhoHist[l*NSEG + k] = rhophizetaHist[l*NSEG + k]->ProjectionX();
-      if(rhoHist[l*NSEG + k]->GetEntries()>0){
-        rhoHist[l*NSEG + k]->Scale(1.0/rhoHist[l*NSEG + k]->Integral());
-        rhoHistC[l*NSEG + k] = rhoHist[l*NSEG + k]->GetCumulative();
-        rhoHistC[l*NSEG + k]->SetNameTitle(Form("rhoHistCumulativePos%iSeg%i",l,k),Form("rhoHistCumulativePos%iSeg%i",l,k));
-        list->Add(rhoHistC[l*NSEG + k]);
-      }
-    }
-  }
-  //generate maps
-  TH1 *rMap[NPOS*NCORE*NSEG];
-  for(int l = 0; l < NPOS*NCORE; l++){
-    for(int k = 0; k < NSEG; k++){
-      if(rhoHist[l*NSEG + k]->GetEntries()>0){
-        sprintf(hname,"rMapPos%iSeg%i",l,k);
-        rMap[l*NSEG + k] = new TH1D(hname,Form("rMapPos%iSeg%i",l,k),N_BINS_ORDERING,-1.*RHO_MAX,1.*RHO_MAX);
+      zetaHist[l*NSEG + k] = new TH1D();
+      zetaHistC[l*NSEG + k] = new TH1D();
+      zetaHist[l*NSEG + k] = rhophizetaHist[l*NSEG + k]->ProjectionZ("",1,N_BINS_ORDERING,1,N_BINS_ORDERING);
+      if(zetaHist[l*NSEG + k]->GetEntries()>0){
+        //generate cumulative distributions
+        //cout << l << " entries: " << zetaHist[l*NSEG + k]->GetEntries() << ", integral: " << zetaHist[l*NSEG + k]->Integral() << endl;
+        zetaHist[l*NSEG + k]->Scale(1.0/zetaHist[l*NSEG + k]->Integral());
+        //cout << "entries2: " << zetaHist[l*NSEG + k]->GetEntries() << ", integral2: " << zetaHist[l*NSEG + k]->Integral() << endl;;
+        zetaHistC[l*NSEG + k] = zetaHist[l*NSEG + k]->GetCumulative();
+        //zetaHistC[l*NSEG + k]->SetNameTitle(Form("zetaHistCumulativePos%iSeg%i",l,k),Form("zetaHistCumulativePos%iSeg%i",l,k));
+        //writeList->Add(zetaHistC[l*NSEG + k]);
+        //generate maps
+        sprintf(hname,"zMapPos%iSeg%i",l,k);
+        zMap[l*NSEG + k] = new TH1D(hname,Form("zMapPos%iSeg%i",l,k),N_BINS_ORDERING,-1.*ZETA_MAX,1.*ZETA_MAX);
         for(int m=0;m<N_BINS_ORDERING;m++){
-          xVal[0] = rhoHistC[l*NSEG + k]->GetBinContent(m+1);
-          nQuantiles = rDistHist[l*NSEG + k]->GetQuantiles(1,qVal,xVal);
+          xVal[0] = zetaHistC[l*NSEG + k]->GetBinContent(m+1);
+          nQuantiles = zDistHist[l*NSEG + k]->GetQuantiles(1,qVal,xVal);
           if(nQuantiles==1){
-            rMap[l*NSEG + k]->SetBinContent(m+1,qVal[0]);
+            //cout << "m = " << m << ", nQuantiles = " << nQuantiles << ", val = " << qVal[0] << endl; //qVal[0]=0 when there is no GEANT4 data in this bin
+            zMap[l*NSEG + k]->SetBinContent(m+1,qVal[0]);
           }
         }
-        list->Add(rMap[l*NSEG + k]);
-      }
-    }
-  }
-  //store rho bin numbers which correspond to discrete values of r
-  Int_t rhoBinVal[NPOS*NCORE*NSEG*(VOXEL_BINS_R + 1)];
-  for(int l = 0; l < NPOS*NCORE; l++){
-    for(int k = 0; k < NSEG; k++){
-      if(rMap[l*NSEG + k]!=NULL){
-        for(int j = 0; j <= VOXEL_BINS_R; j++){
-          Double_t rBinVal = j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)); //keep r bins equal in size
-          rhoBinVal[l*NSEG*(VOXEL_BINS_R+1) + k*(VOXEL_BINS_R+1) + j] = rMap[l*NSEG + k]->FindFirstBinAbove(rBinVal-0.01); //-0.01 to handle bin values at the end of the mapping range
+        //cout << "here write zMap" << l*NSEG + k << endl;
+        writeList->Add(zMap[l*NSEG + k]);
+        //store zeta bin numbers which correspond to discrete values of z
+        for(int j = 0; j <= VOXEL_BINS_Z; j++){
+          Double_t zBinVal = j*(MAX_VAL_Z/(VOXEL_BINS_Z*1.0)); //keep z bins equal in size
+          zetaBinVal[l*NSEG*(VOXEL_BINS_Z+1) + k*(VOXEL_BINS_Z+1) + j] = zMap[l*NSEG + k]->FindFirstBinAbove(zBinVal-0.01); //-0.01 to handle bin values at the end of the mapping range
           //get correct range for last bin (which may extend radially beyond the physical detector edge)
-          if((j > 0)&&(rhoBinVal[k*(VOXEL_BINS_R+1) + j] == -1)){
-            rhoBinVal[l*NSEG*(VOXEL_BINS_R+1) + k*(VOXEL_BINS_R+1) + j] = rMap[l*NSEG + k]->FindLastBinAbove((j-1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)) - 0.01);
+          if((j > 0)&&(zetaBinVal[k*(VOXEL_BINS_Z+1) + j] == -1)){
+            zetaBinVal[l*NSEG*(VOXEL_BINS_Z+1) + k*(VOXEL_BINS_Z+1) + j] = zMap[l*NSEG + k]->FindLastBinAbove((j-1)*(MAX_VAL_Z/(VOXEL_BINS_Z*1.0)) - 0.01);
           }
         }
-        /*for(int j = 0; j <= VOXEL_BINS_R; j++){
-          cout << "seg: " << k << ", rhoBin: " << j <<  ", rhoBinVal: " << rhoBinVal[l*NSEG*(VOXEL_BINS_R+1) + k*(VOXEL_BINS_R+1) + j] << endl;
+        /*for(int j = 0; j <= VOXEL_BINS_Z; j++){
+          cout << "seg: " << k << ", zetaBin: " << j <<  ", zetaBinVal: " << zetaBinVal[l*NSEG*(VOXEL_BINS_Z+1) + k*(VOXEL_BINS_Z+1) + j] << endl;
         }*/
       }
     }
   }
 
-  //now map phi based on mapped radius (binned) and segment number
+  //now map rho based on mapped z-position (binned) and segment number
+  cout << "Mapping ordering parameter rho to r spatial parameter..." << endl;
+  //generate cumulative distributions
+  TH1 **rhoHist = new TH1*[NPOS*NCORE*NSEG*VOXEL_BINS_Z];
+  TH1 **rhoHistC = new TH1*[NPOS*NCORE*NSEG*VOXEL_BINS_Z];
+  TH1 **rMap = new TH1*[NPOS*NCORE*NSEG*VOXEL_BINS_Z];
+  Int_t *rhoBinVal = (Int_t*)malloc((NPOS*NCORE*NSEG*(VOXEL_BINS_R + 1)*(VOXEL_BINS_Z))*sizeof(Int_t));
+  memset(rhoBinVal,0,sizeof(rhoBinVal));
+  for(int l = 0; l < NPOS*NCORE; l++){
+    for(int k = 0; k < NSEG; k++){
+      for(int j = 0; j < VOXEL_BINS_Z; j++){
+        //get the projection in rho (x) gated on a range in zeta (z)
+        rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j] = new TH1D();
+        rhoHistC[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j] = new TH1D();
+        Int_t lowerZetaBound = zetaBinVal[l*NSEG*(VOXEL_BINS_Z+1) + k*(VOXEL_BINS_Z+1) + j];
+        Int_t upperZetaBound = zetaBinVal[l*NSEG*(VOXEL_BINS_Z+1) + k*(VOXEL_BINS_Z+1) + j + 1];
+        Int_t zValMin = (Int_t)(j*(MAX_VAL_Z/(VOXEL_BINS_Z*1.0)));
+        Int_t zValMax = (Int_t)((j+1)*(MAX_VAL_Z/(VOXEL_BINS_Z*1.0)));
+        //cout << "seg: " << k << ", bin: " << j << ", proj bounds: " << lowerZetaBound << " " << upperZetaBound << endl;
+        if((lowerZetaBound > 0)&&(lowerZetaBound < upperZetaBound)){
+          rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j] = rhophizetaHist[l*NSEG + k]->ProjectionX("",1,N_BINS_ORDERING,lowerZetaBound,upperZetaBound);
+          //cout << "proj entries: " << rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->GetEntries() << "orig entries: " << rhophizetaHist[l*NSEG + k]->GetEntries() << endl;
+          if(rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->GetEntries()>0){
+            rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->Scale(1.0/rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->Integral());
+            rhoHistC[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j] = rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->GetCumulative();
+            //rhoHistC[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->SetNameTitle(Form("rhoHistCumulativePos%iSeg%ir%ito%i",l,k,rValMin,rValMax),Form("rhoHistCumulativePos%iSeg%ir%ito%i",l,k,rValMin,rValMax));
+            //writeList->Add(rhoHistC[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]);
+            if(rDistHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->Integral()>0.){
+              //generate maps
+              sprintf(hname,"rMapPos%iSeg%iz%ito%i",l,k,zValMin,zValMax);
+              rMap[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j] = new TH1D(hname,Form("rMapPos%iSeg%iz%ito%i",l,k,zValMin,zValMax),N_BINS_ORDERING,-1.0*RHO_MAX,RHO_MAX);
+              for(int m=0;m<N_BINS_ORDERING;m++){
+                xVal[0] = rhoHistC[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->GetBinContent(m+1);
+                nQuantiles = rDistHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->GetQuantiles(1,qVal,xVal);
+                if(nQuantiles>=1){
+                  //cout << "m = " << m << ", nQuantiles = " << nQuantiles << ", val = " << qVal[0] << endl; //qVal[0]=0 when there is no GEANT4 data in this bin
+                  rMap[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->SetBinContent(m+1,qVal[0]);
+                }
+              }
+              writeList->Add(rMap[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]);
+              //cout << "here write rMap" << l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j << endl;
+              //store bin numbers which correspond to discrete values of the r
+              for(int i = 0; i <= VOXEL_BINS_R; i++){
+                //printf("k j i %i %i %i\n",k,j,i);
+                //printf("bins %i %i\n",k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i, k*VOXEL_BINS_Z + j);
+                Double_t rBinVal = i*(MAX_VAL_R/(VOXEL_BINS_R*1.0));
+                rhoBinVal[l*NSEG*(VOXEL_BINS_R+1)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R+1)*(VOXEL_BINS_Z) + j*(VOXEL_BINS_R+1) + i] = rMap[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->FindFirstBinAbove(rBinVal-0.01); //-0.01 to handle bin values at the end of the mapping range
+                //printf("k j i %i %i %i, binVal: %i\n",k,j,i,rhoBinVal[l*NSEG*(VOXEL_BINS_R+1)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R+1)*(VOXEL_BINS_Z) + j*(VOXEL_BINS_R+1) + i]);
+              }
+              /*for(int i = 0; i <= VOXEL_BINS_R; i++){
+                cout << "seg: " << k << ", rhoBin: " << i <<  ", rhoBinVal: " << rhoBinVal[l*NSEG*(VOXEL_BINS_R+1)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R+1)*(VOXEL_BINS_Z) + j*(VOXEL_BINS_R+1) + i] << endl;
+              }*/
+            }
+          }
+        }
+      }
+    }
+  }
+
+  //now map phi based on mapped z-value and radius (both binned) and segment number
   cout << "Mapping ordering parameter phi to angle spatial parameter..." << endl;
   //generate cumulative distributions
-  TH1 *phiHist[NPOS*NCORE*NSEG*VOXEL_BINS_R], *phiHistC[NPOS*NCORE*NSEG*VOXEL_BINS_R];
+  TH1 **phiHist = new TH1*[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z)];
+  TH1 **phiHistC = new TH1*[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z)];
+  TH1 **angleMap = new TH1*[NPOS*NCORE*NSEG*(VOXEL_BINS_Z)*(VOXEL_BINS_R)];
   for(int l = 0; l < NPOS*NCORE; l++){
     for(int k = 0; k < NSEG; k++){
-      for(int j = 0; j < VOXEL_BINS_R; j++){
-        //get the projection in phi (y) gated on a range in rho (x)
-        phiHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j] = new TH1D();
-        phiHistC[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j] = new TH1D();
-        Int_t lowerRhoBound = rhoBinVal[l*NSEG*(VOXEL_BINS_R+1) + k*(VOXEL_BINS_R+1) + j];
-        Int_t upperRhoBound = rhoBinVal[l*NSEG*(VOXEL_BINS_R+1) + k*(VOXEL_BINS_R+1) + j + 1];
-        Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        //cout << "seg: " << k << ", bin: " << j << ", proj bounds: " << lowerRhoBound << " " << upperRhoBound << endl;
-        if((lowerRhoBound > 0)&&(lowerRhoBound < upperRhoBound)){
-          phiHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j] = rhophizetaHist[l*NSEG + k]->ProjectionY("",lowerRhoBound,upperRhoBound);
-          if(phiHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->GetEntries()>0){
-            phiHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->Scale(1.0/phiHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->Integral());
-            phiHistC[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j] = phiHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->GetCumulative();
-            phiHistC[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->SetNameTitle(Form("phiHistCumulativePos%iSeg%ir%ito%i",l,k,rValMin,rValMax),Form("phiHistCumulativePos%iSeg%ir%ito%i",l,k,rValMin,rValMax));
-            list->Add(phiHistC[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]);
-          }
-        }
-      }
-    }
-  }
-  //generate maps
-  TH1 *angleMap[NPOS*NCORE*NSEG*VOXEL_BINS_R];
-  for(int l = 0; l < NPOS*NCORE; l++){
-    for(int k = 0; k < NSEG; k++){
-      for(int j = 0; j < VOXEL_BINS_R; j++){
-        Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        sprintf(hname,"angleMapPos%iSeg%ir%ito%i",l,k,rValMin,rValMax);
-        angleMap[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j] = new TH1D(hname,Form("angleMapPos%iSeg%ir%ito%i",l,k,rValMin,rValMax),N_BINS_ORDERING,-1.0*PHI_MAX,PHI_MAX);
-        if((phiHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->GetEntries()>0)&&(angleDistHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->Integral()>0.)){
-          for(int m=0;m<N_BINS_ORDERING;m++){
-            xVal[0] = phiHistC[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->GetBinContent(m+1);
-            nQuantiles = angleDistHist[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->GetQuantiles(1,qVal,xVal);
-            if(nQuantiles>=1){
-              //printf("val=%f ",qVal[0]); //=0 when there is no GEANT4 data in this bin
-              angleMap[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->SetBinContent(m+1,qVal[0]);
-            }
-          }
-          list->Add(angleMap[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]);
-        }
-      }
-    }
-  }
-  //store bin numbers which correspond to discrete values of the angle
-  Int_t phiBinVal[NPOS*NCORE*NSEG*(VOXEL_BINS_ANGLE_MAX + 1)*(VOXEL_BINS_R)];
-  for(int l = 0; l < NPOS*NCORE; l++){
-    for(int k = 0; k < NSEG; k++){
-      for(int j = 0; j < VOXEL_BINS_R; j++){
-        Int_t numAngleBins = getNumAngleBins(j,1.0);
-        for(int i = 0; i <= numAngleBins; i++){
-          //printf("k j i %i %i %i\n",k,j,i);
-          //printf("bins %i %i\n",k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i, k*VOXEL_BINS_R + j);
-          Double_t angleBinVal = i*(MAX_VAL_ANGLE/(numAngleBins*1.0)); //size of phi bins depends on r
-          phiBinVal[l*NSEG*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + j*(VOXEL_BINS_ANGLE_MAX+1) + i] = angleMap[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j]->FindFirstBinAbove(angleBinVal-0.01); //-0.01 to handle bin values at the end of the mapping range
-          //printf("k j i %i %i %i, binVal: %i\n",k,j,i,phiBinVal[l*NSEG*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + j*(VOXEL_BINS_ANGLE_MAX+1) + i]);
-        }
-      }
-    }
-  }
-  
-
-  //now map zeta based on mapped radius and angle (both binned) and segment number
-  cout << "Mapping ordering parameter zeta to depth spatial parameter..." << endl;
-  //generate cumulative distributions
-  TH1 *zetaHist[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)], *zetaHistC[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
-  for(int l = 0; l < NPOS*NCORE; l++){
-    for(int k = 0; k < NSEG; k++){
-      for(int j = 0; j < VOXEL_BINS_R; j++){
-        Int_t lowerRhoBound = rhoBinVal[l*NSEG*(VOXEL_BINS_R+1) + k*(VOXEL_BINS_R+1) + j];
-        Int_t upperRhoBound = rhoBinVal[l*NSEG*(VOXEL_BINS_R+1) + k*(VOXEL_BINS_R+1) + j + 1];
-        Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        Int_t numAngleBins = getNumAngleBins(j,1.0);
-        for(int i = 0; i < numAngleBins; i++){
-          //get the projection in zeta (z) gated on a range in rho (x) and phi (y)
-          zetaHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = new TH1D();
-          zetaHistC[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = new TH1D();
-          Int_t lowerPhiBound = phiBinVal[l*NSEG*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + j*(VOXEL_BINS_ANGLE_MAX+1) + i];
-          Int_t upperPhiBound = phiBinVal[l*NSEG*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX+1)*(VOXEL_BINS_R) + j*(VOXEL_BINS_ANGLE_MAX+1) + i + 1];
-          Int_t angleValMin = (Int_t)(i*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
-          Int_t angleValMax = (Int_t)((i+1)*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
+      for(int j = 0; j < VOXEL_BINS_Z; j++){
+        Int_t lowerZetaBound = zetaBinVal[l*NSEG*(VOXEL_BINS_Z+1) + k*(VOXEL_BINS_Z+1) + j];
+        Int_t upperZetaBound = zetaBinVal[l*NSEG*(VOXEL_BINS_Z+1) + k*(VOXEL_BINS_Z+1) + j + 1];
+        Int_t zValMin = (Int_t)(j*(MAX_VAL_Z/(VOXEL_BINS_Z*1.0)));
+        Int_t zValMax = (Int_t)((j+1)*(MAX_VAL_Z/(VOXEL_BINS_Z*1.0)));
+        for(int i = 0; i < VOXEL_BINS_R; i++){
+          Int_t lowerRhoBound = rhoBinVal[l*NSEG*(VOXEL_BINS_R+1)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R+1)*(VOXEL_BINS_Z) + j*(VOXEL_BINS_R+1) + i];
+          Int_t upperRhoBound = rhoBinVal[l*NSEG*(VOXEL_BINS_R+1)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R+1)*(VOXEL_BINS_Z) + j*(VOXEL_BINS_R+1) + i + 1];
+          Int_t rValMin = (Int_t)(i*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
+          Int_t rValMax = (Int_t)((i+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
           //cout << "bin: " << k << " " << j << " " << i << ", proj bounds x: " << lowerBoundx << " " << upperBoundx << endl;
           //cout << "proj bounds y: " << lowerBoundy << " " << upperBoundy << endl;
-          if((lowerRhoBound > 0)&&(lowerRhoBound < upperRhoBound)){
-            if((lowerPhiBound > 0)&&(lowerPhiBound < upperPhiBound)){
-              zetaHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = rhophizetaHist[l*NSEG + k]->ProjectionZ("",lowerRhoBound,upperRhoBound,lowerPhiBound,upperPhiBound);
-              if(zetaHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->GetEntries()>0){
-                zetaHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->Scale(1.0/zetaHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX]->Integral());
-                zetaHistC[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = zetaHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->GetCumulative();
-                zetaHistC[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->SetNameTitle(Form("zetaHistCumulativePos%iSeg%ir%ito%iangle%ito%i",l,k,rValMin,rValMax,angleValMin,angleValMax),Form("zetaHistCumulativePos%iSeg%ir%ito%iangle%ito%i",l,k,rValMin,rValMax,angleValMin,angleValMax));
-                list->Add(zetaHistC[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]);
+          if((lowerZetaBound > 0)&&(lowerZetaBound < upperZetaBound)){
+            if((lowerRhoBound > 0)&&(lowerRhoBound < upperRhoBound)){
+              //get the projection in phi (y) gated on a range in rho (x) and zeta (z)
+              phiHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i] = new TH1D();
+              phiHistC[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i] = new TH1D();
+              phiHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i] = rhophizetaHist[l*NSEG + k]->ProjectionY("",lowerRhoBound,upperRhoBound,lowerZetaBound,upperZetaBound);
+              if(phiHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->GetEntries()>0){
+                phiHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->Scale(1.0/phiHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->Integral());
+                phiHistC[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i] = phiHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->GetCumulative();
+                phiHistC[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->SetNameTitle(Form("phiHistCumulativePos%iSeg%iz%ito%ir%ito%i",l,k,zValMin,zValMax,rValMin,rValMax),Form("phiHistCumulativePos%iSeg%iz%ito%ir%ito%i",l,k,zValMin,zValMax,rValMin,rValMax));
+                //writeList->Add(phiHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]);
+                //generate maps
+                if(angleDistHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->Integral()>0.){
+                  sprintf(hname,"angleMapPos%iSeg%iz%ito%ir%ito%i",l,k,zValMin,zValMax,rValMin,rValMax);
+                  angleMap[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i] = new TH1D(hname,Form("angleMapPos%iSeg%iz%ito%ir%ito%i",l,k,zValMin,zValMax,rValMin,rValMax),N_BINS_ORDERING,-1.*PHI_MAX,1.*PHI_MAX);
+                  for(int m=0;m<N_BINS_ORDERING;m++){
+                    xVal[0] = phiHistC[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->GetBinContent(m+1);
+                    nQuantiles = angleDistHist[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->GetQuantiles(1,qVal,xVal);
+                    if(nQuantiles>=1){
+                      //cout << "m = " << m << ", nQuantiles = " << nQuantiles << ", xval = " << xVal[0] <<  ", qval = " << qVal[0] << endl; //qVal[0]=0 when there is no GEANT4 data in this bin
+                      angleMap[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]->SetBinContent(m+1,qVal[0]);
+                    }
+                  }
+                  //cout << "here write angleMap " << l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i << endl;
+                  writeList->Add(angleMap[l*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + k*(VOXEL_BINS_R)*(VOXEL_BINS_Z) + j*VOXEL_BINS_R + i]);
+                }
               }
             }
           }
@@ -519,42 +533,14 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
       }
     }
   }
-  //generate maps
-  TH1 *zMap[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
-  for(int l = 0; l < NPOS*NCORE; l++){
-    for(int k = 0; k < NSEG; k++){
-      for(int j = 0; j < VOXEL_BINS_R; j++){
-        Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        Int_t numAngleBins = getNumAngleBins(j,1.0);
-        for(int i = 0; i < numAngleBins; i++){
-          //cout << "bin: " << k << " " << j << " " << i << endl;
-          Int_t angleValMin = (Int_t)(i*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
-          Int_t angleValMax = (Int_t)((i+1)*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
-          if((zetaHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->GetEntries()>0)&&(zDistHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->Integral()>0.)){
-            sprintf(hname,"zMapPos%iSeg%ir%ito%iangle%ito%i",l,k,rValMin,rValMax,angleValMin,angleValMax);
-            zMap[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = new TH1D(hname,Form("zMapPos%iSeg%ir%ito%iangle%ito%i",l,k,rValMin,rValMax,angleValMin,angleValMax),N_BINS_ORDERING,-1.*ZETA_MAX,1.*ZETA_MAX);
-            for(int m=0;m<N_BINS_ORDERING;m++){
-              xVal[0] = zetaHistC[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->GetBinContent(m+1);
-              nQuantiles = zDistHist[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->GetQuantiles(1,qVal,xVal);
-              if(nQuantiles>=1){
-                zMap[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]->SetBinContent(m+1,qVal[0]);
-              }
-            }
-            list->Add(zMap[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]);
-          }
-        }
-      }
-    }
-  }
-  
 
   cout << "Writing histograms to: " << outfile << endl;
   TFile * myfile = new TFile(outfile, "RECREATE");
   myfile->cd();
-  list->Write();
+  writeList->Write();
   myfile->Close();
-  cout << "Histograms written, mapping complete!" << endl;
+  free(zetaBinVal);
+  free(rhoBinVal);
 }
 
 int main(int argc, char ** argv) {
@@ -595,8 +581,6 @@ int main(int argc, char ** argv) {
 
   cout << "Starting sortcode..." << endl;
 
-  
-
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
   if(grsi_path.length() > 0) {
 	  grsi_path += "/";
@@ -605,7 +589,7 @@ int main(int argc, char ** argv) {
   grsi_path += ".grsirc";
   gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
 
-  cout << "Input file: " << afile << endl << "Simulation data file: " << simfile << endl << "Calibration file: " << calfile << endl << "Output file: " << outfile << endl;
+  cout << "Input file: " << afile << endl << "Simulation data: " << simfile << endl << "Calibration file: " << calfile << endl << "Output file: " << outfile << endl;
 
   TParserLibrary::Get()->Load();
 
@@ -627,7 +611,7 @@ int main(int argc, char ** argv) {
   }
 
   generate_mapping(afile, simfile, calfile, outfile, inpList, simList);
-  
+  cout << "Mapping complete!" << endl;
 
   return 0;
 }

@@ -89,7 +89,7 @@ int BuildRFTimeTable(TTree* stree)
 
         //enforce a desired sampling rate
 /*printf("size: %i, ts1: %llu, ts2: %llu, diff: %llu\n",timestampBuffer.size(),timestampBuffer[timestampBuffer.size()-1], timestampBuffer[timestampBuffer.size()-2], timestampBuffer[timestampBuffer.size()-1]-timestampBuffer[timestampBuffer.size()-2]);*/
-		if((i==0)||((timestampBuffer[timestampBuffer.size()-1]-timestampBuffer[timestampBuffer.size()-2]) > 5000000000)){
+		//if((i==0)||((timestampBuffer[timestampBuffer.size()-1]-timestampBuffer[timestampBuffer.size()-2]) > 5000000000)){
 		  //printf("kept!\n");
 
 		  if(currentFrag->GetTimeStamp() < mints) mints = currentFrag->GetTimeStamp();
@@ -118,7 +118,7 @@ int BuildRFTimeTable(TTree* stree)
 			 }
 		  }
 
-		}
+		//}
 
  
 
@@ -421,56 +421,83 @@ void MapPhaseEnergyTest(TTree* atree, int numRFFrags, TH2D* interpHist, int hitT
    int entriesIn = 0;
 
    if(hitType==1){
-     TEmma* emma = nullptr;
-     TEmmaHit *ssb_hit;
-     TBranch* anBranch = atree->GetBranch("TEmma");
-     anBranch->SetAddress(&emma);
+      TEmma* emma = nullptr;
+      TEmmaHit *ssb_hit;
+      TBranch* anBranch = atree->GetBranch("TEmma");
+      anBranch->SetAddress(&emma);
      
-      
       for(int i = 0; i < entries; i++) {
          if(i % 100 == 0) printf("Entry %i / %i\r", i, entries);
          atree->GetEntry(i);
          entriesIn++;
-         for (int j = 0; j < emma->GetSSBMultiplicity(); j++) { // Get SSB hits
-            ssb_hit = emma->GetSSBHit(j);
-            ts = ssb_hit->GetTime();
-            double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
-            interpHist->Fill(phase, ssb_hit->GetEnergy());
+         if(emma){
+            for (int j = 0; j < emma->GetSSBMultiplicity(); j++) { // Get SSB hits
+               ssb_hit = emma->GetSSBHit(j);
+               ts = ssb_hit->GetTime();
+               double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
+               interpHist->Fill(phase, ssb_hit->GetEnergy());
+            }
          }
       }
-
    }else if (hitType==2){
       TTigress* tig = nullptr;
-     TTigressHit *tig_hit;
-     TBranch* anBranch = atree->GetBranch("TTigress");
-     anBranch->SetAddress(&tig);
+      TTigressHit *tig_hit;
+      TBranch* anBranch = atree->GetBranch("TTigress");
+      anBranch->SetAddress(&tig);
 
       for(int i = 0; i < entries; i++) {
          if(i % 100 == 0) printf("Entry %i / %i\r", i, entries);
          atree->GetEntry(i);
          entriesIn++;
-         for (int j = 0; j < tig->GetMultiplicity(); j++) { // Get TIGRESS hits
-            tig_hit = tig->GetTigressHit(j);
-            ts = tig_hit->GetTime();
-            double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
-            interpHist->Fill(phase, tig_hit->GetEnergy());
+         if(tig){
+            for (int j = 0; j < tig->GetMultiplicity(); j++) { // Get TIGRESS hits
+               tig_hit = tig->GetTigressHit(j);
+               ts = tig_hit->GetTime();
+               double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
+               interpHist->Fill(phase, tig_hit->GetEnergy());
+            }
          }
       }
    }else if (hitType==3){
       TS3* s3 = nullptr;
-     TS3Hit *s3_hit;
-     TBranch* anBranch = atree->GetBranch("TS3");
-     anBranch->SetAddress(&s3);
+      TS3Hit *s3_hit;
+      TBranch* anBranch = atree->GetBranch("TS3");
+      anBranch->SetAddress(&s3);
 
       for(int i = 0; i < entries; i++) {
          if(i % 100 == 0) printf("Entry %i / %i\r", i, entries);
          atree->GetEntry(i);
          entriesIn++;
-         for (int j = 0; j < s3->GetPixelMultiplicity(); j++) { // Get S3 hits
-            s3_hit = s3->GetPixelHit(j);
-            ts = s3_hit->GetTime();
-            double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
-            interpHist->Fill(phase, s3_hit->GetEnergy());
+         if(s3){
+            for (int j = 0; j < s3->GetPixelMultiplicity(); j++) { // Get S3 hits
+               s3_hit = s3->GetPixelHit(j);
+               ts = s3_hit->GetTime();
+               double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
+               interpHist->Fill(phase, s3_hit->GetSector());
+            }
+         }
+      }
+   }else if(hitType==4){
+      TEmma* emma = nullptr;
+      TEmmaHit *ssb_hit;
+      TBranch* anBranch = atree->GetBranch("TEmma");
+      anBranch->SetAddress(&emma);
+      TTigress* tig = nullptr;
+      TTigressHit *tig_hit;
+      TBranch* anBranch2 = atree->GetBranch("TTigress");
+      anBranch2->SetAddress(&tig);
+     
+      for(int i = 0; i < entries; i++) {
+         if(i % 100 == 0) printf("Entry %i / %i\r", i, entries);
+         atree->GetEntry(i);
+         entriesIn++;
+         if(emma&&tig){
+            for (int j = 0; j < emma->GetSSBMultiplicity(); j++) { // Get SSB hits
+               ssb_hit = emma->GetSSBHit(j);
+               ts = ssb_hit->GetTime();
+               double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
+               interpHist->Fill(phase, ssb_hit->GetEnergy());
+            }
          }
       }
    }else{
@@ -607,7 +634,7 @@ int main(int argc, char** argv)
 
    if(argc != 4) {
       printf("%s run_number calfile hit_type\n", argv[0]);
-      printf("\nThis code plots the RF phase for a given hit type in the specified run.\nRF data should be present in the fragment epics tree(s). Valid hit types: s3, ssb, tigress\n");
+      printf("\nThis code plots the RF phase for a given hit type in the specified run.\nRF data should be present in the fragment epics tree(s). Valid hit types: s3, ssb, tigress, ssb_tigress (SSB in coinc with TIGRESS)\n");
       return 0;
    }
 
@@ -628,8 +655,8 @@ int main(int argc, char** argv)
 
    TH1D* interpHist = new TH1D("Timing", "Timing", 5000, 0, 2048);
    interpHist->Reset();
-   TH2D* interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,4000);
-   interpHist2->Reset();
+   TH2D* interpHist2;
+   
    /*TH2D* tsdiffvst = new TH2D("Timestamp difference vs timestamp", "Timestamp difference vs timestamp", 10000, 0, 1000000, 200, 0, 20);
    tsdiffvst->Reset();
    TH2D* phasediffvst = new TH2D("RF Phase difference vs timestamp", "RF Phase difference vs timestamp", 10000, 0, 1000000, 200, (0 * TMath::Pi()), (2 * TMath::Pi()));
@@ -660,17 +687,25 @@ int main(int argc, char** argv)
    int hitType = -1;
    if(strcmp(argv[3],"ssb")==0){
       hitType = 1;
+      interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,80000);
       printf("Will plot timing for SSB (from EMMA) hits.\n");
    }else if(strcmp(argv[3],"tigress")==0){
       hitType = 2;
+      interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,8000);
       printf("Will plot timing for TIGRESS hits.\n");
    }else if(strcmp(argv[3],"s3")==0){
       hitType = 3;
+      interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 32, 0,32);
       printf("Will plot timing for S3 hits.\n");
+   }else if(strcmp(argv[3],"ssb_tigress")==0){
+      hitType = 4;
+      interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,80000);
+      printf("Will plot timing for SSB hits in coinc with TIGRESS hits.\n");
    }else{
       printf("ERROR: unknown hit type specified. Options are:\ns3 - S3 pixel hits\nssb - SSB (from EMMA)\ntigress - TIGRESS cores\n");
       exit(-1);
    }
+   interpHist2->Reset();
 
    // scan the list files for ROOT files
    for(int i = 0; i < numTrees; i++) {
@@ -738,13 +773,13 @@ int main(int argc, char** argv)
    // phaseHist->Draw();
    // parHist->Draw();
    theApp      = new TApplication("App", &argc, argv);
-   TCanvas* c1 = new TCanvas("c1", "c1", 800, 600);
+   TCanvas* c1 = new TCanvas("c1", "c1", 1000, 900);
    //interpHist->GetXaxis()->SetTitle("ts diff(ms)");
    //interpHist->Draw();
    sprintf(str,"%s RF phase vs. E",argv[3]);
    interpHist2->SetTitle(str);
    interpHist2->GetXaxis()->SetTitle("phase (rad)");
-   interpHist2->GetYaxis()->SetTitle("Energy (keV)");
+   interpHist2->GetYaxis()->SetTitle("S3 Sector Number");
    interpHist2->Draw("colz");
    /*tsdiffvst->GetXaxis()->SetTitle("timestamp (ms)");
    tsdiffvst->GetYaxis()->SetTitle("timestamp diff (ms)");*/

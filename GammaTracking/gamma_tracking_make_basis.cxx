@@ -9,7 +9,7 @@ char hname[64];
 TH1D *basis[(Int_t)(NPOS*NCORE*VOXEL_BINS_R*4*VOXEL_BINS_ANGLE_MAX*VOXEL_BINS_Z*FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR)];
 TH1I *basisHP;
 unsigned long int numEvtsBasis[(Int_t)(NPOS*NCORE*VOXEL_BINS_R*4*VOXEL_BINS_ANGLE_MAX*VOXEL_BINS_Z*FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR*FINE_BASIS_BINFACTOR)];
-GT_map trackingMap;
+GT_map *trackingMap;
 
 void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFac, const bool makeFineBasis, unsigned long int *numEvtsBasis){
   
@@ -124,20 +124,20 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
             isHit = true;
 
             //map to spatial parameters
-            if(trackingMap.rMap[arrayPos*NSEG + segNum]!=NULL){
-              double r = trackingMap.rMap[arrayPos*NSEG + segNum]->GetBinContent(trackingMap.rMap[arrayPos*NSEG + segNum]->FindBin(rho));
+            if(trackingMap->rMap[arrayPos*NSEG + segNum]!=NULL){
+              double r = trackingMap->rMap[arrayPos*NSEG + segNum]->GetBinContent(trackingMap->rMap[arrayPos*NSEG + segNum]->FindBin(rho));
               Int_t rInd = (Int_t)(r*VOXEL_BINS_R/(1.0*MAX_VAL_R));
               //cout << "seg: " << segNum << ", r: " << r << ", rho: " << rho << ", ind: " << rInd << endl;
               if(rInd < VOXEL_BINS_R){
-                if(trackingMap.angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]!=NULL){
-                  double angle = trackingMap.angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]->GetBinContent(trackingMap.angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]->FindBin(phi));
+                if(trackingMap->angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]!=NULL){
+                  double angle = trackingMap->angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]->GetBinContent(trackingMap->angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]->FindBin(phi));
                   if(angle>=MAX_VAL_ANGLE){
                     angle=MAX_VAL_ANGLE-0.001; //have seen rare events where angle is exactly 90 degrees
                   }
                   Int_t angleInd = (Int_t)(angle*getNumAngleBins(rInd,1.0)/MAX_VAL_ANGLE);
                   //cout << "angle: " << angle << ", phi: " << phi << ", ind: " << angleInd << endl;
-                  if(trackingMap.zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]!=NULL){
-                    double z = trackingMap.zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->GetBinContent(trackingMap.zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->FindBin(zeta));
+                  if(trackingMap->zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]!=NULL){
+                    double z = trackingMap->zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->GetBinContent(trackingMap->zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->FindBin(zeta));
                     if(z>=MAX_VAL_Z){
                       z=MAX_VAL_Z-0.001; //have seen rare events where z is exactly 90 mm
                     }
@@ -264,8 +264,9 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
   TList * list = new TList;
   
   //read in histograms from map file
+  trackingMap = (GT_map*)malloc(sizeof(GT_map));
   TFile *mapInp = new TFile(mapfile,"read");
-  GT_import_map(mapInp,&trackingMap);
+  GT_import_map(mapInp,trackingMap);
 
   //setup histograms for the basis
   Double_t basisScaleFac;
