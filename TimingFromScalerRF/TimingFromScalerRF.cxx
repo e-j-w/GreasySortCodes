@@ -22,11 +22,10 @@
 
 #include "TChannel.h"
 #include "TDetectorHit.h"
-#include "TFragment.h"
-#include "TEpicsFrag.h"
 #include "TParserLibrary.h"
 #include "TEnv.h"
 
+#include "TRF.h"
 #include "TEmma.h"
 #include "TEmmaHit.h"
 #include "TTigress.h"
@@ -38,183 +37,51 @@
 
 TH1D *periodHist, *phaseHist, *parHist;
 
-std::vector<double>    phaseShiftBuffer, phaseBuffer, freqBuffer, parBuffer[4];
-std::vector<ULong64_t> timestampBuffer;
-
-ULong64_t mints, maxts;
+std::vector<double>    phaseBuffer, periodBuffer;
+std::vector<double>   timestampBuffer;
 
 char str[256];
-char ftreename[256], atreename[256];
+char atreename[256];
 
 // builds a table of RF time values
 // returns the number of RF scaler fragments in the table
-int BuildRFTimeTable(TTree* stree)
+int BuildRFTimeTable(TTree* atree)
 {
 
-   TEpicsFrag* currentFrag = nullptr;
-   TBranch*    branch      = stree->GetBranch("TEpicsFrag");
-   branch->SetAddress(&currentFrag);
+   TRF* rf = nullptr;
+   TBranch*    branch      = atree->GetBranch("TRF");
+   branch->SetAddress(&rf);
 
-   int entries = stree->GetEntries();
+   int entries = atree->GetEntries();
 
-   int  FragsIn   = 0;
-   int  RFFragsIn = 0;
-   bool fe, p0e, p1e, p2e, de, te; // flags to check whether specific RF data exists in a fragment
-
-   maxts = 0;
-   mints = 1E16;
+   int  EvtsIn   = 0;
 
    // reserve enough space for long runs
-   freqBuffer.reserve(entries);
-   parBuffer[0].reserve(entries);
-   parBuffer[1].reserve(entries);
-   parBuffer[2].reserve(entries);
-   parBuffer[3].reserve(entries);
    timestampBuffer.reserve(entries);
+   periodBuffer.reserve(entries);
+   phaseBuffer.reserve(entries);
 
    for(int i = 0; i < entries; i++) {
 
-      stree->GetEntry(i);
-      FragsIn++;
+      atree->GetEntry(i);
+      EvtsIn++;
 
-      fe  = false;
-      p0e = false;
-      p1e = false;
-      p2e = false;
-      de  = false;
-      double val;
-
-      timestampBuffer.push_back(currentFrag->GetTimeStamp());
-
-
-        //enforce a desired sampling rate
-/*printf("size: %i, ts1: %llu, ts2: %llu, diff: %llu\n",timestampBuffer.size(),timestampBuffer[timestampBuffer.size()-1], timestampBuffer[timestampBuffer.size()-2], timestampBuffer[timestampBuffer.size()-1]-timestampBuffer[timestampBuffer.size()-2]);*/
-		//if((i==0)||((timestampBuffer[timestampBuffer.size()-1]-timestampBuffer[timestampBuffer.size()-2]) > 5000000000)){
-		  //printf("kept!\n");
-
-		  if(currentFrag->GetTimeStamp() < mints) mints = currentFrag->GetTimeStamp();
-		  if(currentFrag->GetTimeStamp() > maxts) maxts = currentFrag->GetTimeStamp();
-
-		  for(int j = 0; j < currentFrag->fName.size(); j++) {
-			 val = currentFrag->GetData(j);
-			 // printf("%s: %f\n",currentFrag->fName[j].c_str(),val);
-			 if(j < currentFrag->fData.size()) {
-			    if(strcmp(currentFrag->fName[j].c_str(), "RF Frequency") == 0) {
-			       freqBuffer.push_back(val);
-			       fe = true;
-			    } else if(strcmp(currentFrag->fName[j].c_str(), "RF par 0") == 0) {
-			       parBuffer[0].push_back(val);
-			       p0e = true;
-			    } else if(strcmp(currentFrag->fName[j].c_str(), "RF par 1") == 0) {
-			       parBuffer[1].push_back(val);
-			       p1e = true;
-			    } else if(strcmp(currentFrag->fName[j].c_str(), "RF par 2") == 0) {
-			       parBuffer[2].push_back(val);
-			       p2e = true;
-			    } else if(strcmp(currentFrag->fName[j].c_str(), "RF Determinant") == 0) {
-			       parBuffer[3].push_back(val);
-			       de = true;
-			    }
-			 }
-		  }
-
-		//}
-
- 
-
-      if(fe && p0e && p1e && p2e && de) {
-         RFFragsIn++;
-      } else {
-         // make all vectors the same size and then remove the last element of each (corresponding to the bad fragment)
-         if(!fe) {
-            freqBuffer.push_back(0.0);
-         }
-         if(!p0e) {
-            parBuffer[0].push_back(0.0);
-         }
-         if(!p1e) {
-            parBuffer[1].push_back(0.0);
-         }
-         if(!p2e) {
-            parBuffer[2].push_back(0.0);
-         }
-         if(!de) {
-            parBuffer[3].push_back(0.0);
-         }
-         freqBuffer.pop_back();
-         parBuffer[0].pop_back();
-         parBuffer[1].pop_back();
-         parBuffer[2].pop_back();
-         parBuffer[3].pop_back();
-         timestampBuffer.pop_back();
+      //std::cout << "ts: " << rf->TimeStamp() << ", per: " << rf->Period() << ", phase: " << rf->Phase() << std::endl;
+      if((rf->TimeStamp() > 0)&&(rf->Phase() >= 0.0)){
+         timestampBuffer.push_back(rf->TimeStamp() * 10.0);
+         periodBuffer.push_back(rf->Period());
+         phaseBuffer.push_back(rf->Phase());
       }
-   }
-
-   printf("%i RF fragment(s) read in.\n", RFFragsIn);
-
-   double t0, T, A, s, c;
-   double par[3];
-
-   double prevTs = 0.;
-   double prevBadTs = 0.;
-   double prevPhase = 0.;
-   int previ = 0;
-
-   for(int i = 0; i < RFFragsIn; i++) {
-
-      if(parBuffer[3][i] != 0.) {
-         par[0] = parBuffer[0][i] / parBuffer[3][i];
-         par[1] = parBuffer[1][i] / parBuffer[3][i];
-         par[2] = parBuffer[2][i] / parBuffer[3][i];
-         T      = 1.34217728E9 / freqBuffer[i]; // period in ns
-         // printf("parBuffer[0][i]: %f, parBuffer[1][i]: %f, parBuffer[2][i]: %f, parBuffer[3][i]:
-         // %f\n",parBuffer[0][i],parBuffer[1][i],parBuffer[2][i],parBuffer[3][i]); printf("par0: %f, par1: %f, par2:
-         // %f, T: %f\n",par[0],par[1],par[2],T); getc(stdin);
-         A = sqrt(par[1] * par[1] + par[0] * par[0]);
-         s = -par[0] / A;
-         c = par[1] / A;
-         if(s >= 0) {
-            t0 = acos(c) * T / (2 * TMath::Pi());
-         } else {
-            t0 = (1 - acos(c) / (2 * TMath::Pi())) * T;
-         }
-         phaseShiftBuffer.push_back(t0); // in ns
-         phaseBuffer.push_back((t0 / T) * (2 * TMath::Pi()));
-         phaseHist->Fill(t0);
-         periodHist->Fill(T); // period in ns
-         parHist->Fill(A);
-         //printf("i=%i, ts=%llu, phase=%f rad, phase shift=%f ns, T=%f ns\n",i, timestampBuffer[i], (t0 / T) * (2 * TMath::Pi()), t0, T);
-         // getc(stdin);
-         /*double tsms = timestampBuffer[i]/1000000.;
-         double phaseDiff = phaseBuffer[i]-prevPhase;
-         if(phaseDiff < 0)
-            phaseDiff += (2 * TMath::Pi());
-         hist->Fill(tsms,tsms-prevTs);
-         hist2->Fill(tsms,phaseDiff);
-         //printf("vals: %f %f\n",tsms,tsms-prevTs);
-         printf("vals: %f %f\n",tsms,phaseDiff);
-         if(phaseDiff< 4.0){
-            hist3->Fill(tsms-prevBadTs);
-            prevBadTs=tsms;
-         }  
-         //getc(stdin);
-         prevTs=tsms;
-         
-         prevPhase=phaseBuffer[i];*/
-
-      }else{
-         printf("Skipping failed RF fit.\n"); 
-      }
-
-      
       
    }
+
+   printf("%i RF event(s) read in.\n", EvtsIn);
 
    // getc(stdin);
-   return RFFragsIn;
+   return EvtsIn;
 }
 
-void PhaseInterpTest(int numRFFrags)
+void PhaseInterpTest(int numRFEvt)
 {
 
    TH1D* interpHist =
@@ -224,9 +91,9 @@ void PhaseInterpTest(int numRFFrags)
    double phase, interpPhaseShift, interpPhase;
    double T, numTinterp;
 
-   for(int i = 1; i < numRFFrags; i++) {
+   for(int i = 1; i < numRFEvt; i++) {
       phase = phaseBuffer[i];
-      T     = 1.34217728E9 / freqBuffer[i]; // period in ns
+      T     = periodBuffer[i]; // period in ns
       if(timestampBuffer[i] > timestampBuffer[i - 1])
          numTinterp = (timestampBuffer[i] - timestampBuffer[i - 1]) / T;
       else // handle rollover of timestamps
@@ -247,48 +114,19 @@ void PhaseInterpTest(int numRFFrags)
    interpHist->Draw();
 }
 
-double GetPhaseNsForTimestamp(ULong64_t timestamp, int numRFFrags)
-{
-   // printf("ts: %llu\n",timestamp);
-   double T, numTinterp, interpPhaseShift;
-   double interpPhase = -100;
-   int    i           = 0;
-   for(i = 0; i < numRFFrags; i++) {
-      if((i > 0) && (timestampBuffer[i] > timestamp) &&
-         (timestampBuffer[i - 1] <= timestamp)) { // ignoring rollover for now
-         T = 1.34217728E9 / freqBuffer[i - 1];    // period in ns
-         if(timestampBuffer[i] > timestampBuffer[i - 1])
-            numTinterp = (timestamp - timestampBuffer[i - 1]) / T;
-         else // handle rollover of timestamps
-            numTinterp =
-               ((timestamp + 43980465111040) - timestampBuffer[i - 1]) / T; // timestamp is a 42-bit unsigned int
-         interpPhaseShift = (numTinterp - (int)numTinterp) * T;
-         if(phaseShiftBuffer[i - 1] + interpPhaseShift < T)
-            interpPhase = phaseShiftBuffer[i - 1] + interpPhaseShift;
-         else
-            interpPhase = interpPhaseShift - (T - phaseShiftBuffer[i - 1]);
-         break;
-      }
-   }
-   // if((interpPhase > 66.16) && (interpPhase < 66.175)) printf("ok ts: %llu, phase: %f\n", timestamp, interpPhase);
-   // printf("numTinterp: %f, i: %i, interpPhaseShift: %f, interpPhase: %f\n",numTinterp, i, interpPhaseShift,
-   // interpPhase);
-   return interpPhase;
-}
-
 // below: if true, interpolate from below, if false, interpolate from above
-double GetPhaseRadForTimestamp(ULong64_t timestamp, int numRFFrags, bool below)
+double GetPhaseRadForTimestamp(ULong64_t timestamp, int numRFEvt, bool below)
 {
    // printf("ts: %llu\n",timestamp);
    double T;
    double numTinterp, interpPhaseShift;
    double interpPhase = -100;
    int    i           = 0;
-   for(i = 0; i < numRFFrags; i++) {
+   for(i = 0; i < numRFEvt; i++) {
       if((i > 0) && (timestampBuffer[i] > timestamp) &&
          (timestampBuffer[i - 1] <= timestamp)) { // ignoring rollover for now
          if(below) { //interpolate from previous RF event
-            T                = 1.34217728E9 / (freqBuffer[i - 1]); // period in ns
+            T                = periodBuffer[i - 1]; // period in ns
             numTinterp       = (timestamp - timestampBuffer[i - 1]) / T; //number of periods to interpolate
             interpPhaseShift = (numTinterp - (int)numTinterp) * (2 * TMath::Pi()); //phase shift needed
             // set phase, wrapping around so that it ranges from 0 to 2pi
@@ -298,7 +136,7 @@ double GetPhaseRadForTimestamp(ULong64_t timestamp, int numRFFrags, bool below)
                interpPhase = phaseBuffer[i - 1] + interpPhaseShift - (2 * TMath::Pi());
             break;
          } else { //interpolate from RF event after
-            T                = 1.34217728E9 / freqBuffer[i]; // period in ns
+            T                = periodBuffer[i]; // period in ns
             numTinterp       = (timestampBuffer[i] - timestamp) / T; //number of periods to interpolate
             interpPhaseShift = (numTinterp - (int)numTinterp) * (2 * TMath::Pi()); //phase shift needed
             // set phase, wrapping around so that it ranges from 0 to 2pi
@@ -314,12 +152,11 @@ double GetPhaseRadForTimestamp(ULong64_t timestamp, int numRFFrags, bool below)
    if(interpPhase>TMath::Pi()){
        interpPhase-=2*TMath::Pi();
    }
-   // printf("numTinterp: %f, i: %i, interpPhaseShift: %f, interpPhase: %f\n",numTinterp, i, interpPhaseShift,
-   // interpPhase);
+   //printf("numTinterp: %f, i: %i, interpPhaseShift: %f, interpPhase: %f\n",numTinterp, i, interpPhaseShift, interpPhase);
    return interpPhase;
 }
 
-void MapPhaseTest(TTree* ftree, int numRFFrags, TH1D* interpHist, int chan1, int chan2, bool append)
+void MapPhaseTest(TTree* ftree, int numRFEvt, TH1D* interpHist, int chan1, int chan2, bool append)
 {
 
    if(!append) interpHist->Reset();
@@ -349,7 +186,7 @@ void MapPhaseTest(TTree* ftree, int numRFFrags, TH1D* interpHist, int chan1, int
          // printf("channel address: %u\n",currentFrag->GetChannelNumber());
          ts1 = currentFrag->GetTime();
          // printf("ts: %llu\n",ts);
-         double phase1 = GetPhaseRadForTimestamp(ts1, numRFFrags, true);
+         double phase1 = GetPhaseRadForTimestamp(ts1, numRFEvt, true);
          // interpHist->Fill(fmod(correctedTS,84.841652));
          interpHist->Fill(phase1);
       }
@@ -360,7 +197,7 @@ void MapPhaseTest(TTree* ftree, int numRFFrags, TH1D* interpHist, int chan1, int
    // getc(stdin);
 }
 
-void MapPhaseTest2D(TTree* ftree, int numRFFrags, TH2D* interpHist, int chan1, int chan2, bool append)
+void MapPhaseTest2D(TTree* ftree, int numRFEvt, TH2D* interpHist, int chan1, int chan2, bool append)
 {
 
    if(!append) interpHist->Reset();
@@ -390,13 +227,13 @@ void MapPhaseTest2D(TTree* ftree, int numRFFrags, TH2D* interpHist, int chan1, i
          // printf("channel address: %u\n",currentFrag->GetChannelNumber());
          ts1 = currentFrag->GetTime();
          // printf("ts: %llu\n",ts);
-         double phase1 = GetPhaseRadForTimestamp(ts1, numRFFrags, true);
+         double phase1 = GetPhaseRadForTimestamp(ts1, numRFEvt, true);
 
          for(int j = i; j < (i + 3000); j++) {
             ftree->GetEntry(j);
             if(currentFrag->GetChannelNumber() == chan2) {
                ts2           = currentFrag->GetTime();
-               double phase2 = GetPhaseRadForTimestamp(ts2, numRFFrags, true);
+               double phase2 = GetPhaseRadForTimestamp(ts2, numRFEvt, true);
                interpHist->Fill(phase1, phase2);
             }
          }
@@ -408,7 +245,7 @@ void MapPhaseTest2D(TTree* ftree, int numRFFrags, TH2D* interpHist, int chan1, i
    // getc(stdin);
 }
 
-void MapPhaseEnergyTest(TTree* atree, int numRFFrags, TH2D* interpHist, int hitType, bool append)
+void MapPhaseEnergyTest(TTree* atree, int numRFEvt, TH2D* interpHist, int hitType, bool append)
 {
 
    if(!append) interpHist->Reset();
@@ -434,7 +271,7 @@ void MapPhaseEnergyTest(TTree* atree, int numRFFrags, TH2D* interpHist, int hitT
             for (int j = 0; j < emma->GetSSBMultiplicity(); j++) { // Get SSB hits
                ssb_hit = emma->GetSSBHit(j);
                ts = ssb_hit->GetTime();
-               double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
+               double phase = GetPhaseRadForTimestamp(ts, numRFEvt, true); //get RF phase
                interpHist->Fill(phase, ssb_hit->GetEnergy());
             }
          }
@@ -453,7 +290,7 @@ void MapPhaseEnergyTest(TTree* atree, int numRFFrags, TH2D* interpHist, int hitT
             for (int j = 0; j < tig->GetMultiplicity(); j++) { // Get TIGRESS hits
                tig_hit = tig->GetTigressHit(j);
                ts = tig_hit->GetTime();
-               double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
+               double phase = GetPhaseRadForTimestamp(ts, numRFEvt, true); //get RF phase
                interpHist->Fill(phase, tig_hit->GetEnergy());
             }
          }
@@ -472,8 +309,8 @@ void MapPhaseEnergyTest(TTree* atree, int numRFFrags, TH2D* interpHist, int hitT
             for (int j = 0; j < s3->GetPixelMultiplicity(); j++) { // Get S3 hits
                s3_hit = s3->GetPixelHit(j);
                ts = s3_hit->GetTime();
-               double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
-               interpHist->Fill(phase, s3_hit->GetSector());
+               double phase = GetPhaseRadForTimestamp(ts, numRFEvt, true); //get RF phase
+               interpHist->Fill(phase, s3_hit->GetEnergy());
             }
          }
       }
@@ -495,7 +332,7 @@ void MapPhaseEnergyTest(TTree* atree, int numRFFrags, TH2D* interpHist, int hitT
             for (int j = 0; j < emma->GetSSBMultiplicity(); j++) { // Get SSB hits
                ssb_hit = emma->GetSSBHit(j);
                ts = ssb_hit->GetTime();
-               double phase = GetPhaseRadForTimestamp(ts, numRFFrags, true); //get RF phase
+               double phase = GetPhaseRadForTimestamp(ts, numRFEvt, true); //get RF phase
                interpHist->Fill(phase, ssb_hit->GetEnergy());
             }
          }
@@ -512,7 +349,7 @@ void MapPhaseEnergyTest(TTree* atree, int numRFFrags, TH2D* interpHist, int hitT
    // getc(stdin);
 }
 
-void PhaseConsistencyTest(TTree* ftree, int numRFFrags, TH1D* interpHist, int chan1, int chan2, bool append)
+void PhaseConsistencyTest(TTree* ftree, int numRFEvt, TH1D* interpHist, int chan1, int chan2, bool append)
 {
 
    if(!append) interpHist->Reset();
@@ -543,7 +380,7 @@ void PhaseConsistencyTest(TTree* ftree, int numRFFrags, TH1D* interpHist, int ch
          ts1 = currentFrag->GetTime();
          // printf("ts: %llu\n",ts);
          double phasediff =
-            GetPhaseRadForTimestamp(ts1, numRFFrags, true) - GetPhaseRadForTimestamp(ts1, numRFFrags, false);
+            GetPhaseRadForTimestamp(ts1, numRFEvt, true) - GetPhaseRadForTimestamp(ts1, numRFEvt, false);
          // interpHist->Fill(fmod(correctedTS,84.841652));
          interpHist->Fill(phasediff);
       }
@@ -553,73 +390,6 @@ void PhaseConsistencyTest(TTree* ftree, int numRFFrags, TH1D* interpHist, int ch
 
    // getc(stdin);
 }
-
-/* void MapPhase2DTest(TTree* atree, int numRFFrags, TH2D *hist, bool append){
-
-   if(!append)
-      hist->Reset();
-
-   ULong64_t ts;
-   //double modts1,modts2;
-   double tigE;
-
-   //TEmma* currentEmmaFrag = nullptr;
-   TTigress* currentTigFrag = nullptr;
-   //TBranch* branchEmma = atree->GetBranch("TEmma");
-   //branchEmma->SetAddress(&currentEmmaFrag);
-   TBranch* branchTig = atree->GetBranch("TTigress");
-   branchTig->SetAddress(&currentTigFrag);
-
-   int entries = atree->GetEntries();
-
-   for(int i=0;i<entries;i++){
-
-      if(i%100==0)
-         printf("Entry %i / %i\r",i,entries);
-
-      atree->GetEntry(i);
-
-      for(int j=0;j<currentTigFrag->GetMultiplicity();j++){
-         tigE = currentTigFrag->GetTigressHit(j)->GetEnergy()/1000.0;
-         ts = static_cast<ULong64_t>(currentTigFrag->GetTigressHit(j)->GetTimeStampNs());
-         hist->Fill(tigE,GetPhaseNsForTimestamp(ts,numRFFrags));
-      }
-
-   }
-
-} */
-
-/* void WriteCorrectedTimes(TTree* inptree, TTree* outtree)
-{
-
-   TBranch* branch = inptree->GetBranch("TTigress");
-   if(branch == nullptr) {
-      printf("Tigress branch not in analysis tree.\n");
-   } else {
-      printf("Tigress branch in analysis tree.\n");
-      TTigress* currentDet = nullptr;
-      branch->SetAddress(&currentDet);
-
-      int entries = inptree->GetEntries();
-
-      int FragsIn = 0;
-
-      for(int i=0;i<entries;i++){
-
-         inptree->GetEntry(i);
-         FragsIn++;
-         printf("Fragment %i\n",FragsIn);
-         for(int j=0;j<currentDet->GetHitVector().size();j++){
-            printf("ts=%li\n",currentDet->GetHitVector()[j]->GetTimeStampNs());
-         }
-         getc(stdin);
-
-      }
-
-   }
-
-   return;
-} */
 
 #ifndef __CINT__
 
@@ -634,7 +404,7 @@ int main(int argc, char** argv)
 
    if(argc != 4) {
       printf("%s run_number calfile hit_type\n", argv[0]);
-      printf("\nThis code plots the RF phase for a given hit type in the specified run.\nRF data should be present in the fragment epics tree(s). Valid hit types: s3, ssb, tigress, ssb_tigress (SSB in coinc with TIGRESS)\n");
+      printf("\nThis code plots the RF phase for a given hit type in the specified run.\nRF data should be present in the analysis tree(s). Valid hit types: s3, ssb, tigress, ssb_tigress (SSB in coinc with TIGRESS)\n");
       return 0;
    }
 
@@ -666,40 +436,35 @@ int main(int argc, char** argv)
 
    int numTrees = 0;
    bool searching = true;
-   while(searching) {
-      sprintf(ftreename, "fragment%i_%03d.root",runNum,numTrees);
+   while(searching){
       sprintf(atreename, "analysis%i_%03d.root",runNum,numTrees);
-      ffile = new TFile(ftreename);
       afile = new TFile(atreename);
-      if((ffile == nullptr) || (!ffile->IsOpen())) {
-         printf("%i tree(s) found for run %i.\n", numTrees,runNum);
-         searching = false;
-      }else if((afile == nullptr) || (!afile->IsOpen())) {
+      if((afile == nullptr) || (!afile->IsOpen())) {
          printf("%i tree(s) found for run %i.\n", numTrees,runNum);
          searching = false;
       }else{
-         printf("Files %s and %s found.\n",ftreename,atreename);
+         printf("File %s found.\n",atreename);
          numTrees++;
       }
-      ffile->Close();
+      afile->Close();
    }
 
    int hitType = -1;
    if(strcmp(argv[3],"ssb")==0){
       hitType = 1;
-      interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,80000);
+      interpHist2 = new TH2D("Timing", "Timing", 100, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,80000);
       printf("Will plot timing for SSB (from EMMA) hits.\n");
    }else if(strcmp(argv[3],"tigress")==0){
       hitType = 2;
-      interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,8000);
+      interpHist2 = new TH2D("Timing", "Timing", 100, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,8000);
       printf("Will plot timing for TIGRESS hits.\n");
    }else if(strcmp(argv[3],"s3")==0){
       hitType = 3;
-      interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 32, 0,32);
+      interpHist2 = new TH2D("Timing", "Timing", 100, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,14000);
       printf("Will plot timing for S3 hits.\n");
    }else if(strcmp(argv[3],"ssb_tigress")==0){
       hitType = 4;
-      interpHist2 = new TH2D("Timing", "Timing", 70, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,80000);
+      interpHist2 = new TH2D("Timing", "Timing", 100, (-1 * TMath::Pi()), (1 * TMath::Pi()), 1000, 0,80000);
       printf("Will plot timing for SSB hits in coinc with TIGRESS hits.\n");
    }else{
       printf("ERROR: unknown hit type specified. Options are:\ns3 - S3 pixel hits\nssb - SSB (from EMMA)\ntigress - TIGRESS cores\n");
@@ -710,22 +475,7 @@ int main(int argc, char** argv)
    // scan the list files for ROOT files
    for(int i = 0; i < numTrees; i++) {
 
-      sprintf(ftreename, "fragment%i_%03d.root",runNum,i);
       sprintf(atreename, "analysis%i_%03d.root",runNum,i);
-
-      ffile = new TFile(ftreename);
-      if((ffile == nullptr) || (!ffile->IsOpen())) {
-         printf("Failed to open file '%s'!\n", ftreename);
-         exit(-1);
-      }
-
-      TTree* epicstree = dynamic_cast<TTree*>(ffile->Get("EpicsTree"));
-      if(epicstree == nullptr) {
-         printf("Failed to find epics tree in file: %s\n", ftreename);
-         exit(-1);
-      } else {
-         std::cout << epicstree->GetEntries() << " epics tree entries" << std::endl;
-      }
 
       afile = new TFile(atreename);
       if((afile == nullptr) || (!afile->IsOpen())) {
@@ -744,9 +494,8 @@ int main(int argc, char** argv)
 
       // initialize arrays
       timestampBuffer  = {};
-      phaseShiftBuffer = {};
-      freqBuffer       = {};
-      for(int i = 0; i < 4; i++) parBuffer[i] = {};
+      phaseBuffer      = {};
+      periodBuffer     = {};
 
       periodHist = new TH1D("period", "period", 20000, 84.83, 84.85);
       periodHist->Reset();
@@ -755,16 +504,15 @@ int main(int argc, char** argv)
       parHist = new TH1D("parameter 0 1 sumsquare", "parameter 0 1 sumsquare", 20000, -20, 20);
       parHist->Reset();
 
-      int numRFFrags = BuildRFTimeTable(epicstree);
-      //PhaseInterpTest(numRFFrags);
+      int numRFEvt = BuildRFTimeTable(inptree);
+      //PhaseInterpTest(numRFEvt);
 
-      // PhaseConsistencyTest(inptree, numRFFrags, interpHist, chan1, chan2, true);
-      // MapPhaseTest(inptree, numRFFrags, interpHist, chan1, chan2, true);
-      // MapPhaseTest2D(inptree, numRFFrags, interpHist2, chan1, chan2, true);
-      MapPhaseEnergyTest(inptree, numRFFrags, interpHist2, hitType, true);
-      // MapPhase2DTest(inptree,numRFFrags,hist,true);
+      // PhaseConsistencyTest(inptree, numRFEvt, interpHist, chan1, chan2, true);
+      // MapPhaseTest(inptree, numRFEvt, interpHist, chan1, chan2, true);
+      // MapPhaseTest2D(inptree, numRFEvt, interpHist2, chan1, chan2, true);
+      MapPhaseEnergyTest(inptree, numRFEvt, interpHist2, hitType, true);
+      // MapPhase2DTest(inptree,numRFEvt,hist,true);
 
-      ffile->Close();
       afile->Close();
    }
 
@@ -779,7 +527,7 @@ int main(int argc, char** argv)
    sprintf(str,"%s RF phase vs. E",argv[3]);
    interpHist2->SetTitle(str);
    interpHist2->GetXaxis()->SetTitle("phase (rad)");
-   interpHist2->GetYaxis()->SetTitle("S3 Sector Number");
+   interpHist2->GetYaxis()->SetTitle("S3 energy");
    interpHist2->Draw("colz");
    /*tsdiffvst->GetXaxis()->SetTitle("timestamp (ms)");
    tsdiffvst->GetYaxis()->SetTitle("timestamp diff (ms)");*/
@@ -788,8 +536,6 @@ int main(int argc, char** argv)
    phasediffvst->GetYaxis()->SetTitle("phase diff (rad)");
    phasediffvst->Draw("colz");*/
    theApp->Run(kTRUE);
-
-   // WriteCorrectedTimes(inptree,outtree);
 
    // auto* outfile = new TFile(argv[3], "recreate");
    // list->Write();
