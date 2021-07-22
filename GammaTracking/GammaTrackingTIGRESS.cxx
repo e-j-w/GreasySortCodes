@@ -17,6 +17,53 @@ Int_t getNumAngleBins(Int_t rInd, Double_t scaleFac){
   return getNumAngleBins(rInd,scaleFac,scaleFac); 
 }
 
+//gets r as the distance along the E-field lines to the central contact,
+//from input r and z values in spherical coordinates
+double getREFieldFromR(const double r, const double z){
+  /*if(z<30.){
+    //lower segment
+    double zContactOuterHit = 14.2 + 15.8*(z/30.0); //assuming a hit at r=30, the z-value where the field lines reach the central contact (approx.)
+    double zContactHit = zContactOuterHit - ((30.0 - r)/30.0)*(zContactOuterHit - z); //the z-value where the field lines reach the central contact (approx.)
+    return sqrt(r*r + (zContactHit-z)*(zContactHit-z));
+  }else{
+    //upper segment
+    return r;
+  }*/
+
+  if(z<30.){
+    //lower segment
+    //r corresponds to the distance from the central contact at z=30
+    return sqrt(r*r + (30.-z)*(30.-z));
+  }else{
+    //upper segment
+    return r;
+  }
+}
+//inverse of above function
+//inverse function f(x) = sqrt(x^2 + ((1-((30-x)/30))*a)^2)
+//a = zContactOuterHit - z
+double getRFromREField(const double r, const double z){
+  /*if(z<30.){
+    //lower segment
+    double zContactOuterHit = 14.2 + 15.8*(z/30.0); //assuming a hit at r=30, the z-value where the field lines reach the central contact (approx.)
+    double denom = sqrt(900.0 + (zContactOuterHit - z)*(zContactOuterHit - z));
+    return (30.0*r)/denom;
+  }else{
+    //upper segment
+    return r;
+  }*/
+
+  if(z<30.){
+    //lower segment
+    //r corresponds to the distance from the central contact at z=30
+    return sqrt(r*r - (30.-z)*(30.-z));
+  }else{
+    //upper segment
+    return r;
+  }
+}
+
+
 //function for calculation of ordering parameters
 //this enforces the single segment hit condition assumed by the mapping process, using SEGMENT_ENERGY_THRESHOLD
 double calc_ordering(TTigressHit * tigress_hit, const Int_t segHitInd, const Int_t parameterNum) {
@@ -214,7 +261,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t segHitInd, const Int
 
     double zeta = 0.;
     double dno; //placeholder for denominator
-    if(segNum>3){
+    //if(segNum>3){
       //back segment
        const std::vector<Short_t> *segwf2;
       bool found1 = false;
@@ -261,7 +308,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t segHitInd, const Int
       //cout << "max: " << maxVal << ", min: " << minVal << ", dno: " << dno << ", zeta: " << zeta << endl;
       zeta *= -2.; //back segment, reverse sign to make zeta increase with z
       zeta += 1.0;
-    }else{
+    /*}else{
       //front segment
       dno = 0.;
       for(int j=1;j<numSamples-2;j++){ //sometimes the last sample isn't written correctly 
@@ -272,7 +319,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t segHitInd, const Int
       //get zeta values centered on 0
       zeta *= 4./(numSamples-2);
       zeta -= 2.0;
-    }
+    }*/
     if((dno==0.)||(zeta!=zeta)){
       //cout << "Cannot compute zeta parameter (NaN)." << endl;
       return BAD_RETURN;
@@ -316,31 +363,29 @@ void GT_import_map(TFile *map_file, GT_map *gt_map){
   //read in histograms from map file
   for(int l = 0; l < NPOS*NCORE; l++){
     for(int k = 0; k < NSEG; k++){
-      sprintf(hname,"rMapPos%iSeg%i",l,k);
-      if((gt_map->rMap[l*NSEG + k] = (TH1*)map_file->Get(hname))==NULL){
-        //cout << "No r coordinate map for segment " << k << endl;
+      sprintf(hname,"zMapPos%iSeg%i",l,k);
+      if((gt_map->zMap[l*NSEG + k] = (TH1*)map_file->Get(hname))==NULL){
+        //cout << "No z coordinate map for segment " << k << endl;
       }
-      for(int j = 0; j < VOXEL_BINS_R; j++){
-        Int_t rValMin = (Int_t)(j*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        Int_t rValMax = (Int_t)((j+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
-        sprintf(hname,"angleMapPos%iSeg%ir%ito%i",l,k,rValMin,rValMax);
-        if((gt_map->angleMap[l*NSEG*VOXEL_BINS_R + k*VOXEL_BINS_R + j] = (TH1*)map_file->Get(hname))==NULL){
-          //cout << "No angle coordinate map for segment " << k << ", radial bin " << j << endl;
+      for(int j = 0; j < VOXEL_BINS_Z; j++){
+        Int_t zValMin = (Int_t)(j*(MAX_VAL_Z/(VOXEL_BINS_Z*1.0)));
+        Int_t zValMax = (Int_t)((j+1)*(MAX_VAL_Z/(VOXEL_BINS_Z*1.0)));
+        sprintf(hname,"rMapPos%iSeg%iz%ito%i",l,k,zValMin,zValMax);
+        if((gt_map->rMap[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j] = (TH1*)map_file->Get(hname))==NULL){
+          //cout << "No z coordinate map for segment " << k << ", radial bin " << j << endl;
         }
-        Int_t numAngleBins = getNumAngleBins(j,1.0);
-        for(int i = 0; i < numAngleBins; i++){
-          Int_t angleValMin = (Int_t)(i*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
-          Int_t angleValMax = (Int_t)((i+1)*(MAX_VAL_ANGLE/(numAngleBins*1.0))); //size of phi bins depends on r
-          sprintf(hname,"zMapPos%iSeg%ir%ito%iangle%ito%i",l,k,rValMin,rValMax,angleValMin,angleValMax);
-          if((gt_map->zMap[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i] = (TH1*)map_file->Get(hname))==NULL){
-            gt_map->zMap[l*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + k*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + j*VOXEL_BINS_ANGLE_MAX + i]=NULL;
-            //cout << "No z coordinate map for segment " << k << ", radial bin " << j << ", angle bin " << i << ", name: " << hname << endl;
+        for(int i = 0; i < VOXEL_BINS_R; i++){
+          Int_t rValMin = (Int_t)(i*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
+          Int_t rValMax = (Int_t)((i+1)*(MAX_VAL_R/(VOXEL_BINS_R*1.0)));
+          sprintf(hname,"angleMapPos%iSeg%iz%ito%ir%ito%i",l,k,zValMin,zValMax,rValMin,rValMax);
+          if((gt_map->angleMap[l*NSEG*(VOXEL_BINS_Z)*(VOXEL_BINS_R) + k*(VOXEL_BINS_Z)*(VOXEL_BINS_R) + j*VOXEL_BINS_R + i] = (TH1*)map_file->Get(hname))==NULL){
+            gt_map->angleMap[l*NSEG*(VOXEL_BINS_Z)*(VOXEL_BINS_R) + k*(VOXEL_BINS_Z)*(VOXEL_BINS_R) + j*VOXEL_BINS_R + i]=NULL;
+            //cout << "No angle coordinate map for segment " << k << ", radial bin " << j << ", angle bin " << i << ", name: " << hname << endl;
           }
         }
       } 
     }
   }
-  
 
   cout << "Map file data read in." << endl;
 }
@@ -383,12 +428,12 @@ void GT_import_basis(TFile *coarse_basis_file, TFile *fine_basis_file, GT_basis 
   for(int l = 0; l < NPOS*NCORE; l++){
     cout << "Reading coarse basis position [ " << l+1 << " / " << NPOS*NCORE << " ]"  << endl;
     Int_t basisEntryCtr = 0;
-    for(int k = 0; k < coarseBasisBinsR; k++){
-      Int_t numAngleBinsAtR = 4*getNumAngleBins(k,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2
-      for(int j = 0; j < numAngleBinsAtR; j++){
-        for(int i = 0; i < coarseBasisBinsZ; i++){
-          Int_t basisInd = l*coarseBasisBinsR*coarseBasisBinsAngle*coarseBasisBinsZ + k*coarseBasisBinsAngle*coarseBasisBinsZ + j*coarseBasisBinsZ + i;
-          sprintf(hname,"basisPos%i_r%ito%i_angle%ito%i_z%ito%i",l,k*MAX_VAL_R/coarseBasisBinsR,(k+1)*MAX_VAL_R/coarseBasisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR,i*MAX_VAL_Z/coarseBasisBinsZ,(i+1)*MAX_VAL_Z/coarseBasisBinsZ);
+      for(int i = 0; i < coarseBasisBinsZ; i++){
+      for(int k = 0; k < coarseBasisBinsR; k++){
+        Int_t numAngleBinsAtR = 4*getNumAngleBins(k,COARSE_BASIS_BINFACTOR); //x4 since covering 2pi rather than pi/2
+        for(int j = 0; j < numAngleBinsAtR; j++){
+          const Int_t basisInd = l*coarseBasisBinsR*coarseBasisBinsAngle*coarseBasisBinsZ + i*coarseBasisBinsAngle*coarseBasisBinsR + k*coarseBasisBinsAngle + j;
+          sprintf(hname,"basisPos%i_z%ito%i_r%ito%i_angle%ito%i",l,i*MAX_VAL_Z/coarseBasisBinsZ,(i+1)*MAX_VAL_Z/coarseBasisBinsZ,k*MAX_VAL_R/coarseBasisBinsR,(k+1)*MAX_VAL_R/coarseBasisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR);
           if((gt_basis->coarseBasis[basisInd] = (TH1D*)coarse_basis_file->Get(hname))==NULL){
             //cout << "No coarse waveform basis data for position " << l << ", radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
           }else{
@@ -416,12 +461,12 @@ void GT_import_basis(TFile *coarse_basis_file, TFile *fine_basis_file, GT_basis 
   for(int l = 0; l < NPOS*NCORE; l++){
     if(posInBasis[l] > 0){ //check whether any entries are expected in the basis for this position
       cout << "Reading fine basis position [ " << l+1 << " / " << NPOS*NCORE << " ]" << endl;
-      for(int k = 0; k < fineBasisBinsR; k++){
-        Int_t numAngleBinsAtR = 4*getNumAngleBins(k,FINE_BASIS_BINFACTOR,COARSE_BASIS_BINFACTOR)*FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR; //x4 since covering 2pi rather than pi/2
-        for(int j = 0; j < numAngleBinsAtR; j++){
-          for(int i = 0; i < fineBasisBinsZ; i++){
-            Int_t basisInd = l*fineBasisBinsR*fineBasisBinsAngle*fineBasisBinsZ + k*fineBasisBinsAngle*fineBasisBinsZ + j*fineBasisBinsZ + i;
-            sprintf(hname,"basisPos%i_r%ito%i_angle%ito%i_z%ito%i",l,k*MAX_VAL_R/fineBasisBinsR,(k+1)*MAX_VAL_R/fineBasisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR,i*MAX_VAL_Z/fineBasisBinsZ,(i+1)*MAX_VAL_Z/fineBasisBinsZ);
+      for(int i = 0; i < fineBasisBinsZ; i++){
+        for(int k = 0; k < fineBasisBinsR; k++){
+          Int_t numAngleBinsAtR = 4*getNumAngleBins(k,FINE_BASIS_BINFACTOR,COARSE_BASIS_BINFACTOR)*FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR; //x4 since covering 2pi rather than pi/2
+          for(int j = 0; j < numAngleBinsAtR; j++){
+            Int_t basisInd = l*fineBasisBinsR*fineBasisBinsAngle*fineBasisBinsZ + i*fineBasisBinsAngle*fineBasisBinsR + k*fineBasisBinsAngle + j;
+            sprintf(hname,"basisPos%i_z%ito%i_r%ito%i_angle%ito%i",l,i*MAX_VAL_Z/fineBasisBinsZ,(i+1)*MAX_VAL_Z/fineBasisBinsZ,k*MAX_VAL_R/fineBasisBinsR,(k+1)*MAX_VAL_R/fineBasisBinsR,j*360/numAngleBinsAtR,(j+1)*360/numAngleBinsAtR);
             if((gt_basis->fineBasis[basisInd] = (TH1D*)fine_basis_file->Get(hname))==NULL){
               //cout << "No fine waveform basis data for position " << l << ", radial bin " << k << ", angle bin " << j << ", z bin " << i << endl;
             }
@@ -625,29 +670,29 @@ TVector3 GT_get_pos_direct(TTigressHit *tigress_hit, GT_map *gt_map){
             double r=-1.;
             double angle=-1.;
             double z=-1.;
-            if(gt_map->rMap[arrayPos*NSEG + segNum]!=NULL){
-              r = gt_map->rMap[arrayPos*NSEG + segNum]->GetBinContent(gt_map->rMap[arrayPos*NSEG + segNum]->FindBin(rho));
+            if(gt_map->zMap[arrayPos*NSEG + segNum]!=NULL){
+              z = gt_map->zMap[arrayPos*NSEG + segNum]->GetBinContent(gt_map->zMap[arrayPos*NSEG + segNum]->FindBin(zeta));
+              if(z>=MAX_VAL_Z){
+                z=MAX_VAL_Z-0.001; //have seen rare events where z is exactly 90 mm
+              }
             }
-            Int_t rInd = (Int_t)(r*VOXEL_BINS_R/MAX_VAL_R);
-            if(rInd < VOXEL_BINS_R){
-              if(gt_map->angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]!=NULL){
-                angle = gt_map->angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]->GetBinContent(gt_map->angleMap[arrayPos*NSEG*VOXEL_BINS_R + segNum*VOXEL_BINS_R + rInd]->FindBin(phi));
-                if(angle>=MAX_VAL_ANGLE){
-                  angle=MAX_VAL_ANGLE-0.001; //have seen rare events where angle is exactly 90 degrees
+            Int_t zInd = (Int_t)(z*VOXEL_BINS_Z/MAX_VAL_Z);
+            if(zInd < VOXEL_BINS_Z){
+              if(gt_map->rMap[arrayPos*NSEG*VOXEL_BINS_Z + segNum*VOXEL_BINS_Z + zInd]!=NULL){
+                r = gt_map->rMap[arrayPos*NSEG*VOXEL_BINS_Z + segNum*VOXEL_BINS_Z + zInd]->GetBinContent(gt_map->rMap[arrayPos*NSEG*VOXEL_BINS_Z + segNum*VOXEL_BINS_Z + zInd]->FindBin(rho));
+                if(r>=MAX_VAL_R){
+                  r=MAX_VAL_R-0.001;
                 }
-                Int_t angleInd = (Int_t)(angle*getNumAngleBins(rInd,1.0)/(MAX_VAL_ANGLE*1.0));
-                //cout << "seg: " << segNum << ", r index: " << rInd << ", angle: " << angle << ", angle index: " << angleInd << ", num angle bins: " << getNumAngleBins(rInd,1.0) << endl;
-                if(gt_map->zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]!=NULL){
-                  z = gt_map->zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->GetBinContent(gt_map->zMap[arrayPos*NSEG*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_ANGLE_MAX)*(VOXEL_BINS_R) + rInd*VOXEL_BINS_ANGLE_MAX + angleInd]->FindBin(zeta));
-                  if(z>=MAX_VAL_Z){
-                    z=MAX_VAL_Z-0.001; //have seen rare events where z is exactly 90 mm
+                Int_t rInd = (Int_t)(r*VOXEL_BINS_R/(MAX_VAL_R*1.0));
+                //cout << "seg: " << segNum << ", z index: " << zInd << ", r: " << r << ", r index: " << rInd << endl;
+                if(gt_map->angleMap[arrayPos*NSEG*(VOXEL_BINS_Z)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_Z)*(VOXEL_BINS_R) + zInd*VOXEL_BINS_R + rInd]!=NULL){
+                  angle = gt_map->angleMap[arrayPos*NSEG*(VOXEL_BINS_Z)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_Z)*(VOXEL_BINS_R) + zInd*VOXEL_BINS_R + rInd]->GetBinContent(gt_map->angleMap[arrayPos*NSEG*(VOXEL_BINS_Z)*(VOXEL_BINS_R) + segNum*(VOXEL_BINS_Z)*(VOXEL_BINS_R) + zInd*VOXEL_BINS_R + rInd]->FindBin(phi));
+                  if(angle>=MAX_VAL_ANGLE){
+                    angle=MAX_VAL_ANGLE-0.001; //have seen rare events where angle is exactly 90 deg
                   }
 
                   if((r>0.)&&(z>0.)&&(angle>0.)){
-                    if(segNum<=3){
-                      //r corresponds to the distance from the central contact at z=30
-                      r = sqrt(r*r - (30.-z)*(30.-z));
-                    }
+                    r = getRFromREField(r,z); //transform r into cylindrical coords
                     if((r==r)&&(angle==angle)&&(z==z)){
                       angle += 90.0*(segNum%4);
                       //cout << "seg: " << segNum << ", angle: " << angle << endl;
@@ -799,9 +844,9 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                   //compute chisq
                   Double_t chisq = 0.;
                   for(int j=0; j<NSEG; j++){
-                    Int_t segNum = tigress_hit->GetSegmentHit(j).GetSegment(); //1-indexed
+                    Int_t segNum = tigress_hit->GetSegmentHit(j).GetSegment()-1; //0-indexed
                     Double_t hitWeight = 1.0;
-                    if(evtSegHP&(1<<(segNum-1))){
+                    if(evtSegHP&(1<<segNum)){
                       hitWeight = GRID_HIT_SEG_WEIGHT;
                     }else{
                       hitWeight = GRID_NONHIT_SEG_WEIGHT;
@@ -833,20 +878,23 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
               }
             }
           }
-          //cout << "Entry " << jentry << " chisq val: " << minChisqCoarse << ", min indices: " << minIndCoarse[0] << ", " << minIndCoarse[1] << endl;
+          //cout << "Coarse chisq val: " << minChisqCoarse << ", min coarse index: " << minIndCoarse << endl;
         }else{
-          cout << "WARNING: grid search has unhandled number of hit segments (" << numSegHits << ")." << endl;
+          //cout << "WARNING: grid search has unhandled number of hit segments (" << numSegHits << ")." << endl;
           return TVector3(BAD_RETURN,0,0);
         }
 
         //check that the coarse basis sort was successful
         if(minIndCoarse < 0){
           //at least one hit didn't have a basis index found
+          //cout << "WARNING: unsuccessful coarse basis sort (" << minIndCoarse << ")." << endl;
           return TVector3(BAD_RETURN,0,0);
         }
 
         //now do everything with the fine basis
         if(minChisqCoarse<MAX_BASIS_SORT_CHISQ){
+
+          //cout << "Good coarse chisq: " << minChisqCoarse << endl;
 
           Int_t minRBinFine = -1;
           Int_t minAngleBinFine = -1;
@@ -858,17 +906,18 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
           //a best-fit coarse basis voxel was found, figure out the corresponding bin numbers
           const Int_t minIndPosOffsetCoarse = minIndCoarse - arrayPos*coarseBasisBinsR*coarseBasisBinsAngle*coarseBasisBinsZ;
           if(minIndPosOffsetCoarse >= 0){
-            Int_t rBinCoarse = (Int_t)(minIndPosOffsetCoarse/(coarseBasisBinsAngle*coarseBasisBinsZ*1.0));
-            Int_t angleBinCoarse = (Int_t)((minIndPosOffsetCoarse - rBinCoarse*(coarseBasisBinsAngle*coarseBasisBinsZ*1.0))/(coarseBasisBinsZ*1.0));
-            Int_t zBinCoarse = (minIndPosOffsetCoarse - rBinCoarse*(coarseBasisBinsAngle*coarseBasisBinsZ) - angleBinCoarse*coarseBasisBinsZ);
-            //cout << "rBinCoarse: " << rBinCoarse << ", angleBinCoarse: " << angleBinCoarse << ", zBinCoarse: " << zBinCoarse << endl;
+            Int_t zBinCoarse = (Int_t)(minIndPosOffsetCoarse/(coarseBasisBinsR*coarseBasisBinsAngle*1.0));
+            Int_t rBinCoarse = (Int_t)((minIndPosOffsetCoarse - zBinCoarse*(coarseBasisBinsR*coarseBasisBinsAngle*1.0))/(coarseBasisBinsAngle*1.0));
+            Int_t angleBinCoarse = (minIndPosOffsetCoarse - zBinCoarse*(coarseBasisBinsR*coarseBasisBinsAngle) - rBinCoarse*coarseBasisBinsAngle);
+            //cout << "zBinCoarse: " << zBinCoarse << ", rBinCoarse: " << rBinCoarse << ", angleBinCoarse: " << angleBinCoarse << ", coarse basis ind: " << minIndCoarse << endl;
 
             for(int i=0; i<(basisBinRatio*basisBinRatio*basisBinRatio); i++){
 
-              rBinFine = (rBinCoarse*basisBinRatio) + (Int_t)(i/(basisBinRatio*basisBinRatio*1.0));
-              angleBinFine = (angleBinCoarse*basisBinRatio) + (((Int_t)(i/(basisBinRatio*1.0)) % basisBinRatio) );
-              zBinFine = (zBinCoarse*basisBinRatio) + (i % basisBinRatio);
-              basisInd = arrayPos*fineBasisBinsR*fineBasisBinsAngle*fineBasisBinsZ + rBinFine*fineBasisBinsAngle*fineBasisBinsZ + angleBinFine*fineBasisBinsZ + zBinFine;
+              zBinFine = (zBinCoarse*basisBinRatio) + (Int_t)(i/(basisBinRatio*basisBinRatio*1.0));
+              rBinFine = (rBinCoarse*basisBinRatio) + (((Int_t)(i/(basisBinRatio*1.0)) % basisBinRatio) );
+              angleBinFine = (angleBinCoarse*basisBinRatio) + (i % basisBinRatio);
+              basisInd = arrayPos*fineBasisBinsR*fineBasisBinsAngle*fineBasisBinsZ + zBinFine*fineBasisBinsAngle*fineBasisBinsR + rBinFine*fineBasisBinsAngle + angleBinFine;
+              //cout << "zBinFine: " << zBinFine << ", rBinFine: " << rBinFine << ", angleBinFine: " << angleBinFine << ", fine basis ind: " << basisInd << endl;
 
               if(gt_basis->fineBasis[basisInd]!=NULL){
                 
@@ -895,9 +944,9 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                   //compute chisq
                   Double_t chisq = 0.;
                   for(int j=0; j<NSEG; j++){
-                    Int_t segNum = tigress_hit->GetSegmentHit(j).GetSegment(); //1-indexed
+                    Int_t segNum = tigress_hit->GetSegmentHit(j).GetSegment()-1; //0-indexed
                     Double_t hitWeight = 1.0;
-                    if(evtSegHP&(1<<(segNum-1))){
+                    if(evtSegHP&(1<<segNum)){
                       hitWeight = GRID_HIT_SEG_WEIGHT;
                     }else{
                       hitWeight = GRID_NONHIT_SEG_WEIGHT;
@@ -915,27 +964,28 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                     }
                     chisq /= (numSamples-3)*1.0; //waveforms can vary in size, try to account for this
                   }
+                  //cout << "chisq: " << chisq << endl;
 
                   //check if chisq is at minimum
                   if((chisq>0)&&(chisq<minChisqFine)){
                     minChisqFine = chisq;
-                    for(int hitNum=0; hitNum<numSegHits; hitNum++){
-                      minRBinFine = rBinFine;
-                      minAngleBinFine = angleBinFine;
-                      minZBinFine = zBinFine;
-                    }
+                    minZBinFine = zBinFine;
+                    minRBinFine = rBinFine;
+                    minAngleBinFine = angleBinFine;
                   }
                 }
               }
             }
 
+            //cout << "Fine chisq val: " << minChisqFine << ", min bins: [ " << minZBinFine << " " << minRBinFine << " " << minAngleBinFine << " ]" << endl;
+
             //a best-fit fine basis waveform was found, figure out the corresponding position and return it
             if(minChisqFine<MAX_BASIS_SORT_CHISQ){
               double rVal, angleVal, zVal;
               Int_t numAngleBinsAtR = 4*getNumAngleBins(minRBinFine,FINE_BASIS_BINFACTOR,COARSE_BASIS_BINFACTOR)*FINE_BASIS_BINFACTOR/COARSE_BASIS_BINFACTOR; //x4 since covering 2pi rather than pi/2
+              zVal = (minZBinFine+randGen->Uniform(1.0))*MAX_VAL_Z/(1.0*fineBasisBinsZ);
               rVal = (minRBinFine+randGen->Uniform(1.0))*MAX_VAL_R/(1.0*fineBasisBinsR);
               angleVal = (minAngleBinFine+randGen->Uniform(1.0))*360./(1.0*numAngleBinsAtR);
-              zVal = (minZBinFine+randGen->Uniform(1.0))*MAX_VAL_Z/(1.0*fineBasisBinsZ);
               //cout << "  vals:" << rVal << " " << angleVal << " " << zVal << endl;
               return TVector3(rVal*cos(angleVal*M_PI/180.),rVal*sin(angleVal*M_PI/180.),zVal);
             }
@@ -949,7 +999,9 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
         cout << "WARNING: Bad array position (" << arrayPos << ")" << endl;
       }
       
-    }
+    }/*else{
+      cout << "WARNING: unusable segment waveforms." << endl;
+    }*/
   }
 
   //only get here if something failed

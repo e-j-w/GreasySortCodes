@@ -1,5 +1,11 @@
 TimingFromScalerRF/TimingFromScalerRF
 GammaTracking/GammaTrackingTest
+GammaTracking/GammaTrackingMakeBasis
+GammaTracking/GammaTrackingMakeMap
+GammaTracking/GammaTrackingSortExample
+GammaTracking/GammaTrackingSortFromBasisGridSearch
+GammaTracking/GammaTrackingSortHybrid
+GammaTracking/GammaTrackingTIGRESS.o
 S1873/SortData
 S2043/SortCode/SortData
 S2043/SortCode/DrawTIPWaveforms

@@ -34,7 +34,7 @@ using namespace std;
 #define     NSEG   8  //number of segments per core
 
 #define     SAMPLES          100 //number of samples in each waveform (as stored in the basis)
-#define     BASELINE_SAMPLES 20  //number of samples at the start of the waveform used to calculate the baseline
+#define     BASELINE_SAMPLES 30  //number of samples at the start of the waveform used to calculate the baseline
 
 #define     N_BINS_ORDERING 152 //number of bins to use when discretizing ordering parameter (WARNING: memory usage scales as ^3 with this, can also overflow TH3 integer bin index with values > 1024!)
 #define     RHO_MAX         20
@@ -44,9 +44,9 @@ using namespace std;
 #define     MAX_VAL_R             36 //maximum r (in mm)
 #define     VOXEL_BINS_R          18 //number of r bins in the map (large values can cause memory pressure when sorting the basis)
 #define     MAX_VAL_ANGLE         90 //maximum angle (in deg)
-#define     VOXEL_BINS_ANGLE_MAX  12 //number of angle bins in the map, at the largest r value (scales with r) (large values can cause memory pressure when sorting the basis)
+#define     VOXEL_BINS_ANGLE_MAX  18 //number of angle bins in the map, at the largest r value (scales with r) (large values can cause memory pressure when sorting the basis)
 #define     MAX_VAL_Z             90 //maximum z (in mm)
-#define     VOXEL_BINS_Z          12 //used for binning in the basis (not needed for the map) (large values can cause memory pressure when sorting the basis)
+#define     VOXEL_BINS_Z          18 //used for binning in the basis (not needed for the map) (large values can cause memory pressure when sorting the basis)
 
 #define     MAX_ENERGY_SINGLE_INTERACTION  1500 //maximum energy allowed for a hit to be put into the map (higher energy events are more likely to result from multiple interactions)
 #define     BASIS_MAX_ENERGY        2000 //maximum energy allowed for a hit to be put into the basis (used to suppress high energy events)
@@ -70,9 +70,9 @@ using namespace std;
 
 typedef struct
 {
-  TH1 *rMap[NPOS*NCORE*NSEG];
-  TH1 *angleMap[NPOS*NCORE*NSEG*VOXEL_BINS_R];
-  TH1 *zMap[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_ANGLE_MAX)];
+  TH1 *zMap[NPOS*NCORE*NSEG];
+  TH1 *rMap[NPOS*NCORE*NSEG*VOXEL_BINS_Z];
+  TH1 *angleMap[NPOS*NCORE*NSEG*(VOXEL_BINS_R)*(VOXEL_BINS_Z)];
 }GT_map;
 
 typedef struct
@@ -83,6 +83,9 @@ typedef struct
 }GT_basis;
 
 
+//helper functions
+double getREFieldFromR(const double, const double);
+double getRFromREField(const double, const double);
 
 //gamma tracking functions
 void GT_import_map(TFile*,GT_map*);

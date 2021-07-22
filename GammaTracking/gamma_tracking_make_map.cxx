@@ -149,19 +149,19 @@ void read_sim_file(const char *simfile, TH1D *zDistHist[NPOS*NCORE*NSEG], TH1D *
   }
   TBranch *rBranch, *phiBranch, *zBranch, *posIDBranch, *coreIDBranch, *segIDBranch, *numHitsBranch;
   TLeaf *rLeaf, *phiLeaf, *zLeaf, *posIDLeaf, *coreIDLeaf, *segIDLeaf, *numHitsLeaf;
-  if((rBranch = simTree->GetBranch("TigressSegmentFullECylSphr"))==NULL){
+  if((rBranch = simTree->GetBranch("TigressSegmentFullECylr"))==NULL){
     cout << "ERROR: Sort data path 'TigressSegmentFullECylr' doesn't correspond to a branch or leaf in the tree (" << simfile << ")!" << endl;
     exit(-1);
   }else{
     rLeaf = (TLeaf*)rBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
   }
-  if((phiBranch = simTree->GetBranch("TigressSegmentFullECylSphphi"))==NULL){
+  if((phiBranch = simTree->GetBranch("TigressSegmentFullECylphi"))==NULL){
     cout << "ERROR: Sort data path 'TigressSegmentFullECylphi' doesn't correspond to a branch or leaf in the tree (" << simfile << ")!" << endl;
     exit(-1);
   }else{
     phiLeaf = (TLeaf*)phiBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
   }
-  if((zBranch = simTree->GetBranch("TigressSegmentFullECylSphz"))==NULL){
+  if((zBranch = simTree->GetBranch("TigressSegmentFullECylz"))==NULL){
     cout << "ERROR: Sort data path 'TigressSegmentMaxECylz' doesn't correspond to a branch or leaf in the tree (" << simfile << ")!" << endl;
     exit(-1);
   }else{
@@ -199,16 +199,24 @@ void read_sim_file(const char *simfile, TH1D *zDistHist[NPOS*NCORE*NSEG], TH1D *
     for(int j=0; j<rLeaf->GetNdata(); j++) { //deal with multiple fold events
       if((rLeaf->GetNdata()==phiLeaf->GetNdata())&&((rLeaf->GetNdata()==zLeaf->GetNdata()))&&(rLeaf->GetNdata()==segIDLeaf->GetNdata())&&(rLeaf->GetNdata()==coreIDLeaf->GetNdata())&&(rLeaf->GetNdata()==posIDLeaf->GetNdata())&&(rLeaf->GetNdata()==numHitsLeaf->GetNdata())){
         rVal = rLeaf->GetValue(j);
-        if(rVal == MAX_VAL_R){
-          rVal -= 0.01;
-        }
         angleVal = phiLeaf->GetValue(j)*180./M_PI;
-        if(angleVal == MAX_VAL_ANGLE){
-          angleVal -= 0.01;
+        if(angleVal >= MAX_VAL_ANGLE){
+          angleVal = MAX_VAL_ANGLE - 0.01;
         }
         zVal = zLeaf->GetValue(j);
-        if(zVal == MAX_VAL_Z){
-          zVal -= 0.01;
+        if(zVal >= MAX_VAL_Z){
+          zVal =  0.01;
+        }
+        //transform r to value along E-field lines
+        //cout << "rVal start: " << rVal << ", z: " << zVal << endl;
+        rVal = getREFieldFromR(rVal,zVal);
+        //cout << "rVal EF: " << rVal << ", transformed back: " << getRFromREField(rVal,zVal) << endl;
+        if(rVal >= MAX_VAL_R){
+          //cout << "rVal (transformed): " << rVal << endl;
+          rVal = MAX_VAL_R - 0.01;
+        }else if(rVal < 0.){
+          //cout << "rVal (transformed): " << rVal << endl;
+          rVal = 0.;
         }
         arrayPosVal = (posIDLeaf->GetValue(j)-1)*NCORE + (coreIDLeaf->GetValue(j)-1);
         segIDVal = segIDLeaf->GetValue(j)-1; //convert to zero-indexed
@@ -423,7 +431,6 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
 
   //now map rho based on mapped z-position (binned) and segment number
   cout << "Mapping ordering parameter rho to r spatial parameter..." << endl;
-  //generate cumulative distributions
   TH1 **rhoHist = new TH1*[NPOS*NCORE*NSEG*VOXEL_BINS_Z];
   TH1 **rhoHistC = new TH1*[NPOS*NCORE*NSEG*VOXEL_BINS_Z];
   TH1 **rMap = new TH1*[NPOS*NCORE*NSEG*VOXEL_BINS_Z];
@@ -444,6 +451,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
           rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j] = rhophizetaHist[l*NSEG + k]->ProjectionX("",1,N_BINS_ORDERING,lowerZetaBound,upperZetaBound);
           //cout << "proj entries: " << rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->GetEntries() << "orig entries: " << rhophizetaHist[l*NSEG + k]->GetEntries() << endl;
           if(rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->GetEntries()>0){
+            //generate cumulative distributions
             rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->Scale(1.0/rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->Integral());
             rhoHistC[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j] = rhoHist[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->GetCumulative();
             //rhoHistC[l*NSEG*VOXEL_BINS_Z + k*VOXEL_BINS_Z + j]->SetNameTitle(Form("rhoHistCumulativePos%iSeg%ir%ito%i",l,k,rValMin,rValMax),Form("rhoHistCumulativePos%iSeg%ir%ito%i",l,k,rValMin,rValMax));
