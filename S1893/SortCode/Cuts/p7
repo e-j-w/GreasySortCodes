@@ -1,0 +1,21 @@
+{
+//========= Macro generated from object: pCut/Graph
+//========= by ROOT version6.14/06
+   
+   TCutG *cutg = new TCutG("pCut",10);
+   cutg->SetVarX("SHARC #DeltaE vs E det 7");
+   cutg->SetVarY("");
+   cutg->SetTitle("Graph");
+   cutg->SetFillStyle(1000);
+   cutg->SetPoint(0,194.444,3059.62);
+   cutg->SetPoint(1,1250,1746.27);
+   cutg->SetPoint(2,3361.11,1113.91);
+   cutg->SetPoint(3,7361.11,822.059);
+   cutg->SetPoint(4,8916.67,1065.27);
+   cutg->SetPoint(5,5361.11,1527.38);
+   cutg->SetPoint(6,2861.11,2135.41);
+   cutg->SetPoint(7,1277.78,2986.65);
+   cutg->SetPoint(8,333.333,3862.22);
+   cutg->SetPoint(9,194.444,3059.62);
+   cutg->Draw("");
+}

@@ -1,0 +1,18 @@
+{
+//========= Macro generated from object: CUTG/Graph
+//========= by ROOT version6.10/04
+   
+   TCutG *cutg = new TCutG("CUTG",7);
+   cutg->SetVarX("Si_Energy_VS_IC_SUM");
+   cutg->SetVarY("");
+   cutg->SetTitle("Graph");
+   cutg->SetFillColor(1);
+   cutg->SetPoint(0,1461.18,1918.29);
+   cutg->SetPoint(1,1893.96,1802);
+   cutg->SetPoint(2,1974.65,1918.29);
+   cutg->SetPoint(3,1695.91,2096.15);
+   cutg->SetPoint(4,1285.13,2198.76);
+   cutg->SetPoint(5,1321.81,2000.38);
+   cutg->SetPoint(6,1461.18,1918.29);
+   cutg->Draw("");
+}
