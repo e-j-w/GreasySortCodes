@@ -93,7 +93,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t segHitInd, const Int
 
   const std::vector<Short_t> *segwf;
   segwf = segment_hit.GetWaveform();
-  if(segwf->size() != numSamples){
+  if(numSamples != (Int_t)segwf->size()){
     //cout << "Mismatched waveform sizes." << endl;
     return BAD_RETURN;
   }
@@ -219,7 +219,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t segHitInd, const Int
     if((!found1)||(!found2)){
       //cout << "Cannot get neighbouring segment wavefoms to compute phi parameter." << endl;
       return BAD_RETURN;
-    }else if((segwf2->size() != numSamples)||(segwf3->size() != numSamples)){
+    }else if((numSamples != (Int_t)segwf2->size())||(numSamples != (Int_t)segwf3->size())){
       //cout << "Mismatched waveform sizes." << endl;
       return BAD_RETURN;
     }
@@ -283,7 +283,7 @@ double calc_ordering(TTigressHit * tigress_hit, const Int_t segHitInd, const Int
       if(!found1){
         //cout << "Cannot get neighbouring segment wavefoms to compute zeta parameter." << endl;
         return BAD_RETURN;
-      }else if(segwf2->size() != numSamples){
+      }else if(numSamples != (Int_t)segwf2->size()){
         //cout << "Mismatched waveform sizes." << endl;
         return BAD_RETURN;
       }
@@ -589,9 +589,6 @@ Int_t getMaxChargeSegHit(TTigressHit *tigress_hit){
   const Double_t coreCharge = tigress_hit->GetCharge();
   Double_t maxSegCharge = 0.;
   Int_t maxChargeSeg = -1;
-  Int_t segsInData = 0;
-  Int_t numSamples = -1;
-  bool goodWaveforms = true;
   if(tigress_hit->GetSegmentMultiplicity() == NSEG){
     for(int i = 0; i < NSEG; i++){
       if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.3*coreCharge){
@@ -636,7 +633,7 @@ TVector3 GT_get_pos_direct(TTigressHit *tigress_hit, GT_map *gt_map){
       }else{
         segsInData|=(1<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
       }
-      if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=numSamples){
+      if(numSamples!=(Int_t)tigress_hit->GetSegmentHit(i).GetWaveform()->size()){
         //cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
         goodWaveforms = false;
         break;
@@ -732,7 +729,6 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
   const std::vector<Short_t> *segwf;
 
   if((coreCharge <= BASIS_MIN_ENERGY)||(coreCharge <= 0)) return TVector3(BAD_RETURN,0,0); //bad energy
-  bool isHit = false;
   //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
   Int_t numSegHits = 0; //counter for the number of segments with a hit (ie. over the threshold energy)
   Int_t evtSegHP = 0; //event segment hitpattern, which will be compared against hitpatterns in the basis
@@ -758,7 +754,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
       if(numSamples < 0){
         numSamples = tigress_hit->GetSegmentHit(i).GetWaveform()->size();
       }
-      if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=numSamples){
+      if(numSamples!=(Int_t)tigress_hit->GetSegmentHit(i).GetWaveform()->size()){
         //cout << "Entry " << jentry << ", mismatched waveform sizes." << endl;
         goodWaveforms = false;
         break;
@@ -772,6 +768,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
         numSegHits++;
       }
     }
+    numSamples -= 2; //sometimes the last few samples aren't written correctly, discard them
     if(evtSegHP==0){
       goodWaveforms = false;
     }
@@ -857,7 +854,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                       seg_waveform_baseline += segwf->at(k);
                     }
                     seg_waveform_baseline /= 1.0*(BASELINE_SAMPLES-1);
-                    for(int k=1; k<(numSamples-2); k++){ //sometimes the last sample isn't written correctly
+                    for(int k=1; k<numSamples; k++){
                       Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge);
                       Double_t basisSampleVal = 0.;
                       for(int hitNum=0; hitNum<numSegHits; hitNum++){
@@ -865,7 +862,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                       }
                       chisq += pow(wfrmSampleVal - basisSampleVal,2)*hitWeight;
                     }
-                    chisq /= (numSamples-3)*1.0; //waveforms can vary in size, try to account for this
+                    chisq /= (numSamples-1)*1.0;
                   }
                   //check if chisq is at minimum
                   if((chisq>0)&&(chisq<minChisqCoarse)){
@@ -957,12 +954,12 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                       seg_waveform_baseline += segwf->at(k);
                     }
                     seg_waveform_baseline /= 1.0*(BASELINE_SAMPLES-1);
-                    for(int k=1; k<(numSamples-2); k++){ //sometimes the last sample isn't written correctly
+                    for(int k=1; k<numSamples; k++){
                       Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge);
                       Double_t basisSampleVal = scaleFacHit*gt_basis->fineBasis[basisInd]->GetBinContent(segNum*SAMPLES + k + 1);
                       chisq += pow(wfrmSampleVal - basisSampleVal,2)*hitWeight;
                     }
-                    chisq /= (numSamples-3)*1.0; //waveforms can vary in size, try to account for this
+                    chisq /= (numSamples-1)*1.0;
                   }
                   //cout << "chisq: " << chisq << endl;
 

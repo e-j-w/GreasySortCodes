@@ -23,7 +23,7 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
   TTree * tree = (TTree * ) AnalysisTree->GetTree();
   cout << "Reading calibration file: " << calfile << endl;
   TChannel::ReadCalFile(calfile);
-  Int_t nentries = AnalysisTree->GetEntries();
+  Long64_t nentries = AnalysisTree->GetEntries();
 
   TTigress * tigress = 0;
   TTigressHit * tigress_hit;
@@ -34,10 +34,10 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
     exit(-1);
   }
 
-  Int_t hit_counter = 0;
-  Int_t map_hit_counter = 0;
+  Long64_t hit_counter = 0;
+  Long64_t map_hit_counter = 0;
 
-  for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
+  for(Long64_t jentry = 0; jentry < tree->GetEntries(); jentry++){
     tree->GetEntry(jentry);
     for (int hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++) {
       tigress_hit = tigress->GetTigressHit(hitInd);
@@ -67,7 +67,7 @@ void sortData(TFile *inputfile, const char *calfile, const Double_t basisScaleFa
           }else{
             segsInData|=(1<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
           }
-          if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=numSamples){
+          if(numSamples != (Int_t)tigress_hit->GetSegmentHit(i).GetWaveform()->size()){
             //cout << "Entry " << jentry << ", mismatched waveform size (" << tigress_hit->GetSegmentHit(i).GetWaveform()->size() << ")." << endl;
             goodWaveforms = false;
             break;
@@ -289,7 +289,6 @@ void make_waveform_basis(const char *infile, const char *mapfile, const char *ca
     }
   }
   
-
   if(inpList){
     FILE *listFile;
     char name[256];

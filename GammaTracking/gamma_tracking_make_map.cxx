@@ -25,16 +25,15 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NPOS*N
     exit(-1);
   }
 
-  Int_t hit_counter = 0;
-  Int_t map_hit_counter = 0;
-  Int_t overflow_rho_counter = 0;
-  Int_t overflow_phi_counter = 0;
-  Int_t overflow_zeta_counter = 0;
+  Long64_t hit_counter = 0;
+  Long64_t map_hit_counter = 0;
+  Long64_t overflow_rho_counter = 0;
+  Long64_t overflow_phi_counter = 0;
+  Long64_t overflow_zeta_counter = 0;
 
-  Int_t offset = 0;
-  for (int jentry = 0; jentry < tree->GetEntries(); jentry++) {
+  for(Long64_t jentry = 0; jentry < tree->GetEntries(); jentry++){
     tree->GetEntry(jentry);
-    for (int hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++) {
+    for(int hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++){
       tigress_hit = tigress->GetTigressHit(hitInd);
       if(tigress_hit->GetKValue() != 700) continue;  //exclude pileup
       Double_t coreCharge = tigress_hit->GetCharge();
@@ -63,7 +62,7 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NPOS*N
           }else{
             segsInData|=(1<<(tigress_hit->GetSegmentHit(i).GetSegment()-1));
           }
-          if(tigress_hit->GetSegmentHit(i).GetWaveform()->size()!=numSamples){
+          if(numSamples != (Int_t)tigress_hit->GetSegmentHit(i).GetWaveform()->size()){
             //cout << "Entry " << jentry << ", mismatched waveform size (" << tigress_hit->GetSegmentHit(i).GetWaveform()->size() << ")." << endl;
             goodWaveforms = false;
             break;
@@ -191,12 +190,12 @@ void read_sim_file(const char *simfile, TH1D *zDistHist[NPOS*NCORE*NSEG], TH1D *
   }else{
     numHitsLeaf = (TLeaf*)numHitsBranch->GetListOfLeaves()->First(); //get the first leaf from the specified branch       
   }
-  Int_t sentries = simTree->GetEntries();
+  Long64_t sentries = simTree->GetEntries();
   Double_t rVal, angleVal, zVal;
   Int_t arrayPosVal, segIDVal, numHitsVal;
-  for (int i=0;i<sentries;i++){
+  for(Long64_t i=0;i<sentries;i++){
     simTree->GetEntry(i);
-    for(int j=0; j<rLeaf->GetNdata(); j++) { //deal with multiple fold events
+    for(Long64_t j=0; j<rLeaf->GetNdata(); j++) { //deal with multiple fold events
       if((rLeaf->GetNdata()==phiLeaf->GetNdata())&&((rLeaf->GetNdata()==zLeaf->GetNdata()))&&(rLeaf->GetNdata()==segIDLeaf->GetNdata())&&(rLeaf->GetNdata()==coreIDLeaf->GetNdata())&&(rLeaf->GetNdata()==posIDLeaf->GetNdata())&&(rLeaf->GetNdata()==numHitsLeaf->GetNdata())){
         rVal = rLeaf->GetValue(j);
         angleVal = phiLeaf->GetValue(j)*180./M_PI;
@@ -386,7 +385,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   TH1 **zetaHistC = new TH1*[NPOS*NCORE*NSEG];
   TH1 **zMap = new TH1*[NPOS*NCORE*NSEG];
   Int_t *zetaBinVal = (Int_t*)malloc((NPOS*NCORE*NSEG*(VOXEL_BINS_Z + 1))*sizeof(Int_t));
-  memset(zetaBinVal,0,sizeof(zetaBinVal));
+  memset(zetaBinVal,0,sizeof(&zetaBinVal));
   for(int l = 0; l < NPOS*NCORE; l++){
     for(int k = 0; k < NSEG; k++){
       zetaHist[l*NSEG + k] = new TH1D();
@@ -435,7 +434,7 @@ void generate_mapping(const char *infile, const char *simfile, const char *calfi
   TH1 **rhoHistC = new TH1*[NPOS*NCORE*NSEG*VOXEL_BINS_Z];
   TH1 **rMap = new TH1*[NPOS*NCORE*NSEG*VOXEL_BINS_Z];
   Int_t *rhoBinVal = (Int_t*)malloc((NPOS*NCORE*NSEG*(VOXEL_BINS_R + 1)*(VOXEL_BINS_Z))*sizeof(Int_t));
-  memset(rhoBinVal,0,sizeof(rhoBinVal));
+  memset(rhoBinVal,0,sizeof(&rhoBinVal));
   for(int l = 0; l < NPOS*NCORE; l++){
     for(int k = 0; k < NSEG; k++){
       for(int j = 0; j < VOXEL_BINS_Z; j++){
