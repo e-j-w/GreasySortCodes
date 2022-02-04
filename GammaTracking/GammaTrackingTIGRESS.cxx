@@ -728,7 +728,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
   const Int_t basisBinRatio = (Int_t)(FINE_BASIS_BINFACTOR/(COARSE_BASIS_BINFACTOR*1.0));
   const std::vector<Short_t> *segwf;
 
-  if((coreCharge <= BASIS_MIN_ENERGY)||(coreCharge <= 0)) return TVector3(BAD_RETURN,0,0); //bad energy
+  if((coreCharge <= BASIS_MIN_ENERGY)||(coreCharge <= 0.0)) return TVector3(BAD_RETURN,0,0); //bad energy
   //cout << "Number of segments: " << tigress_hit->GetSegmentMultiplicity() << endl;
   Int_t numSegHits = 0; //counter for the number of segments with a hit (ie. over the threshold energy)
   Int_t evtSegHP = 0; //event segment hitpattern, which will be compared against hitpatterns in the basis
@@ -759,7 +759,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
         goodWaveforms = false;
         break;
       }
-      if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.3*coreCharge){
+      if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.5*coreCharge){
         if(tigress_hit->GetSegmentHit(i).GetCharge() > maxSegCharge){
           maxSegCharge = tigress_hit->GetSegmentHit(i).GetCharge();
           maxChargeSeg = tigress_hit->GetSegmentHit(i).GetSegment()-1; //0-indexed
@@ -773,6 +773,9 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
       goodWaveforms = false;
     }
     if(numSamples < BASELINE_SAMPLES){
+      goodWaveforms = false;
+    }
+    if(maxSegCharge <= 0.0){
       goodWaveforms = false;
     }
 
@@ -832,7 +835,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                     Int_t segNum = tigress_hit->GetSegmentHit(j).GetSegment()-1; //0-indexed
                     for(int hitNum=0; hitNum<numSegHits; hitNum++){
                       if(segNum==hitSeg[hitNum]){
-                        scaleFacHit[hitNum] = tigress_hit->GetSegmentHit(j).GetCharge()/coreCharge;
+                        scaleFacHit[hitNum] = tigress_hit->GetSegmentHit(j).GetCharge()/maxSegCharge;
                       }
                     }
                     //cout << "Entry " << jentry << ", num seg hits: " << numSegHits << ", scaleFactor 0: " << scaleFacHit[0] << endl;
@@ -855,7 +858,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                     }
                     seg_waveform_baseline /= 1.0*(BASELINE_SAMPLES-1);
                     for(int k=1; k<numSamples; k++){
-                      Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge);
+                      Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/maxSegCharge);
                       Double_t basisSampleVal = 0.;
                       for(int hitNum=0; hitNum<numSegHits; hitNum++){
                         basisSampleVal += scaleFacHit[hitNum]*gt_basis->coarseBasis[hitInd[hitNum]]->GetBinContent(segNum*SAMPLES + k + 1);
@@ -933,7 +936,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                   for(int j=0; j<NSEG; j++){
                     Int_t segNum = tigress_hit->GetSegmentHit(j).GetSegment()-1; //0-indexed
                     if(segNum==hitSeg){
-                      scaleFacHit = tigress_hit->GetSegmentHit(j).GetCharge()/coreCharge;
+                      scaleFacHit = tigress_hit->GetSegmentHit(j).GetCharge()/maxSegCharge;
                       break;
                     }
                   }
@@ -955,7 +958,7 @@ TVector3 GT_get_pos_gridsearch(TTigressHit *tigress_hit, GT_basis *gt_basis){
                     }
                     seg_waveform_baseline /= 1.0*(BASELINE_SAMPLES-1);
                     for(int k=1; k<numSamples; k++){
-                      Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/coreCharge);
+                      Double_t wfrmSampleVal = fabs((segwf->at(k) - seg_waveform_baseline)/maxSegCharge);
                       Double_t basisSampleVal = scaleFacHit*gt_basis->fineBasis[basisInd]->GetBinContent(segNum*SAMPLES + k + 1);
                       chisq += pow(wfrmSampleVal - basisSampleVal,2)*hitWeight;
                     }

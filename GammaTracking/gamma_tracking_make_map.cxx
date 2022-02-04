@@ -33,8 +33,8 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NPOS*N
 
   for(Long64_t jentry = 0; jentry < tree->GetEntries(); jentry++){
     tree->GetEntry(jentry);
-    for(int hitInd = 0; hitInd < tigress->GetMultiplicity(); hitInd++){
-      tigress_hit = tigress->GetTigressHit(hitInd);
+    if(tigress->GetMultiplicity()==1){ //only single core hits
+      tigress_hit = tigress->GetTigressHit(0);
       if(tigress_hit->GetKValue() != 700) continue;  //exclude pileup
       Double_t coreCharge = tigress_hit->GetCharge();
       if((coreCharge <= 0)||(coreCharge > BASIS_MAX_ENERGY)) continue; //bad energy
@@ -72,7 +72,7 @@ void sortData(TFile *inputfile, const char *calfile, TH3D *rhophizetaHist[NPOS*N
             goodWaveforms = false;
             break;
           }
-          if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.3*coreCharge){
+          if(tigress_hit->GetSegmentHit(i).GetCharge() > 0.5*coreCharge){
             if(tigress_hit->GetSegmentHit(i).GetCharge() > maxSegCharge){
               maxSegCharge = tigress_hit->GetSegmentHit(i).GetCharge();
               maxChargeSeg = i;
@@ -221,8 +221,8 @@ void read_sim_file(const char *simfile, TH1D *zDistHist[NPOS*NCORE*NSEG], TH1D *
         segIDVal = segIDLeaf->GetValue(j)-1; //convert to zero-indexed
         numHitsVal = numHitsLeaf->GetValue(j);
         //cout << "sim data seg ID: " << segIDVal << ", r: " << rVal << ", angle: " << angleVal << ", z: " << zVal << endl;
-        //if(numHitsVal==1){ //restrict to single interaction events
-        if(numHitsVal>0){
+        if(numHitsVal==1){ //restrict to single interaction events (will use the same restriction for actual source data)
+        //if(numHitsVal>0){
           if((arrayPosVal>=0)&&(arrayPosVal<(NPOS*NCORE))){
             if((segIDVal>=0)&&(segIDVal<NSEG)){
               if((zVal==zVal)&&(zVal>=0)&&(zVal<MAX_VAL_Z)){ 
