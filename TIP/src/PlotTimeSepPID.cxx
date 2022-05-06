@@ -1,9 +1,9 @@
-//Sort code to check TIP and TIGRESS timing windows
-//windows are defined in common.h
+//Sort code to pot TIP PID for time separated data
+//timing windows are defined in common.h
 
-#define CheckTimingWindows_cxx
+#define PlotTimeSepPID_cxx
 #include "common.h"
-#include "CheckTimingWindows.h"
+#include "PlotTimeSepPID.h"
 
 using namespace std;
 
@@ -11,7 +11,7 @@ float lastTIPHitT[NTIP]; //stores the last hit time for each detector
 Int_t numTipRingPileupHits[NTIPRING], numTipRingHits[NTIPRING];
 
 
-void CheckTimingWindows::SortData(char const *afile, char const *calfile, char const *outfile){
+void PlotTimeSepPID::SortData(char const *afile, char const *calfile, char const *outfile){
 
   Initialise();
 
@@ -41,16 +41,15 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
   }else{
     cout << "Branch 'TTip' not found! TTip variable is NULL pointer" << endl;
   }
+
   unsigned long int numTipHits = 0;
-  unsigned long int numTigABHits = 0;
-  unsigned long int numTipTigHits = 0;
-  Double_t tipFitTimes[MAXNUMTIPHIT];
+  unsigned long int numTipPileupHits = 0;
+
+  double_t tipPID = -1000.0;
 
   //Defining Pointers
-  TTigressHit *add_hit, *add_hit2;
-  TTipHit *tip_hit, *tip_hit2;
-  
-  bool suppAdd = false;
+  TTipHit *tip_hit;
+  const std::vector<Short_t> *wf; //for CsI waveform
 
   printf("Reading calibration file: %s\n", calfile);
   TChannel::ReadCalFile(calfile);
@@ -77,69 +76,33 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
 
       uint32_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
 
-      //get fit times
-      for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
-        tip_hit = tip->GetTipHit(tipHitInd);
-        tipFitTimes[tipHitInd] = getTipFitTime(tip_hit,tip_waveform_pretrigger);
-      }
+      for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
+        if(passedtimeGate&(1U<<tipHitInd)){
+          tip_hit = tip->GetTipHit(tipHitInd);
+          numTipHits++;
 
-      for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
-        numTipHits++;
-        tip_hit = tip->GetTipHit(tipHitInd);
-        for(int tipHitInd2 = tipHitInd+1; tipHitInd2 < tip->GetMultiplicity(); tipHitInd2++){
-          tip_hit2 = tip->GetTipHit(tipHitInd2);
-          Double_t tDiff = tipFitTimes[tipHitInd] - tipFitTimes[tipHitInd2];
-          tiptipFitT->Fill(tDiff);
-          if(passedtimeGate&(1U<<tipHitInd)){
-            if(passedtimeGate&(1U<<tipHitInd2)){
-              tiptipFitTPassed->Fill(tDiff);
+          wf = tip_hit->GetWaveform();
+          TPulseAnalyzer pulse;
+          pulse.SetData(*wf, 0);
+          if(wf->size() > 50){
+            tipPID = pulse.CsIPID();
+            if(tipPID > -1000.0) //in (modified) GRSISort, failed fits given value of -1000.0
+              tipPID += 100.;
+            
+          }
+
+          //PID related stuff
+          if(tipPID>=0){ //PID was found
+            tip_E_PID_Sum->Fill(tip_hit->GetEnergy(),tipPID);
+            if((tip_hit->GetTipChannel() > 0)&&(tip_hit->GetTipChannel() <= NTIP)){
+              tip_E_PID_Ring[getTIPRing(tip_hit->GetTipChannel())]->Fill(tip_hit->GetEnergy(),tipPID);
+              tip_E_PID[tip_hit->GetTipChannel()-1]->Fill(tip_hit->GetEnergy(),tipPID);
             }
           }
         }
+        
       }
 
-      for(int tigHitIndAB = 0; tigHitIndAB < tigress->GetAddbackMultiplicity(); tigHitIndAB++){
-        numTigABHits++;
-        add_hit = tigress->GetAddbackHit(tigHitIndAB);
-        suppAdd = add_hit->BGOFired();
-        //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-        if (!suppAdd && add_hit->GetEnergy() > 15){
-
-          //check time-correlated TIP events
-          if(tip){
-            for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
-              tip_hit = tip->GetTipHit(tipHitInd);
-              numTipTigHits++;
-              Double_t tDiff = tipFitTimes[tipHitInd] - add_hit->GetTime();
-              tipT_tigT_diff->Fill(tDiff);
-              if(passedtimeGate&(1U<<tipHitInd)){
-                if(passedtimeGate&(1U<<(tigHitIndAB+16))){
-                  tipT_tigT_diffPassed->Fill(tDiff);
-                }
-              }
-              
-            }
-
-          }
-
-          //TIGRESS-TIGRESS addback
-          for (int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < tigress->GetAddbackMultiplicity(); tigHitIndAB2++){
-
-            add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
-            suppAdd = add_hit2->BGOFired();
-            if (!suppAdd && add_hit2->GetEnergy() > 15){
-              Double_t tDiff = add_hit->GetTime() - add_hit2->GetTime();
-              addT_addT->Fill(tDiff);
-              if(passedtimeGate&(1U<<(tigHitIndAB+16))){
-                if(passedtimeGate&(1U<<(tigHitIndAB2+16))){
-                  addT_addTPassed->Fill(tDiff);
-                }
-              }
-            }
-          }
-          
-        }
-      }
 
     }
 
@@ -148,9 +111,8 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
   } // analysis tree
 
   cout << "Entry " << analentries << " of " << analentries << ", 100% complete" << endl;
-  cout << "Number of TIGRESS addback hits: " << numTigABHits << endl;
   cout << "Number of TIP hits: " << numTipHits << endl;
-  cout << "Number of TIP + TIGRESS hits: " << numTipTigHits << endl << endl;
+  cout << "Number of TIP pileup hits: " << numTipPileupHits << " (" << (float)(numTipPileupHits*100)/float(numTipPileupHits + numTipHits) << " %)" << endl;
   cout << "Event sorting complete" << endl;
 
   cout << "Writing histograms to " << outfile << endl;
@@ -158,19 +120,9 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
   TFile *myfile = new TFile(outfile, "RECREATE");
   myfile->cd();
 
-  TDirectory *tiptipdir = myfile->mkdir("TIP-TIP");
-  tiptipdir->cd();
-  tiptipList->Write();
-  myfile->cd();
-
-  TDirectory *tigtigdir = myfile->mkdir("TIGRESS-TIGRESS");
-  tigtigdir->cd();
-  tigtigList->Write();
-  myfile->cd();
-
-  TDirectory *tiptigdir = myfile->mkdir("TIP-TIGRESS");
-  tiptigdir->cd();
-  tiptigList->Write();
+  TDirectory *tippiddir = myfile->mkdir("TIP PID");
+  tippiddir->cd();
+  tipPIDList->Write();
   myfile->cd();
 
   myfile->Write();
@@ -178,7 +130,7 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
 }
 int main(int argc, char **argv){
 
-  CheckTimingWindows *mysort = new CheckTimingWindows();
+  PlotTimeSepPID *mysort = new PlotTimeSepPID();
 
   char const *afile;
   char const *outfile;
@@ -198,7 +150,7 @@ int main(int argc, char **argv){
   // Input-chain-file, output-histogram-file
   if (argc == 1)
   {
-    cout << "Arguments: CheckTimingWindows analysis_tree calibration_file output_file" << endl;
+    cout << "Arguments: PlotTimeSepPID analysis_tree calibration_file output_file" << endl;
     cout << "Default values will be used if arguments (other than analysis tree) are omitted." << endl;
     return 0;
   }

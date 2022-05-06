@@ -62,9 +62,6 @@ TH1F *tipT_tigT_diff, *tipTCFD_tigT_diff, *tigE_TIPtg;
 TH2F *tigE_tipTtigTdiff, *tigE_tipRing;
 TH2F *tigE_tipMult;
 
-//PID gates
-TCutG *alphaRingCut[NTIPRING], *protonRingCut[NTIPRING];
-
 class SortCode {
 
 	public :
