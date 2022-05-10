@@ -27,8 +27,7 @@ using namespace std;
 
 TApplication *theApp;
 
-void SortData(char const *afile, char const *calfile, const Int_t goodPID, const Int_t channel)
-{
+void SortData(char const *afile, char const *calfile, const Int_t goodPID, const Int_t channel){
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
   if (!analysisfile->IsOpen())

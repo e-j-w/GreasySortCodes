@@ -396,7 +396,7 @@ int main(int argc, char **argv)
   // Input-chain-file, output-histogram-file
   if (argc == 1)
   {
-    cout << "Arguments: SortCode analysis_tree calibration_file output_file" << endl;
+    cout << "Arguments: SortData analysis_tree calibration_file output_file" << endl;
     cout << "Default values will be used if arguments (other than analysis tree) are omitted." << endl;
     return 0;
   }

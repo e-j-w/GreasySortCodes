@@ -7,10 +7,6 @@
 
 using namespace std;
 
-float lastTIPHitT[NTIP]; //stores the last hit time for each detector
-Int_t numTipRingPileupHits[NTIPRING], numTipRingHits[NTIPRING];
-
-
 void CheckTimingWindows::SortData(char const *afile, char const *calfile, char const *outfile){
 
   Initialise();

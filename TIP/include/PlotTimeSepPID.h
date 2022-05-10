@@ -26,10 +26,13 @@ using namespace std;
 
 TApplication *theApp;
 
-TList *tipPIDList; 
+TList *tipPIDList, *tipPIDGateList; 
 
 //TIP PID
 TH2F *tip_E_PID_Sum, *tip_E_PID_Ring[NTIPRING], *tip_E_PID[NTIP];
+
+//PID gates
+TCutG *alphaRingCut[NTIPRING], *protonRingCut[NTIPRING];
 
 
 class PlotTimeSepPID{
@@ -47,6 +50,7 @@ void PlotTimeSepPID::Initialise(){
   printf("Creating lists\n");
 
   tipPIDList = new TList;
+  tipPIDGateList = new TList;
 
   printf("Creating histograms\n");
 
@@ -66,6 +70,17 @@ void PlotTimeSepPID::Initialise(){
     tip_E_PID[i]->GetYaxis()->SetTitle("A_{S}/A_{F} x 100 + 100");
     tip_E_PID[i]->GetXaxis()->SetTitle("Alpha E (MeV)");
     tipPIDList->Add(tip_E_PID[i]);
+  }
+
+  //TIP PID gates
+  
+  for(int i=0; i<NTIPRING; i++){
+    alphaRingCut[i] = new TCutG(Form("ring %i alpha cut",i),8);
+    protonRingCut[i] = new TCutG(Form("ring %i proton cut",i),8);
+
+    setupPIDGate(i,protonRingCut[i],alphaRingCut[i]); //common.cxx
+    tipPIDGateList->Add(alphaRingCut[i]);
+    tipPIDGateList->Add(protonRingCut[i]);
   }
 
 }

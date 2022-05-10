@@ -209,7 +209,7 @@ void SortCode::Initialise() {
   tigE_tipMult->GetXaxis()->SetTitle("TIGRESS energy");
   tiptigList->Add(tigE_tipMult);
 
-  //Setup PID gates
+  /*//Setup PID gates
   printf("Creating PID gates\n");
   //individual gates for each detector
   for(int i=0; i<NTIPRING; i++){
@@ -238,6 +238,6 @@ void SortCode::Initialise() {
   for(int i=0; i<NTIPRING; i++){
     tipPIDGateList->Add(alphaRingCut[i]);
     tipPIDGateList->Add(protonRingCut[i]);
-  }
+  }*/
 
 }

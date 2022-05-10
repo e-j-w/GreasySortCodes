@@ -47,12 +47,9 @@ static Int_t tip_waveform_pretrigger = 250;
 
 static Int_t noPileupKValue = 0; //should be 0 for TIG-10s, 700 for GRIF-16s
 
-//PID gates
-static TCutG *alphaRingCut[NTIPRING], *protonRingCut[NTIPRING];
-
 
 //FUNCTION PROTOTYPES
-void setupPIDGates();
+void setupPIDGate(int ring, TCutG *protonGate, TCutG *alphaGate);
 double_t getTipFitTime(TTipHit *tip_hit, const Int_t pretrigger_samples);
 bool S1232Suppression(TDetectorHit* tig, TBgoHit& bgo);
 bool gate1D(const Double_t value, const Double_t min, const Double_t max);
