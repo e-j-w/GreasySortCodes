@@ -1,5 +1,5 @@
-#ifndef EGamma_PIDsep_h
-#define EGamma_PIDsep_h
+#ifndef EDopp_PIDsep_h
+#define EDopp_PIDsep_h
 
 #include <iostream>
 #include <iomanip>
@@ -24,12 +24,14 @@
 
 using namespace std;
 
+
 TApplication *theApp;
 
 TList *tigPIDSepList, *tipPIDSepList;
 
 //TIGRESS PID Separated plots
 TH1F *tigE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
+TH2F *tigE_xayp_ring[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 
 //TIP PID Separated plots
 TH1F *tipE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
@@ -37,16 +39,16 @@ TH1F *tipESum_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 
 PIDGates *gates;
 
-class EGamma_PIDsep{
+class EDopp_PIDsep{
 	public :
 
-		EGamma_PIDsep(){;} 
+		EDopp_PIDsep(){;} 
 		void SortData(const char*, const char*, const char*);
 		void Initialise();
 };
 #endif
 
-void EGamma_PIDsep::Initialise(){
+void EDopp_PIDsep::Initialise(){
 
   printf("Start initialization\n");
   printf("Creating lists\n");
@@ -64,7 +66,7 @@ void EGamma_PIDsep::Initialise(){
     for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
       if((i+j)<=MAX_NUM_PARTICLE){
         //TIGRESS
-        tigE_xayp[i][j] = new TH1F(Form("TIGRESS addback energy (%ip%ia gate)",i,j),Form("TIGRESS addback energy (%ip%ia gate)",i,j),8192,0,8192);
+        tigE_xayp[i][j] = new TH1F(Form("TIGRESS Doppler corrected addback energy (%ip%ia gate)",i,j),Form("TIGRESS Doppler corrected addback energy (%ip%ia gate)",i,j),8192,0,8192);
         tigE_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
         tigE_xayp[i][j]->GetYaxis()->SetTitle("Counts");
         tigPIDSepList->Add(tigE_xayp[i][j]);
@@ -80,5 +82,16 @@ void EGamma_PIDsep::Initialise(){
       }
     }
   }
-
+  for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
+    for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
+      if((i+j)<=MAX_NUM_PARTICLE){
+        //TIGRESS
+        tigE_xayp_ring[i][j] = new TH2F(Form("TIGRESS Doppler corrected addback energy vs. ring (%ip%ia gate)",i,j),Form("TIGRESS Doppler corrected addback energy vs. ring (%ip%ia gate)",i,j),8192,0,8192,6,0,6);
+        tigE_xayp_ring[i][j]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
+        tigE_xayp_ring[i][j]->GetYaxis()->SetTitle("TIGRESS ring");
+        tigPIDSepList->Add(tigE_xayp_ring[i][j]);
+      }
+    }
+  }
 }
+

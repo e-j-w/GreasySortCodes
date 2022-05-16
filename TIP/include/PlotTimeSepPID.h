@@ -31,9 +31,7 @@ TList *tipPIDList, *tipPIDGateList;
 //TIP PID
 TH2F *tip_E_PID_Sum, *tip_E_PID_Ring[NTIPRING], *tip_E_PID[NTIP];
 
-//PID gates
-TCutG *alphaRingCut[NTIPRING], *protonRingCut[NTIPRING];
-
+PIDGates *gates;
 
 class PlotTimeSepPID{
 	public :
@@ -72,15 +70,11 @@ void PlotTimeSepPID::Initialise(){
     tipPIDList->Add(tip_E_PID[i]);
   }
 
-  //TIP PID gates
-  
+  //Setup TIP PID gates
+  gates = new PIDGates;
   for(int i=0; i<NTIPRING; i++){
-    alphaRingCut[i] = new TCutG(Form("ring %i alpha cut",i),8);
-    protonRingCut[i] = new TCutG(Form("ring %i proton cut",i),8);
-
-    setupPIDGate(i,protonRingCut[i],alphaRingCut[i]); //common.cxx
-    tipPIDGateList->Add(alphaRingCut[i]);
-    tipPIDGateList->Add(protonRingCut[i]);
+    tipPIDGateList->Add(gates->alphaRingCut[i]);
+    tipPIDGateList->Add(gates->protonRingCut[i]);
   }
 
 }

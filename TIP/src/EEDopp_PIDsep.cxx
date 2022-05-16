@@ -1,14 +1,14 @@
-//Plots TIGRESS spectra for PID and time separated data
+//Plots TIGRESS Doppler corrected gamma-gamma matrices for PID and time separated data
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define EGamma_PIDsep_cxx
+#define EEDopp_PIDsep_cxx
 #include "common.h"
-#include "EGamma_PIDsep.h"
+#include "EEDopp_PIDsep.h"
 
 using namespace std;
 
-void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const *outfile){
+void EEDopp_PIDsep::SortData(char const *afile, char const *calfile, char const *outfile){
 
   Initialise();
 
@@ -48,7 +48,7 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
 
   //Defining Pointers
   TTipHit *tip_hit;
-  TTigressHit *add_hit;
+  TTigressHit *add_hit, *add_hit2;
   const std::vector<Short_t> *wf; //for CsI waveform
 
   printf("Reading calibration file: %s\n", calfile);
@@ -85,24 +85,18 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
           tip_hit = tip->GetTipHit(tipHitInd);
           numTipHits++;
 
-          wf = tip_hit->GetWaveform();
-          TPulseAnalyzer pulse;
-          pulse.SetData(*wf, 0);
-          if(wf->size() > 50){
-            tipPID = pulse.CsIPID();
-            if(tipPID > -1000.0) //in (modified) GRSISort, failed fits given value of -1000.0
-              tipPID += 100.;
-            
+          switch(getParticleType(tip_hit,gates)){ //see common.cxx
+            case 4:
+              evtNumAlphas++;
+              break;
+            case 1:
+              evtNumProtons++;
+              break;
+            case 0:
+            default:
+              break;
           }
 
-          //check if the hit is a proton or alpha
-          if(tipPID>=0){ //PID was found
-            if(gates->protonRingCut[getTIPRing(tip_hit->GetTipChannel())]->IsInside(tip_hit->GetEnergy(),tipPID)){
-              evtNumProtons++;
-            }else if(gates->alphaRingCut[getTIPRing(tip_hit->GetTipChannel())]->IsInside(tip_hit->GetEnergy(),tipPID)){
-              evtNumAlphas++;
-            }
-          }
         }
       }
       
@@ -118,26 +112,21 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
                 //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
                 if(!suppAdd && add_hit->GetEnergy() > 15){
                   //TIGRESS PID separated addback energy
-                  tigE_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit->GetEnergy());
+                  double eDopp1 = getEDoppFusEvap(add_hit,tip,passedtimeGate,gates);
+                  for(int tigHitIndAB2=tigHitIndAB+1;tigHitIndAB2<tigress->GetAddbackMultiplicity();tigHitIndAB2++){
+                    add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
+                    suppAdd = add_hit->BGOFired();
+                    if(!suppAdd && add_hit2->GetEnergy() > 15){
+                      double eDopp2 = getEDoppFusEvap(add_hit2,tip,passedtimeGate,gates);
+                      tigEE_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp1,eDopp2);
+                      tigEE_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp2,eDopp1); //symmetrized
+                    }
+                  }
+                  
+                  
                 }
               }
             }
-
-            double_t tipESum = 0.;
-            bool tipHitExists = false;
-            for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
-              if(passedtimeGate&(1U<<tipHitInd)){
-                tip_hit = tip->GetTipHit(tipHitInd);
-                tipE_xayp[evtNumProtons][evtNumAlphas]->Fill(tip_hit->GetEnergy());
-                tipESum += tip_hit->GetEnergy();
-                tipHitExists = true;
-              }
-            }
-            if(tipHitExists){
-              tipESum_xayp[evtNumProtons][evtNumAlphas]->Fill(tipESum);
-            }
-            
-
           }else{
             cout << "Event " << jentry << " has too many charged particles (" << evtNumProtons+evtNumAlphas << ")!" << endl;
           }
@@ -169,18 +158,13 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
   tigPIDSepList->Write();
   myfile->cd();
 
-  TDirectory *tippidsepdir = myfile->mkdir("TIP PID Separated");
-  tippidsepdir->cd();
-  tipPIDSepList->Write();
-  myfile->cd();
-
   myfile->Write();
   myfile->Close();
 }
 
 int main(int argc, char **argv){
 
-  EGamma_PIDsep *mysort = new EGamma_PIDsep();
+  EEDopp_PIDsep *mysort = new EEDopp_PIDsep();
 
   char const *afile;
   char const *outfile;
@@ -200,7 +184,7 @@ int main(int argc, char **argv){
   // Input-chain-file, output-histogram-file
   if(argc == 1){
     cout << "Plots TIGRESS spectra for PID and time separated data." << endl;
-    cout << "Arguments: EGamma_PIDsep analysis_tree calibration_file output_file" << endl;
+    cout << "Arguments: EEDopp_PIDsep analysis_tree calibration_file output_file" << endl;
     cout << "Default values will be used if arguments (other than analysis tree) are omitted." << endl;
     return 0;
   }else if(argc == 2){
