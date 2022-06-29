@@ -1,5 +1,5 @@
-#ifndef SortCode_h
-#define SortCode_h
+#ifndef SortDiagnostics_h
+#define SortDiagnostics_h
 
 #include <iostream>
 #include <iomanip>
@@ -33,7 +33,7 @@ using namespace std;
 
 TApplication *theApp;
 
-TList *tigList, *tipList, *tipPIDList, *tipPIDGateList, *tigtigList, *tigbgoList, *tiptigList; 
+TList *tigList, *tipList, *tipPIDList, *tigtigList, *tigbgoList, *tiptigList; 
 
 //Raw TIGRESS
 TH1F *tigE, *tigE_unsupp, *addE, *addE_ring[NTIGRING];
@@ -42,8 +42,8 @@ TH1F *tigChan;
 
 //TIP
 TH1F *tip_E, *tip_Etot, *tip_CFDFitDiff, *tip_wfrmsize, *tiptipT, *tiptipFitT;
-TH2F *tip_E_pos, *tip_E_waveformAmp;
-TH1I *tip_mult, *tip_pos, *tip_ring;
+TH2F *tip_E_pos;
+TH1I *tip_mult, *tip_pos, *tip_ring, *tip_fittype;
 
 //TIP PID
 TH2F *tip_E_PID_Sum, *tip_E_PID_Ring[NTIPRING], *tip_E_PID[NTIP];
@@ -58,21 +58,21 @@ TH1F *tigT_bgoT, *tigT_bgoT_supp;
 
 //TIGRESS-TIP
 TH2I *tiptig_mult, *tiptig_multSupp;
-TH1F *tipT_tigT_diff, *tipTCFD_tigT_diff, *tigE_TIPtg;
+TH1F *tipT_tigT_diff, *tipTCFD_tigT_diff, *tipTFit_tigT_diff, *tigE_TIPtg;
 TH2F *tigE_tipTtigTdiff, *tigE_tipRing;
 TH2F *tigE_tipMult;
 
-class SortCode {
+class SortDiagnostics {
 
 	public :
 
-		SortCode(){;} 
+		SortDiagnostics(){;} 
 		void SortData(const char*, const char*, const char*);
 		void Initialise();
 };
 #endif
 
-void SortCode::Initialise() {
+void SortDiagnostics::Initialise() {
 
   printf("Start initialization\n");
   printf("Creating lists\n");
@@ -80,7 +80,6 @@ void SortCode::Initialise() {
   tigList = new TList;
   tipList = new TList;
   tipPIDList = new TList;
-  tipPIDGateList = new TList;
   tigtigList = new TList;
   tigbgoList = new TList;
   tiptigList = new TList;
@@ -123,6 +122,8 @@ void SortCode::Initialise() {
   tipList->Add(tip_mult);
   tip_wfrmsize = new TH1F("TIP waveform size","TIP waveform size",4096,0,4096); 
   tipList->Add(tip_wfrmsize);
+  tip_fittype = new TH1I("TIP waveform fit type","TIP waveform fit type",5,0,5);
+  tipList->Add(tip_fittype);
   tip_CFDFitDiff = new TH1F("TIP Fit - CFD timing","TIP Fit - CFD timing",2048,-1024,1024);
   tip_CFDFitDiff->GetXaxis()->SetTitle("t_{fit} - t_{CFD} (ns)");
   tipList->Add(tip_CFDFitDiff);
@@ -130,10 +131,6 @@ void SortCode::Initialise() {
   tip_E_pos->GetXaxis()->SetTitle("E (arb.)");
   tip_E_pos->GetYaxis()->SetTitle("TIP position");
   tipList->Add(tip_E_pos);
-  tip_E_waveformAmp = new TH2F("TIP energy vs wavform amplitude","TIP energy vs wavform amplitude",4096,0,128,4096,0,8192);
-  tip_E_waveformAmp->GetXaxis()->SetTitle("E (arb.)");
-  tip_E_waveformAmp->GetYaxis()->SetTitle("Waveform Amplitude (arb.)");
-  tipList->Add(tip_E_waveformAmp);
   tiptipT = new TH1F("TIP-TIP timing (CFD)","TIP-TIP timing (CFD)",8192,-4096,4096);
   tipList->Add(tiptipT);
   tiptipFitT = new TH1F("TIP-TIP timing (fit)","TIP-TIP timing (fit)",8192,-4096,4096);
@@ -142,18 +139,18 @@ void SortCode::Initialise() {
   //TIP PID
   tip_E_PID_Sum = new TH2F("TIP energy vs PID (Sum)","TIP energy vs PID (Sum)",1024,0,128,512,0,512);
   tip_E_PID_Sum->GetYaxis()->SetTitle("A_{S}/A_{F} x 100 + 100");
-  tip_E_PID_Sum->GetXaxis()->SetTitle("Alpha E (MeV)");
+  tip_E_PID_Sum->GetXaxis()->SetTitle("CsI E (MeV)");
   tipPIDList->Add(tip_E_PID_Sum);
   for(int i=0; i<NTIPRING; i++){
-    tip_E_PID_Ring[i] = new TH2F(Form("TIP energy vs PID (Ring %i)",i+1),Form("TIP energy vs PID (Ring %i)",i+1),1024,0,128,512,0,512);
+    tip_E_PID_Ring[i] = new TH2F(Form("TIP energy vs PID (Ring %i)",i),Form("TIP energy vs PID (Ring %i)",i),1024,0,128,512,0,512);
     tip_E_PID_Ring[i]->GetYaxis()->SetTitle("A_{S}/A_{F} x 100 + 100");
-    tip_E_PID_Ring[i]->GetXaxis()->SetTitle("Alpha E (MeV)");
+    tip_E_PID_Ring[i]->GetXaxis()->SetTitle("CsI E (MeV)");
     tipPIDList->Add(tip_E_PID_Ring[i]);
   }
   for(int i=0; i<NTIP; i++){
     tip_E_PID[i] = new TH2F(Form("TIP energy vs PID (Pos %i)",i+1),Form("TIP energy vs PID (Pos %i)",i+1),1024,0,128,512,0,512);
     tip_E_PID[i]->GetYaxis()->SetTitle("A_{S}/A_{F} x 100 + 100");
-    tip_E_PID[i]->GetXaxis()->SetTitle("Alpha E (MeV)");
+    tip_E_PID[i]->GetXaxis()->SetTitle("CsI E (MeV)");
     tipPIDList->Add(tip_E_PID[i]);
   }
 
@@ -195,6 +192,9 @@ void SortCode::Initialise() {
   tipTCFD_tigT_diff = new TH1F("TIP CFD - Tigress time","TIP CFD - Tigress time", 4096,-4096,4096);
   tipTCFD_tigT_diff->GetXaxis()->SetTitle("t_{TIP, CFD} - t_{TIGRESS} (ns)");
   tiptigList->Add(tipTCFD_tigT_diff);
+  tipTFit_tigT_diff = new TH1F("TIP Fit - Tigress time","TIP Fit - Tigress time", 4096,-4096,4096);
+  tipTFit_tigT_diff->GetXaxis()->SetTitle("t_{TIP, fit} - t_{TIGRESS} (ns)");
+  tiptigList->Add(tipTFit_tigT_diff);
 
   tigE_TIPtg = new TH1F("Tigress energy (fit time gated)","Tigress energy (CFD time gated)", 8192, 0, 8192); 
   tiptigList->Add(tigE_TIPtg);

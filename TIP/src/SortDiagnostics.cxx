@@ -1,8 +1,8 @@
-//g++ SortCode.cxx -std=c++0x -I$GRSISYS/include -L$GRSISYS/lib `grsi-config --cflags --all-libs --GRSIData-libs` -I$GRSISYS/GRSIData/include -L$GRSISYS/GRSIData/lib `root-config --cflags --libs` -lTreePlayer -lMathMore -lSpectrum -lMinuit -lPyROOT -o SortData
+//g++ SortDiagnostics.cxx -std=c++0x -I$GRSISYS/include -L$GRSISYS/lib `grsi-config --cflags --all-libs --GRSIData-libs` -I$GRSISYS/GRSIData/include -L$GRSISYS/GRSIData/lib `root-config --cflags --libs` -lTreePlayer -lMathMore -lSpectrum -lMinuit -lPyROOT -o SortData
 
-#define Sortcode_cxx
+#define SortDiagnostics_cxx
 #include "common.h"
-#include "SortCode.h"
+#include "SortDiagnostics.h"
 
 using namespace std;
 
@@ -12,7 +12,7 @@ Int_t numTipRingPileupHits[NTIPRING], numTipRingHits[NTIPRING];
 bool suppTig = false;
 bool suppAdd = false;
 
-void SortCode::SortData(char const *afile, char const *calfile, char const *outfile)
+void SortDiagnostics::SortData(char const *afile, char const *calfile, char const *outfile)
 {
   Initialise();
 
@@ -57,8 +57,7 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
   TTipHit *tip_hit;
   const std::vector<Short_t> *wf; //for CsI waveform
 
-  double_t tTipCFD, tTipFit;
-  double_t tipPID;
+  double_t tTipCFD;
   double tipEEvt;
   Int_t evtNumProtons, evtNumAlphas;
   Int_t evtNumProtonsDetSumGate, evtNumAlphasDetSumGate;
@@ -68,7 +67,7 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
   printf("Reading calibration file: %s\n", calfile);
   TChannel::ReadCalFile(calfile);
 
-  //tigress->SetSuppressionCriterion(S1232Suppression);
+  tigress->SetSuppressionCriterion(ExptSuppression);
 
   /*cout << "TIGRESS positions: " << endl;
   for(int det=1;det<17;det++){
@@ -95,14 +94,19 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
     evtNumHorDetSumGate=0;
     
     if(tip){
+      
       numTipEvt++;
       if(tip->GetMultiplicity()>=0){
         tip_mult->Fill(tip->GetMultiplicity());
       }
       if(tip->GetMultiplicity()>=2){
         for(int i=1;i<tip->GetMultiplicity();i++){
-          tiptipT->Fill(tip->GetTipHit(i-1)->GetTime() - tip->GetTipHit(i)->GetTime());
-          tiptipFitT->Fill(getTipFitTime(tip->GetTipHit(i-1),tip_waveform_pretrigger) - getTipFitTime(tip->GetTipHit(i),tip_waveform_pretrigger));
+          if((tip->GetTipHit(i)->GetTipChannel() > 0)&&(tip->GetTipHit(i)->GetTipChannel() <= NTIP)){
+            if((tip->GetTipHit(i-1)->GetTipChannel() > 0)&&(tip->GetTipHit(i-1)->GetTipChannel() <= NTIP)){
+              tiptipT->Fill(tip->GetTipHit(i-1)->GetTime() - tip->GetTipHit(i)->GetTime());
+              tiptipFitT->Fill(getTipFitTime(tip->GetTipHit(i-1),tip_waveform_pretrigger) - getTipFitTime(tip->GetTipHit(i),tip_waveform_pretrigger));
+            }
+          }
         }
       }
 
@@ -110,85 +114,48 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
       for (int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
 
         tip_hit = tip->GetTipHit(tipHitInd);
-        //cout << "TIP hit " << tipHitInd << ", K: " << tip_hit->GetKValue() << endl;
-        if(tip_hit->GetKValue() != noPileupKValue){
-          //pileup
-          numTipRingPileupHits[getTIPRing(tip_hit->GetTipChannel())]++;
-          numTipPileupHits++;
-          continue;
-        }
-        numTipRingHits[getTIPRing(tip_hit->GetTipChannel())]++;
-        numTipHits++;
-
-        if(lastTIPHitT[tip_hit->GetTipChannel()-1]==0.){
-          lastTIPHitT[tip_hit->GetTipChannel()-1] = tip_hit->GetTime();
-        }else{
-          //cout << "val: " << tip_hit->GetTime() - lastTIPHitT[tip_hit->GetTipChannel()-1] << endl;
-          lastTIPHitT[tip_hit->GetTipChannel()-1] = tip_hit->GetTime();
-        }
-
-        wf = tip_hit->GetWaveform();
-        tip_wfrmsize->Fill(wf->size());
-        TPulseAnalyzer pulse;
-        pulse.SetData(*wf, 0);
-        if(wf->size() > 50){
-          double baseline = 0;
-          double max, amplitude;
-          for (unsigned int i = 1; i < wf->size()-2; i++){
-            if (i < 51)
-              baseline += wf->at(i);
-            if (i == 1)
-              max = wf->at(i);
-            if (max < wf->at(i))
-              max = wf->at(i);
-            //cout << "sample " << i << ": " << wf->at(i) << endl;
-          }
-          baseline = baseline / 50.0;
-          amplitude = (abs(max - baseline));
-          tip_E_waveformAmp->Fill(tip_hit->GetEnergy(),amplitude);
-          //cout << "amplitude: " << amplitude << endl;
-          //getc(stdin);
-          tipPID = pulse.CsIPID();
-          if(tipPID > -1000.0) //in (modified) GRSISort, failed fits given value of -1000.0
-            tipPID += 100.;
-          tTipFit = pulse.CsIt0() * 10.;
+        if((tip_hit->GetTipChannel() > 0)&&(tip_hit->GetTipChannel() <= NTIP)){
           
-        }
-        tTipCFD = tip_hit->GetTime() - (((tip_hit->GetTimeStamp()) + gRandom->Uniform()) * tip_hit->GetTimeStampUnit());
-        tTipCFD += 1000.; //offset by pretrigger
-        //cout << "CFD time: " << tTipCFD << ", fit time: " << tTipFit << endl;
-        
-        tip_E->Fill(tip_hit->GetEnergy());
-        tipEEvt += tip_hit->GetEnergy();
-        tip_pos->Fill(tip_hit->GetTipChannel());
-        tip_ring->Fill(getTIPRing(tip_hit->GetTipChannel()));
-        tip_CFDFitDiff->Fill(tTipFit - tTipCFD);
-        if(tip_hit->GetEnergy()>100.){
-          /*TCanvas *c1 = new TCanvas("c1","Histogram",200,10,1200,1000);
-          //pulse.DrawT0fit();
-          pulse.DrawCsIFit();
-          theApp->Run(kTRUE);*/
-        }
-        tip_E_pos->Fill(tip_hit->GetEnergy(),tip_hit->GetTipChannel());
+          //cout << "TIP hit " << tipHitInd << ", K: " << tip_hit->GetKValue() << endl;
+          if(tip_hit->GetKValue() != noPileupKValue){
+            //pileup
+            numTipRingPileupHits[getTIPRing(tip_hit->GetTipChannel())]++;
+            numTipPileupHits++;
+            continue;
+          }
+          
+          numTipRingHits[getTIPRing(tip_hit->GetTipChannel())]++;
+          numTipHits++;
 
-        //PID related stuff
-        if(tipPID>=0){ //PID was found
-          tip_E_PID_Sum->Fill(tip_hit->GetEnergy(),tipPID);
+          if(lastTIPHitT[tip_hit->GetTipChannel()-1]==0.){
+            lastTIPHitT[tip_hit->GetTipChannel()-1] = tip_hit->GetTime();
+          }else{
+            //cout << "val: " << tip_hit->GetTime() - lastTIPHitT[tip_hit->GetTipChannel()-1] << endl;
+            lastTIPHitT[tip_hit->GetTipChannel()-1] = tip_hit->GetTime();
+          }
 
-          if((tip_hit->GetTipChannel() > 0)&&(tip_hit->GetTipChannel() <= NTIP)){
-            //cout << "Energy: " << tip_hit->GetEnergy() << ", PID: " << tipPID << endl;
-            tip_E_PID[tip_hit->GetTipChannel()-1]->Fill(tip_hit->GetEnergy(),tipPID);
+          wf = tip_hit->GetWaveform();
+          tip_wfrmsize->Fill(wf->size());
+          tip_fittype->Fill(tip_hit->GetFitType());
+          tTipCFD = tip_hit->GetTime() - (((tip_hit->GetTimeStamp()) + gRandom->Uniform()) * tip_hit->GetTimeStampUnit());
+          tTipCFD += 1000.; //offset by pretrigger
+          //cout << "CFD time: " << tTipCFD << ", fit time: " << tTipFit << endl;
+          
+          tip_E->Fill(tip_hit->GetEnergy());
+          tipEEvt += tip_hit->GetEnergy();
+          tip_pos->Fill(tip_hit->GetTipChannel());
+          tip_ring->Fill(getTIPRing(tip_hit->GetTipChannel()));
+          tip_CFDFitDiff->Fill(getTipFitTime(tip_hit,tip_waveform_pretrigger) - tTipCFD);
+          tip_E_pos->Fill(tip_hit->GetEnergy(),tip_hit->GetTipChannel());
+
+          //PID related stuff
+          if(tip_hit->GetPID() >= 0){ //PID was found
+            tip_E_PID_Sum->Fill(tip_hit->GetEnergy(),tip_hit->GetPID());
+            //cout << "Energy: " << tip_hit->GetEnergy() << ", PID: " << tip_hit->GetPID() << endl;
+            tip_E_PID[tip_hit->GetTipChannel()-1]->Fill(tip_hit->GetEnergy(),tip_hit->GetPID());
+            tip_E_PID_Ring[getTIPRing(tip_hit->GetTipChannel())]->Fill(tip_hit->GetEnergy(),tip_hit->GetPID());
           }
         }
-
-        /*cout << "Drawing waveform" << endl;
-        TCanvas *c1 = new TCanvas("c1","Waveform",200,10,1200,1000);
-        TH1I *whist = pulse.GetWaveHist();
-        char histName[256];
-        whist->GetXaxis()->SetTitle("Sample Number");
-        whist->SetStats(0);
-        whist->Draw();
-        theApp->Run(kTRUE);*/
         
       }
       tip_Etot->Fill(tipEEvt);
@@ -250,19 +217,21 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
 
           //check time-correlated TIP events
           if(tip){
-
+            
             uint16_t tipRingHP = 0;
             
             for (int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
 
               tip_hit = tip->GetTipHit(tipHitInd);
-              numTipTigHits++;
-              tipRingHP |= (1 << getTIPRing(tip_hit->GetTipChannel())); //update ring hitpattern
-              tTipFit = getTipFitTime(tip_hit, tip_waveform_pretrigger);
-              tipT_tigT_diff->Fill(tTipFit - add_hit->GetTime());
-              tigE_tipTtigTdiff->Fill(tTipFit - add_hit->GetTime(),add_hit->GetEnergy());
-              tipTCFD_tigT_diff->Fill(tip_hit->GetTime() - add_hit->GetTime());
-              
+              double tTipFit = getTipFitTime(tip_hit,tip_waveform_pretrigger);
+              if((tip_hit->GetTipChannel() > 0)&&(tip_hit->GetTipChannel() <= NTIP)){
+                numTipTigHits++;
+                tipRingHP |= (1 << getTIPRing(tip_hit->GetTipChannel())); //update ring hitpattern
+                tipT_tigT_diff->Fill(tTipFit - add_hit->GetTime());
+                tigE_tipTtigTdiff->Fill(tTipFit - add_hit->GetTime(),add_hit->GetEnergy());
+                tipTCFD_tigT_diff->Fill(tip_hit->GetTime() - add_hit->GetTime());
+                tipTFit_tigT_diff->Fill(tTipFit - add_hit->GetTime());
+              }
             }
 
             for(int i=0; i<NTIPRING; i++){
@@ -350,11 +319,6 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
   tipPIDList->Write();
   myfile->cd();
 
-  TDirectory *tipPIDGatedir = myfile->mkdir("TIP PID Gates");
-  tipPIDGatedir->cd();
-  tipPIDGateList->Write();
-  myfile->cd();
-
   TDirectory *tigtigdir = myfile->mkdir("TIGRESS-TIGRESS");
   tigtigdir->cd();
   tigtigList->Write();
@@ -376,12 +340,12 @@ void SortCode::SortData(char const *afile, char const *calfile, char const *outf
 int main(int argc, char **argv)
 {
 
-  SortCode *mysort = new SortCode();
+  SortDiagnostics *mysort = new SortDiagnostics();
 
   char const *afile;
   char const *outfile;
   char const *calfile;
-  printf("Starting sortcode\n");
+  printf("Starting SortDiagnostics\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
   if (grsi_path.length() > 0)
@@ -396,7 +360,8 @@ int main(int argc, char **argv)
   // Input-chain-file, output-histogram-file
   if (argc == 1)
   {
-    cout << "Arguments: SortData analysis_tree calibration_file output_file" << endl;
+    cout << "Code sorts various diagnostic histograms for online TIP+TIGRESS data" << endl;
+    cout << "Arguments: SortDiagnostics analysis_tree calibration_file output_file" << endl;
     cout << "Default values will be used if arguments (other than analysis tree) are omitted." << endl;
     return 0;
   }

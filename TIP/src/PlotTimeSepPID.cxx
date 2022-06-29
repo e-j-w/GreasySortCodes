@@ -70,24 +70,15 @@ void PlotTimeSepPID::SortData(char const *afile, char const *calfile, char const
         continue;
       }
 
-      uint32_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
 
       for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
-        if(passedtimeGate&(1U<<tipHitInd)){
+        if(passedtimeGate&(1ULL<<tipHitInd)){
           tip_hit = tip->GetTipHit(tipHitInd);
           numTipHits++;
 
-          wf = tip_hit->GetWaveform();
-          TPulseAnalyzer pulse;
-          pulse.SetData(*wf, 0);
-          if(wf->size() > 50){
-            tipPID = pulse.CsIPID();
-            if(tipPID > -1000.0) //in (modified) GRSISort, failed fits given value of -1000.0
-              tipPID += 100.;
-            
-          }
-
           //PID related stuff
+          tipPID = tip_hit->GetPID();
           if(tipPID>=0){ //PID was found
             tip_E_PID_Sum->Fill(tip_hit->GetEnergy(),tipPID);
             if((tip_hit->GetTipChannel() > 0)&&(tip_hit->GetTipChannel() <= NTIP)){

@@ -55,18 +55,18 @@ void PlotTimeSepPID::Initialise(){
   //TIP PID
   tip_E_PID_Sum = new TH2F("TIP energy vs PID (Sum)","TIP energy vs PID (Sum)",1024,0,128,512,0,512);
   tip_E_PID_Sum->GetYaxis()->SetTitle("A_{S}/A_{F} x 100 + 100");
-  tip_E_PID_Sum->GetXaxis()->SetTitle("Alpha E (MeV)");
+  tip_E_PID_Sum->GetXaxis()->SetTitle("CsI E");
   tipPIDList->Add(tip_E_PID_Sum);
   for(int i=0; i<NTIPRING; i++){
     tip_E_PID_Ring[i] = new TH2F(Form("TIP energy vs PID (Ring %i)",i),Form("TIP energy vs PID (Ring %i)",i),1024,0,128,512,0,512);
     tip_E_PID_Ring[i]->GetYaxis()->SetTitle("A_{S}/A_{F} x 100 + 100");
-    tip_E_PID_Ring[i]->GetXaxis()->SetTitle("Alpha E (MeV)");
+    tip_E_PID_Ring[i]->GetXaxis()->SetTitle("CsI E");
     tipPIDList->Add(tip_E_PID_Ring[i]);
   }
   for(int i=0; i<NTIP; i++){
     tip_E_PID[i] = new TH2F(Form("TIP energy vs PID (Pos %i)",i+1),Form("TIP energy vs PID (Pos %i)",i+1),1024,0,128,512,0,512);
     tip_E_PID[i]->GetYaxis()->SetTitle("A_{S}/A_{F} x 100 + 100");
-    tip_E_PID[i]->GetXaxis()->SetTitle("Alpha E (MeV)");
+    tip_E_PID[i]->GetXaxis()->SetTitle("CsI E");
     tipPIDList->Add(tip_E_PID[i]);
   }
 

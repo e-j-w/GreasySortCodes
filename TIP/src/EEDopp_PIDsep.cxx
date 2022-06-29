@@ -77,11 +77,11 @@ void EEDopp_PIDsep::SortData(char const *afile, char const *calfile, char const 
         continue;
       }
 
-      uint32_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
 
       //count the number of protons or alphas
       for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
-        if(passedtimeGate&(1U<<tipHitInd)){
+        if(passedtimeGate&(1ULL<<tipHitInd)){
           tip_hit = tip->GetTipHit(tipHitInd);
           numTipHits++;
 
@@ -105,7 +105,7 @@ void EEDopp_PIDsep::SortData(char const *afile, char const *calfile, char const 
           if(evtNumProtons+evtNumAlphas<=MAX_NUM_PARTICLE){
 
             for(int tigHitIndAB=0;tigHitIndAB<tigress->GetAddbackMultiplicity();tigHitIndAB++){
-              if(passedtimeGate&(1U<<(tigHitIndAB+16))){
+              if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                 numTigABHits++;
                 add_hit = tigress->GetAddbackHit(tigHitIndAB);
                 suppAdd = add_hit->BGOFired();

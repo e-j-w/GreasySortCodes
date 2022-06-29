@@ -1,20 +1,16 @@
-//Plots TIGRESS Doppler corrected spectra for PID and time separated data
-//timing windows are defined in common.h
-//PID gates in common.cxx
+//Sort code to check TIP and TIGRESS timing windows
+//windows are defined in common.h
 
-#define EDopp_ETIPtot_PIDsep_cxx
+#define SeparatorTiming_cxx
 #include "common.h"
-#include "EDopp_ETIPtot_PIDsep.h"
+#include "SeparatorTiming.h"
 
 using namespace std;
 
-void EDopp_ETIPtot_PIDsep::SortData(char const *afile, char const *calfile, char const *outfile){
-
-  Initialise();
+void SeparatorTiming::SortData(char const *afile, char const *calfile, char const *outfile){
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
-  if (!analysisfile->IsOpen())
-  {
+  if (!analysisfile->IsOpen()){
     printf("Opening file %s failed, aborting\n", afile);
     return;
   }
@@ -22,6 +18,15 @@ void EDopp_ETIPtot_PIDsep::SortData(char const *afile, char const *calfile, char
   printf("File %s opened\n", afile);
   TChain *AnalysisTree = (TChain *)analysisfile->Get("AnalysisTree");
   long int analentries = AnalysisTree->GetEntries();
+
+  //setup the output file
+  TFile *myfile = new TFile(outfile, "RECREATE");
+  //setup the output tree
+  TTree *outTree = AnalysisTree->GetTree()->CloneTree(0);
+  //TTigress *outTig;
+  //TTip *outTip 
+  
+  
 
   TTigress *tigress = 0;
   if (AnalysisTree->FindBranch("TTigress")){
@@ -39,17 +44,10 @@ void EDopp_ETIPtot_PIDsep::SortData(char const *afile, char const *calfile, char
     cout << "Branch 'TTip' not found! TTip variable is NULL pointer" << endl;
   }
 
-  unsigned long int numTipHits = 0;
-  unsigned long int numTigABHits = 0;
+  //TBranch *outTigBranch = outTree->Branch("TTigress",&tigress);
+  //TBranch *outTipBranch = outTree->Branch("TTip",&tip);
 
-  double_t tipPID = -1000.0;
-  unsigned int evtNumProtons, evtNumAlphas;
   bool suppAdd = false;
-
-  //Defining Pointers
-  TTipHit *tip_hit;
-  TTigressHit *add_hit;
-  const std::vector<Short_t> *wf; //for CsI waveform
 
   printf("Reading calibration file: %s\n", calfile);
   TChannel::ReadCalFile(calfile);
@@ -63,9 +61,6 @@ void EDopp_ETIPtot_PIDsep::SortData(char const *afile, char const *calfile, char
       continue;
     }
 
-    evtNumProtons = 0;
-    evtNumAlphas = 0;
-
     if(tigress && tip){
 
       if(tip->GetMultiplicity()>MAXNUMTIPHIT){
@@ -77,68 +72,40 @@ void EDopp_ETIPtot_PIDsep::SortData(char const *afile, char const *calfile, char
         continue;
       }
 
+      bool pass = false;
       uint64_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
-
-      //count the number of protons or alphas
-      for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
-        if(passedtimeGate&(1ULL<<tipHitInd)){
-          tip_hit = tip->GetTipHit(tipHitInd);
-          numTipHits++;
-
-          switch(getParticleType(tip_hit,gates)){ //see common.cxx
-            case 4:
-              evtNumAlphas++;
-              break;
-            case 1:
-              evtNumProtons++;
-              break;
-            case 0:
-            default:
-              break;
+      if(passedtimeGate&(1ULL<<61)){
+        if(passedtimeGate&(1ULL<<62)){
+          if(passedtimeGate&(1ULL<<63)){
+            pass = true;
           }
-
         }
       }
-      
-      if(evtNumProtons<=MAX_NUM_PARTICLE){
-        if(evtNumAlphas<=MAX_NUM_PARTICLE){
-          if(evtNumProtons+evtNumAlphas<=MAX_NUM_PARTICLE){
 
-            double_t tipESum = 0.;
-            bool tipHitExists = false;
-            for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
-              if(passedtimeGate&(1ULL<<tipHitInd)){
-                tip_hit = tip->GetTipHit(tipHitInd);
-                tipESum += tip_hit->GetEnergy();
-                tipHitExists = true;
-              }
+      if(pass){
+
+        /*for(int tigHitIndAB = 0; tigHitIndAB < MAXNUMTIGHIT; tigHitIndAB++){
+          if(tigHitIndAB < tigress->GetAddbackMultiplicity()){
+            if(!(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT)))){
+              //cout << "num tig hits before: " << tigress->GetAddbackMultiplicity() << endl;
+              tigress->GetAddbackHit(tigHitIndAB)->Clear();
+              //cout << "num tig hits after: " << tigress->GetAddbackMultiplicity() << endl;
             }
-
-            if(tipHitExists){
-              for(int tigHitIndAB=0;tigHitIndAB<tigress->GetAddbackMultiplicity();tigHitIndAB++){
-                if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
-                  numTigABHits++;
-                  add_hit = tigress->GetAddbackHit(tigHitIndAB);
-                  suppAdd = add_hit->BGOFired();
-                  //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                  if(!suppAdd && add_hit->GetEnergy() > 15){
-                    //TIGRESS PID separated addback energy
-                    tigE_tipETot_xayp[evtNumProtons][evtNumAlphas]->Fill(getEDoppFusEvap(add_hit,tip,passedtimeGate,gates),tipESum);
-                  }
-                }
-              }
-            }
-
-          }else{
-            cout << "Event " << jentry << " has too many charged particles (" << evtNumProtons+evtNumAlphas << ")!" << endl;
           }
-        }else{
-          cout << "Event " << jentry << " has too many alphas (" << evtNumAlphas << ")!" << endl;
+        }*/
+
+        for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
+          if(!(passedtimeGate&(1ULL<<tipHitInd))){
+            tip->GetTipHit(tipHitInd)->Clear();
+            //tip->GetHitVector().clear(tip->GetHitVector().begin()+tipHitInd);
+          }
         }
-      }else{
-        cout << "Event " << jentry << " has too many protons (" << evtNumProtons << ")!" << endl;
+
+        tigress->ResetAddback(); //needed so that addback is reconstructed in subsequent analysis
+
+        outTree->Fill();
       }
-        
+
     }
 
     if (jentry % 1000 == 0)
@@ -146,27 +113,18 @@ void EDopp_ETIPtot_PIDsep::SortData(char const *afile, char const *calfile, char
   } // analysis tree
 
   cout << "Entry " << analentries << " of " << analentries << ", 100% complete" << endl;
-  cout << "Number of TIP hits: " << numTipHits << endl;
-  cout << "Number of TIGRESS addback hits: " << numTigABHits << endl;
   cout << "Event sorting complete" << endl;
+  cout << "Entries in separated output data: " << outTree->GetEntries() << endl;
 
   cout << "Writing histograms to " << outfile << endl;
 
-  TFile *myfile = new TFile(outfile, "RECREATE");
-  myfile->cd();
-
-  TDirectory *tigtippidsepdir = myfile->mkdir("TIGRESS-TIP PID Separated");
-  tigtippidsepdir->cd();
-  tigtipPIDSepList->Write();
-  myfile->cd();
-
   myfile->Write();
   myfile->Close();
-}
 
+}
 int main(int argc, char **argv){
 
-  EDopp_ETIPtot_PIDsep *mysort = new EDopp_ETIPtot_PIDsep();
+  SeparatorTiming *mysort = new SeparatorTiming();
 
   char const *afile;
   char const *outfile;
@@ -184,27 +142,36 @@ int main(int argc, char **argv){
   TParserLibrary::Get()->Load();
 
   // Input-chain-file, output-histogram-file
-  if(argc == 1){
-    cout << "Plots TIGRESS spectra for PID and time separated data." << endl;
-    cout << "Arguments: EDopp_ETIPtot_PIDsep analysis_tree calibration_file output_file" << endl;
+  if (argc == 1)
+  {
+    cout << "Arguments: SeparatorTiming analysis_tree calibration_file output_file" << endl;
     cout << "Default values will be used if arguments (other than analysis tree) are omitted." << endl;
     return 0;
-  }else if(argc == 2){
+  }
+  else if (argc == 2)
+  {
     afile = argv[1];
     calfile = "CalibrationFile.cal";
     outfile = "Histograms.root";
     printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
-  }else if(argc == 3){
+    
+  }
+  else if (argc == 3)
+  {
     afile = argv[1];
     calfile = argv[2];
     outfile = "Histograms.root";
     printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
-  }else if(argc == 4){
+  }
+  else if (argc == 4)
+  {
     afile = argv[1];
     calfile = argv[2];
     outfile = argv[3];
     printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
-  }else{
+  }
+  else
+  {
     printf("Too many arguments\nArguments: SortData analysis_tree calibration_file output_file\n");
     return 0;
   }

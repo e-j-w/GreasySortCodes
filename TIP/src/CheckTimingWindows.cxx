@@ -40,6 +40,9 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
   unsigned long int numTipHits = 0;
   unsigned long int numTigABHits = 0;
   unsigned long int numTipTigHits = 0;
+  unsigned long int numPassTipTip = 0;
+  unsigned long int numPassTigTig = 0;
+  unsigned long int numPassTipTig = 0;
   Double_t tipFitTimes[MAXNUMTIPHIT];
 
   //Defining Pointers
@@ -71,7 +74,47 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
         continue;
       }
 
-      uint32_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
+      numTipTigHits++;
+
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
+      if(passedtimeGate&(1ULL<<61)){
+        numPassTipTip++;
+      }
+      if(passedtimeGate&(1ULL<<62)){
+        numPassTigTig++;
+      }
+      if(passedtimeGate&(1ULL<<63)){
+        numPassTipTig++;
+      }
+
+      //count the number of hits which passed the timing gates
+      Int_t tipMultPassed=0;
+      Int_t tigMultPassed=0;
+      Int_t tigSuppMult=0;
+      Int_t tigSuppMultPassed=0;
+      for(int tipHitInd = 0; tipHitInd < MAXNUMTIPHIT; tipHitInd++){
+        if(tipHitInd < tip->GetMultiplicity()){
+          if(passedtimeGate&(1ULL<<tipHitInd)){
+            tipMultPassed++;
+          }
+        }
+      }
+      for(int tigHitIndAB = 0; tigHitIndAB < MAXNUMTIGHIT; tigHitIndAB++){
+        if(tigHitIndAB < tigress->GetAddbackMultiplicity()){
+          if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
+            tigMultPassed++;
+          }
+          add_hit = tigress->GetAddbackHit(tigHitIndAB);
+          suppAdd = add_hit->BGOFired();
+          //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
+          if (!suppAdd && add_hit->GetEnergy() > 15){
+            tigSuppMult++;
+            if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
+              tigSuppMultPassed++;
+            }
+          }
+        }
+      }
 
       //get fit times
       for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
@@ -86,14 +129,15 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
           tip_hit2 = tip->GetTipHit(tipHitInd2);
           Double_t tDiff = tipFitTimes[tipHitInd] - tipFitTimes[tipHitInd2];
           tiptipFitT->Fill(tDiff);
-          if(passedtimeGate&(1U<<tipHitInd)){
-            if(passedtimeGate&(1U<<tipHitInd2)){
+          //tiptipFitT->Fill(tip_hit->GetTime() - tip_hit2->GetTime());
+          if(passedtimeGate&(1ULL<<tipHitInd)){
+            if(passedtimeGate&(1ULL<<tipHitInd2)){
               tiptipFitTPassed->Fill(tDiff);
             }
           }
         }
       }
-
+      
       for(int tigHitIndAB = 0; tigHitIndAB < tigress->GetAddbackMultiplicity(); tigHitIndAB++){
         numTigABHits++;
         add_hit = tigress->GetAddbackHit(tigHitIndAB);
@@ -102,20 +146,16 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
         if (!suppAdd && add_hit->GetEnergy() > 15){
 
           //check time-correlated TIP events
-          if(tip){
-            for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
-              tip_hit = tip->GetTipHit(tipHitInd);
-              numTipTigHits++;
-              Double_t tDiff = tipFitTimes[tipHitInd] - add_hit->GetTime();
-              tipT_tigT_diff->Fill(tDiff);
-              if(passedtimeGate&(1U<<tipHitInd)){
-                if(passedtimeGate&(1U<<(tigHitIndAB+16))){
-                  tipT_tigT_diffPassed->Fill(tDiff);
-                }
+          for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
+            tip_hit = tip->GetTipHit(tipHitInd);
+            Double_t tDiff = tipFitTimes[tipHitInd] - add_hit->GetTime();
+            tipT_tigT_diff->Fill(tDiff);
+            if(passedtimeGate&(1ULL<<tipHitInd)){
+              if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
+                tipT_tigT_diffPassed->Fill(tDiff);
               }
-              
             }
-
+            
           }
 
           //TIGRESS-TIGRESS addback
@@ -126,8 +166,8 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
             if (!suppAdd && add_hit2->GetEnergy() > 15){
               Double_t tDiff = add_hit->GetTime() - add_hit2->GetTime();
               addT_addT->Fill(tDiff);
-              if(passedtimeGate&(1U<<(tigHitIndAB+16))){
-                if(passedtimeGate&(1U<<(tigHitIndAB2+16))){
+              if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
+                if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
                   addT_addTPassed->Fill(tDiff);
                 }
               }
@@ -136,6 +176,11 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
           
         }
       }
+
+      tiptig_mult->Fill(tip->GetMultiplicity(),tigress->GetMultiplicity());
+      tiptig_multSupp->Fill(tip->GetMultiplicity(),tigSuppMult);
+      tiptig_multPassed->Fill(tipMultPassed,tigMultPassed);
+      tiptig_multSuppPassed->Fill(tipMultPassed,tigSuppMultPassed);
 
     }
 
@@ -146,7 +191,10 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
   cout << "Entry " << analentries << " of " << analentries << ", 100% complete" << endl;
   cout << "Number of TIGRESS addback hits: " << numTigABHits << endl;
   cout << "Number of TIP hits: " << numTipHits << endl;
-  cout << "Number of TIP + TIGRESS hits: " << numTipTigHits << endl << endl;
+  cout << "Number of TIP + TIGRESS events: " << numTipTigHits << endl << endl;
+  cout << "Events passing TIP-TIP time gate: " << numPassTipTip << " (" << 100.0*numPassTipTip/(1.0*numTipTigHits) << " %)" << endl;
+  cout << "Events passing TIG-TIG time gate: " << numPassTigTig << " (" << 100.0*numPassTigTig/(1.0*numTipTigHits) << " %)" << endl;
+  cout << "Events passing TIP-TIG time gate: " << numPassTipTig << " (" << 100.0*numPassTipTig/(1.0*numTipTigHits) << " %)" << endl;
   cout << "Event sorting complete" << endl;
 
   cout << "Writing histograms to " << outfile << endl;

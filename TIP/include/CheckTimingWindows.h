@@ -43,6 +43,8 @@ TH1F *addT_addT, *addT_addTPassed;
 
 //TIGRESS-TIP
 TH1F *tipT_tigT_diff, *tipT_tigT_diffPassed;
+TH2I *tiptig_mult, *tiptig_multSupp;
+TH2I *tiptig_multPassed, *tiptig_multSuppPassed;
 
 class CheckTimingWindows{
 	public :
@@ -83,5 +85,23 @@ void CheckTimingWindows::Initialise(){
   tipT_tigT_diffPassed = new TH1F("After gate: TIP fit - Tigress time","After gate: TIP fit - Tigress time",4096,-4096,4096);
   tipT_tigT_diffPassed->GetXaxis()->SetTitle("t_{TIP, fit} - t_{TIGRESS} (ns)");
   tiptigList->Add(tipT_tigT_diffPassed);
+
+  tiptig_mult = new TH2I("TIP-TIGRESS multiplicity","TIP-TIGRESS multiplicity",10,0,10,10,0,10);
+  tiptig_mult->GetXaxis()->SetTitle("TIP multiplicity");
+  tiptig_mult->GetYaxis()->SetTitle("TIGRESS multiplicity (unsuppressed)");
+  tiptigList->Add(tiptig_mult);
+  tiptig_multSupp = new TH2I("TIP-TIGRESS multiplicity (suppressed)","TIP-TIGRESS multiplicity (suppressed)",10,0,10,10,0,10);
+  tiptig_multSupp->GetXaxis()->SetTitle("TIP multiplicity");
+  tiptig_multSupp->GetYaxis()->SetTitle("TIGRESS multiplicity (suppressed)");
+  tiptigList->Add(tiptig_multSupp);
+
+  tiptig_multPassed = new TH2I("After gate: TIP-TIGRESS multiplicity","After gate: TIP-TIGRESS multiplicity",10,0,10,10,0,10);
+  tiptig_multPassed->GetXaxis()->SetTitle("TIP multiplicity");
+  tiptig_multPassed->GetYaxis()->SetTitle("TIGRESS multiplicity (unsuppressed)");
+  tiptigList->Add(tiptig_multPassed);
+  tiptig_multSuppPassed = new TH2I("After gate: TIP-TIGRESS multiplicity (suppressed)","After gate: TIP-TIGRESS multiplicity (suppressed)",10,0,10,10,0,10);
+  tiptig_multSuppPassed->GetXaxis()->SetTitle("TIP multiplicity");
+  tiptig_multSuppPassed->GetYaxis()->SetTitle("TIGRESS multiplicity (suppressed)");
+  tiptigList->Add(tiptig_multSuppPassed);
 
 }

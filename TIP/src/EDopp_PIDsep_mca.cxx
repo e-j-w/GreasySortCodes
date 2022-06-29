@@ -8,7 +8,7 @@
 
 using namespace std;
 
-void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, char const *outfile, const unsigned int numP, const unsigned int numA, const int gateEmin, const int gateEmax){
+void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const unsigned int numP, const unsigned int numA, const int gateEmin, const int gateEmax, const int writeProj){
 
   Initialise();
 
@@ -51,6 +51,7 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, char con
   TChannel::ReadCalFile(calfile);
 
   memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
+  memset(mcaProjOut,0,sizeof(mcaProjOut));
 
   printf("\nSorting analysis events...\n");
   for (int jentry = 0; jentry < analentries; jentry++){
@@ -75,11 +76,11 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, char con
         continue;
       }
 
-      uint32_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
 
       //count the number of protons or alphas
       for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
-        if(passedtimeGate&(1U<<tipHitInd)){
+        if(passedtimeGate&(1ULL<<tipHitInd)){
           tip_hit = tip->GetTipHit(tipHitInd);
 
           switch(getParticleType(tip_hit,gates)){ //see common.cxx
@@ -102,7 +103,7 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, char con
           if((evtNumProtons+evtNumAlphas)<=MAX_NUM_PARTICLE){
 
             for(int tigHitIndAB=0;tigHitIndAB<tigress->GetAddbackMultiplicity();tigHitIndAB++){
-              if(passedtimeGate&(1U<<(tigHitIndAB+16))){
+              if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                 add_hit = tigress->GetAddbackHit(tigHitIndAB);
                 suppAdd = add_hit->BGOFired();
                 //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
@@ -116,11 +117,15 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, char con
                         suppAdd = add_hit->BGOFired();
                         if(!suppAdd && add_hit2->GetEnergy() > 15){
                           int eDopp2 = (int)(getEDoppFusEvap(add_hit2,tip,passedtimeGate,gates)*2);
-                          mcaOut[getTIGRESSRing(add_hit->GetPosition().Theta()*180./PI)][eDopp2]++;
+                          mcaOut[getTIGRESSRing(add_hit2->GetPosition().Theta()*180./PI)][eDopp2]++;
                         }
                       }
                     }
                   }
+                  if(writeProj){
+                    mcaProjOut[getTIGRESSRing(add_hit->GetPosition().Theta()*180./PI)][(int)eDopp1]++;
+                  }
+                  
                 }
               }
             }
@@ -139,16 +144,34 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, char con
   cout << "Entry " << analentries << " of " << analentries << ", 100% complete" << endl;
   cout << "Event sorting complete" << endl;
 
-  cout << "Writing histograms to " << outfile << endl;
+  char const *outName = Form("EDopp_%up%ua_c%iw%i_gated.fmca",numP,numA,(gateEmax+gateEmin)/2,gateEmax-gateEmin);
+  cout << "Writing gated histogram to: " << outName << endl;
 
   FILE *out;
-  if((out = fopen(outfile, "w")) == NULL) //open the file
+  if((out = fopen(outName, "w")) == NULL) //open the file
   {
-    cout << "ERROR: Cannot open the output file: " << outfile << endl;
+    cout << "ERROR: Cannot open the output file: " << outName << endl;
     return;
   }else{
     fwrite(&mcaOut,sizeof(mcaOut),1,out);
     fclose(out);
+  }
+
+  if(writeProj){
+
+    char const *projName = Form("EDopp_%up%ua_proj.fmca",numP,numA);
+    cout << "Writing projection histogram to: " << projName << endl;
+
+    FILE *projOut;
+    if((projOut = fopen(projName, "w")) == NULL) //open the file
+    {
+      cout << "ERROR: Cannot open the output file: " << projName << endl;
+      return;
+    }else{
+      fwrite(&mcaProjOut,sizeof(mcaProjOut),1,projOut);
+      fclose(projOut);
+    }
+
   }
   
   
@@ -159,10 +182,10 @@ int main(int argc, char **argv){
   EDopp_PIDsep_mca *mysort = new EDopp_PIDsep_mca();
 
   char const *afile;
-  char const *outfile;
   char const *calfile;
   unsigned int numP, numA;
   int gateEmin, gateEmax;
+  int writeProj = 0;
   printf("Starting sortcode\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
@@ -176,19 +199,21 @@ int main(int argc, char **argv){
   TParserLibrary::Get()->Load();
 
   // Input-chain-file, output-histogram-file
-  if(argc != 8){
+  if((argc != 7)&&(argc != 8)){
     cout << "Generates TIGRESS mca spectra for Doppler corrected, PID and time separated data." << endl;
-    cout << "Arguments: EEDopp_PIDsep_mca analysis_tree calibration_file numP numA gateE_min gateE_max output_file" << endl;
+    cout << "Arguments: EEDopp_PIDsep_mca analysis_tree calibration_file numP numA gateE_min gateE_max write_proj" << endl;
     cout << "Default values will be used if arguments (other than analysis tree) are omitted." << endl;
     return 0;
-  }else if(argc == 4){
+  }else{
     afile = argv[1];
     calfile = argv[2];
     numP = (unsigned int)atoi(argv[3]);
     numA = (unsigned int)atoi(argv[4]);
     gateEmin = atoi(argv[5]);
     gateEmax = atoi(argv[6]);
-    outfile = argv[7];
+    if(argc == 8){
+      writeProj = atoi(argv[7]);
+    }
   }
 
   if(gateEmax <= gateEmin){
@@ -202,13 +227,12 @@ int main(int argc, char **argv){
 
   cout << "Analysis file: " << afile << endl;
   cout << "Calibration file: " << calfile << endl;
-  cout << "Output file: " << outfile << endl;
   cout << "Gating on " << numP << " protons, " << numA << " alphas." << endl;
   cout << "Energy gate: [" << gateEmin << " " << gateEmax << "]" << endl;
 
   theApp=new TApplication("App", &argc, argv);
 
-  mysort->SortData(afile, calfile, outfile, numP, numA, gateEmin, gateEmax);
+  mysort->SortData(afile, calfile, numP, numA, gateEmin, gateEmax, writeProj);
 
   return 0;
 }

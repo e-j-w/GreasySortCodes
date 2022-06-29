@@ -77,25 +77,16 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
         continue;
       }
 
-      uint32_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
 
       //count the number of protons or alphas
       for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
-        if(passedtimeGate&(1U<<tipHitInd)){
+        if(passedtimeGate&(1ULL<<tipHitInd)){
           tip_hit = tip->GetTipHit(tipHitInd);
           numTipHits++;
 
-          wf = tip_hit->GetWaveform();
-          TPulseAnalyzer pulse;
-          pulse.SetData(*wf, 0);
-          if(wf->size() > 50){
-            tipPID = pulse.CsIPID();
-            if(tipPID > -1000.0) //in (modified) GRSISort, failed fits given value of -1000.0
-              tipPID += 100.;
-            
-          }
-
           //check if the hit is a proton or alpha
+          tipPID = tip_hit->GetPID();
           if(tipPID>=0){ //PID was found
             if(gates->protonRingCut[getTIPRing(tip_hit->GetTipChannel())]->IsInside(tip_hit->GetEnergy(),tipPID)){
               evtNumProtons++;
@@ -111,7 +102,7 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
           if(evtNumProtons+evtNumAlphas<=MAX_NUM_PARTICLE){
 
             for(int tigHitIndAB=0;tigHitIndAB<tigress->GetAddbackMultiplicity();tigHitIndAB++){
-              if(passedtimeGate&(1U<<(tigHitIndAB+16))){
+              if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                 numTigABHits++;
                 add_hit = tigress->GetAddbackHit(tigHitIndAB);
                 suppAdd = add_hit->BGOFired();
@@ -126,7 +117,7 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
             double_t tipESum = 0.;
             bool tipHitExists = false;
             for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
-              if(passedtimeGate&(1U<<tipHitInd)){
+              if(passedtimeGate&(1ULL<<tipHitInd)){
                 tip_hit = tip->GetTipHit(tipHitInd);
                 tipE_xayp[evtNumProtons][evtNumAlphas]->Fill(tip_hit->GetEnergy());
                 tipESum += tip_hit->GetEnergy();

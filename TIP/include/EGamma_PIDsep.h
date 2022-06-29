@@ -69,11 +69,11 @@ void EGamma_PIDsep::Initialise(){
         tigE_xayp[i][j]->GetYaxis()->SetTitle("Counts");
         tigPIDSepList->Add(tigE_xayp[i][j]);
         //TIP
-        tipE_xayp[i][j] = new TH1F(Form("TIP energy (%ip%ia gate)",i,j),Form("TIP energy (%ip%ia gate)",i,j),2048,0,64);
+        tipE_xayp[i][j] = new TH1F(Form("TIP energy (%ip%ia gate)",i,j),Form("TIP energy (%ip%ia gate)",i,j),2048,0,4096);
         tipE_xayp[i][j]->GetXaxis()->SetTitle("E (MeV)");
         tipE_xayp[i][j]->GetYaxis()->SetTitle("Counts");
         tipPIDSepList->Add(tipE_xayp[i][j]);
-        tipESum_xayp[i][j] = new TH1F(Form("TIP sum (%ip%ia gate)",i,j),Form("TIP sum (%ip%ia gate)",i,j),2048,0,128);
+        tipESum_xayp[i][j] = new TH1F(Form("TIP sum (%ip%ia gate)",i,j),Form("TIP sum (%ip%ia gate)",i,j),2048,0,8192);
         tipESum_xayp[i][j]->GetXaxis()->SetTitle("E (MeV)");
         tipESum_xayp[i][j]->GetYaxis()->SetTitle("Counts");
         tipPIDSepList->Add(tipESum_xayp[i][j]);

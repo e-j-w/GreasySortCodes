@@ -28,8 +28,8 @@ using namespace std;
 
 #define MAX_NUM_PARTICLE 7 //maximum particle multiplicity
 
-#define MAXNUMTIPHIT 16 //maximum number of TIP hits per event
-#define MAXNUMTIGHIT 16 //maximum number of TIGRESS hits per event
+#define MAXNUMTIPHIT 30 //maximum number of TIP hits per event
+#define MAXNUMTIGHIT 30 //maximum number of TIGRESS hits per event
 
 #define AMU 931.4941 //atomic mass unit, MeV/c^2
 
@@ -45,8 +45,9 @@ static Double_t d2r = TMath::DegToRad();
 
 //timing windows
 static Double_t tigtigTGate[2] = {-60, 60}; // TIGRESS - TIGRESS timing window (ns)
-static Double_t tiptipTGate[2] = {-200, 200}; // TIP - TIP timing window (ns)
-static Double_t tiptigTGate[2] = {2100, 2300}; // TIP - TIGRESS timing window (ns)
+static Double_t tiptipTGate[2] = {-200, 200}; // TIP - TIP fit timing window (ns)
+static Double_t tiptigTGate[2] = {-1400, -1100}; // TIP - TIGRESS timing window (ns)
+static Double_t tigBGOTGate[2] = {0, 380}; // TIGRESS - BGO timing window (ns)
 
 //PID gates
 class PIDGates{
@@ -54,25 +55,25 @@ class PIDGates{
 
 		PIDGates(); //see common.cxx
 		TCutG *alphaRingCut[NTIPRING];
-    TCutG *protonRingCut[NTIPRING];
+		TCutG *protonRingCut[NTIPRING];
 };
 
 static Int_t tip_waveform_pretrigger = 250;
 
-static Double_t betaCompound = 0.03757; //compound nucleus recoil beta
-static Int_t compoundM_AMU = 93.92877; //compound mass in atomic mass units
+static Double_t betaCompound = 0.043; //compound nucleus recoil beta
+static Int_t compoundM_AMU = 33.96786701; //compound mass in atomic mass units
 
-static Int_t noPileupKValue = 0; //should be 0 for TIG-10s, 700 for GRIF-16s
+static Int_t noPileupKValue = 700; //should be 0 for TIG-10s, 700 for GRIF-16s
 
 
 //FUNCTION PROTOTYPES
 Int_t getParticleType(TTipHit *tip_hit, PIDGates *gates);
-double_t getEDoppFusEvap(TTigressHit *add_hit, TTip *tip, const uint32_t passedtimeGate, PIDGates *gates);
+double_t getEDoppFusEvap(TTigressHit *add_hit, TTip *tip, const uint64_t passedtimeGate, PIDGates *gates);
 double_t getTipFitTime(TTipHit *tip_hit, const Int_t pretrigger_samples);
-bool S1232Suppression(TDetectorHit* tig, TBgoHit& bgo);
+bool ExptSuppression(TDetectorHit* tig, TBgoHit& bgo);
 bool gate1D(const Double_t value, const Double_t min, const Double_t max);
 Int_t getTIPRing(const Int_t tipPosition);
 Int_t getTIGRESSRing(const float theta);
-uint32_t passesTimeGate(TTigress *tigress, TTip *tip);
+uint64_t passesTimeGate(TTigress *tigress, TTip *tip);
 
 #endif

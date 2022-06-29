@@ -90,11 +90,11 @@ void SortData(char const *afile, char const *calfile, const Int_t goodPID, const
             amplitude = (abs(max - baseline));
             cout << "Drawing waveform" << endl << "TIP channel: " << tip_hit->GetTipChannel() << endl;
             cout << "Samples: " << wf->size() << endl << "Estimated amplitude: " << amplitude << endl;
-            if((pulse.CsIPID() > -1000.0)){
-              cout << "PID value: " << pulse.CsIPID() << endl;
-            }else{
-              cout << "PID value: " << pulse.CsIPID() << " (failed fit)" << endl;
+            if((pulse.CsIPID() < -1000.0)){
+              cout << "Failed fit!" << endl;
             }
+            cout << "PID value: " << pulse.CsIPID() << " (fit), " << tip_hit->GetPID() << " (analysis tree)" << endl;
+            cout << "t0: " << pulse.CsIt0() << " (fit), " << tip_hit->GetFitTime() << " (analysis tree)" << endl;
             cout << "File->Quit ROOT to cycle to the next waveform." << endl << endl;
 
             if((pulse.CsIPID() > -1000.0)){
