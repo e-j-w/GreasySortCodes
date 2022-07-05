@@ -1,5 +1,5 @@
-#ifndef SeparatorTiming_h
-#define SeparatorTiming_h
+#ifndef SeparatorTiming1Tip2Tig_h
+#define SeparatorTiming1Tip2Tig_h
 
 #include <iostream>
 #include <iomanip>
@@ -26,10 +26,10 @@ using namespace std;
 
 TApplication *theApp;
 
-class SeparatorTiming{
+class SeparatorTiming1Tip2Tig{
 	public :
 
-		SeparatorTiming(){;} 
+		SeparatorTiming1Tip2Tig(){;} 
 		void SortData(const char*, const char*, const char*);
 };
 #endif

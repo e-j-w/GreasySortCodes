@@ -85,14 +85,16 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
           tip_hit = tip->GetTipHit(tipHitInd);
           numTipHits++;
 
-          //check if the hit is a proton or alpha
-          tipPID = tip_hit->GetPID();
-          if(tipPID>=0){ //PID was found
-            if(gates->protonRingCut[getTIPRing(tip_hit->GetTipChannel())]->IsInside(tip_hit->GetEnergy(),tipPID)){
-              evtNumProtons++;
-            }else if(gates->alphaRingCut[getTIPRing(tip_hit->GetTipChannel())]->IsInside(tip_hit->GetEnergy(),tipPID)){
+          switch(getParticleType(tip_hit,gates)){ //see common.cxx
+            case 4:
               evtNumAlphas++;
-            }
+              break;
+            case 1:
+              evtNumProtons++;
+              break;
+            case 0:
+            default:
+              break;
           }
         }
       }
@@ -110,6 +112,7 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
                 if(!suppAdd && add_hit->GetEnergy() > 15){
                   //TIGRESS PID separated addback energy
                   tigE_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit->GetEnergy());
+                  ringE_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit->GetEnergy(),getTIGRESSRing(add_hit->GetPosition().Theta()*180./PI));
                 }
               }
             }

@@ -36,12 +36,12 @@ TApplication *theApp;
 TList *tigList, *tipList, *tipPIDList, *tigtigList, *tigbgoList, *tiptigList; 
 
 //Raw TIGRESS
-TH1F *tigE, *tigE_unsupp, *addE, *addE_ring[NTIGRING];
+TH1F *tigE, *tigE_unsupp, *addE, *addE_ring[NTIGRING], *tigRate;
 TH2F *tigE_ANum,*addE_ANum, *addE_theta;
 TH1F *tigChan;
 
 //TIP
-TH1F *tip_E, *tip_Etot, *tip_CFDFitDiff, *tip_wfrmsize, *tiptipT, *tiptipFitT;
+TH1F *tip_E, *tip_Etot, *tip_CFDFitDiff, *tip_wfrmsize, *tiptipT, *tiptipFitT, *tipRate;
 TH2F *tip_E_pos;
 TH1I *tip_mult, *tip_pos, *tip_ring, *tip_fittype;
 
@@ -108,6 +108,10 @@ void SortDiagnostics::Initialise() {
   tigList->Add(addE_theta);
   tigChan = new TH1F("TIGRESS Channel Number","Tigress Channel Number;Channel;Counts/channel",64,0,64);
   tigList->Add(tigChan);
+  tigRate = new TH1F("TIGRESS Total Rate", "TIGRESS Total Rate", 8192, 0, 8192);
+  tigRate->GetXaxis()->SetTitle("Run Time (s)");
+  tigRate->GetYaxis()->SetTitle("Count/s");
+  tigList->Add(tigRate);
 
   //Raw TIP Spectra
   tip_pos = new TH1I("TIP position","TIP position",129,0,129); 
@@ -135,21 +139,25 @@ void SortDiagnostics::Initialise() {
   tipList->Add(tiptipT);
   tiptipFitT = new TH1F("TIP-TIP timing (fit)","TIP-TIP timing (fit)",8192,-4096,4096);
   tipList->Add(tiptipFitT);
+  tipRate = new TH1F("TIP Total Rate", "TIP Total Rate", 8192, 0, 8192);
+  tipRate->GetXaxis()->SetTitle("Run Time (s)");
+  tipRate->GetYaxis()->SetTitle("Count/s");
+  tipList->Add(tipRate);
 
   //TIP PID
   tip_E_PID_Sum = new TH2F("TIP energy vs PID (Sum)","TIP energy vs PID (Sum)",1024,0,128,512,0,512);
-  tip_E_PID_Sum->GetYaxis()->SetTitle("A_{S}/A_{F} x 100 + 100");
+  tip_E_PID_Sum->GetYaxis()->SetTitle("A_{S}/A_{F} x 100");
   tip_E_PID_Sum->GetXaxis()->SetTitle("CsI E (MeV)");
   tipPIDList->Add(tip_E_PID_Sum);
   for(int i=0; i<NTIPRING; i++){
     tip_E_PID_Ring[i] = new TH2F(Form("TIP energy vs PID (Ring %i)",i),Form("TIP energy vs PID (Ring %i)",i),1024,0,128,512,0,512);
-    tip_E_PID_Ring[i]->GetYaxis()->SetTitle("A_{S}/A_{F} x 100 + 100");
+    tip_E_PID_Ring[i]->GetYaxis()->SetTitle("A_{S}/A_{F} x 100");
     tip_E_PID_Ring[i]->GetXaxis()->SetTitle("CsI E (MeV)");
     tipPIDList->Add(tip_E_PID_Ring[i]);
   }
   for(int i=0; i<NTIP; i++){
     tip_E_PID[i] = new TH2F(Form("TIP energy vs PID (Pos %i)",i+1),Form("TIP energy vs PID (Pos %i)",i+1),1024,0,128,512,0,512);
-    tip_E_PID[i]->GetYaxis()->SetTitle("A_{S}/A_{F} x 100 + 100");
+    tip_E_PID[i]->GetYaxis()->SetTitle("A_{S}/A_{F} x 100");
     tip_E_PID[i]->GetXaxis()->SetTitle("CsI E (MeV)");
     tipPIDList->Add(tip_E_PID[i]);
   }

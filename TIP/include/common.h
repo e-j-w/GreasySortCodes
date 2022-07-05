@@ -60,7 +60,7 @@ class PIDGates{
 
 static Int_t tip_waveform_pretrigger = 250;
 
-static Double_t betaCompound = 0.043; //compound nucleus recoil beta
+static Double_t betaCompound = 0.04093; //compound nucleus recoil beta
 static Int_t compoundM_AMU = 33.96786701; //compound mass in atomic mass units
 
 static Int_t noPileupKValue = 700; //should be 0 for TIG-10s, 700 for GRIF-16s
@@ -75,5 +75,6 @@ bool gate1D(const Double_t value, const Double_t min, const Double_t max);
 Int_t getTIPRing(const Int_t tipPosition);
 Int_t getTIGRESSRing(const float theta);
 uint64_t passesTimeGate(TTigress *tigress, TTip *tip);
+uint64_t passesTimeGate1Tip2Tig(TTigress *tigress, TTip *tip); //timing without requiring TIP-TIP coinc
 
 #endif

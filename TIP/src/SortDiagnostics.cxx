@@ -115,6 +115,8 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
 
         tip_hit = tip->GetTipHit(tipHitInd);
         if((tip_hit->GetTipChannel() > 0)&&(tip_hit->GetTipChannel() <= NTIP)){
+
+          tipRate->Fill(tip_hit->GetTime()/pow(10,9));
           
           //cout << "TIP hit " << tipHitInd << ", K: " << tip_hit->GetKValue() << endl;
           if(tip_hit->GetKValue() != noPileupKValue){
@@ -178,6 +180,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
           tigE->Fill(tig_hit->GetEnergy());
           tigE_ANum->Fill(tig_hit->GetArrayNumber(), tig_hit->GetEnergy());
           tigChan->Fill(tig_hit->GetArrayNumber());
+          tigRate->Fill(tig_hit->GetTime()/pow(10,9));
           for(int bgoInd=0; bgoInd < tigress->GetBGOMultiplicity(); bgoInd++){
             if((tigress->GetBGO(bgoInd).GetDetector() == tig_hit->GetDetector()) && (tigress->GetBGO(bgoInd).GetEnergy() > 0.)){
               tigT_bgoT_supp->Fill(tig_hit->GetCfd() - tigress->GetBGO(bgoInd).GetCfd());

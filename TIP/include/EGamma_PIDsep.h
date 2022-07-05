@@ -30,6 +30,7 @@ TList *tigPIDSepList, *tipPIDSepList;
 
 //TIGRESS PID Separated plots
 TH1F *tigE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
+TH2F *ringE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 
 //TIP PID Separated plots
 TH1F *tipE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
@@ -69,16 +70,29 @@ void EGamma_PIDsep::Initialise(){
         tigE_xayp[i][j]->GetYaxis()->SetTitle("Counts");
         tigPIDSepList->Add(tigE_xayp[i][j]);
         //TIP
-        tipE_xayp[i][j] = new TH1F(Form("TIP energy (%ip%ia gate)",i,j),Form("TIP energy (%ip%ia gate)",i,j),2048,0,4096);
+        tipE_xayp[i][j] = new TH1F(Form("TIP energy (%ip%ia gate)",i,j),Form("TIP energy (%ip%ia gate)",i,j),2048,0,128);
         tipE_xayp[i][j]->GetXaxis()->SetTitle("E (MeV)");
         tipE_xayp[i][j]->GetYaxis()->SetTitle("Counts");
         tipPIDSepList->Add(tipE_xayp[i][j]);
-        tipESum_xayp[i][j] = new TH1F(Form("TIP sum (%ip%ia gate)",i,j),Form("TIP sum (%ip%ia gate)",i,j),2048,0,8192);
+        tipESum_xayp[i][j] = new TH1F(Form("TIP sum (%ip%ia gate)",i,j),Form("TIP sum (%ip%ia gate)",i,j),2048,0,256);
         tipESum_xayp[i][j]->GetXaxis()->SetTitle("E (MeV)");
         tipESum_xayp[i][j]->GetYaxis()->SetTitle("Counts");
         tipPIDSepList->Add(tipESum_xayp[i][j]);
       }
     }
   }
+  for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
+    for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
+      if((i+j)<=MAX_NUM_PARTICLE){
+        //TIGRESS
+        ringE_xayp[i][j] = new TH2F(Form("TIGRESS Doppler corrected addback energy vs. ring (%ip%ia gate)",i,j),Form("TIGRESS Doppler corrected addback energy vs. ring (%ip%ia gate)",i,j),8192,0,8192,6,0,6);
+        ringE_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
+        ringE_xayp[i][j]->GetYaxis()->SetTitle("TIGRESS ring");
+        tigPIDSepList->Add(ringE_xayp[i][j]);
+      }
+    }
+  }
 
 }
+
+

@@ -1,7 +1,7 @@
 CXXFLAGS = -std=c++0x -O2
 GRSISORT = -I$(GRSISYS)/include -L$(GRSISYS)/lib `grsi-config --cflags --all-libs --GRSIData-libs` -I$(GRSISYS)/GRSIData/include -L$(GRSISYS)/GRSIData/lib `root-config --cflags --libs` -lTreePlayer -lMathMore
 
-all: common.o SortDiagnostics DrawTIPWaveforms CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EDopp_PIDsep_mca SeparatorTiming
+all: common.o SortDiagnostics DrawTIPWaveforms CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EDopp_PIDsep_mca SeparatorTiming SeparatorTiming1Tip2Tig
 
 common.o: src/common.cxx include/common.h
 	g++ src/common.cxx -I./include $(CXXFLAGS) $(GRSISORT) -c -o common.o
@@ -27,5 +27,7 @@ EDopp_PIDsep_mca: src/EDopp_PIDsep_mca.cxx include/EDopp_PIDsep_mca.h common.o
 	g++ src/EDopp_PIDsep_mca.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EDopp_PIDsep_mca
 SeparatorTiming: src/SeparatorTiming.cxx include/SeparatorTiming.h common.o
 	g++ src/SeparatorTiming.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o SeparatorTiming
+SeparatorTiming1Tip2Tig: src/SeparatorTiming1Tip2Tig.cxx include/SeparatorTiming1Tip2Tig.h common.o
+	g++ src/SeparatorTiming1Tip2Tig.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o SeparatorTiming1Tip2Tig
 clean:
-	rm -rf *~ SortDiagnostics DrawTIPWaveforms CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EDopp_PIDsep_mca SeparatorTiming common.o
+	rm -rf *~ SortDiagnostics DrawTIPWaveforms CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EDopp_PIDsep_mca SeparatorTiming SeparatorTiming1Tip2Tig common.o
