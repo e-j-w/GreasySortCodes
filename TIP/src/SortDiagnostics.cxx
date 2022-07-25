@@ -17,8 +17,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   Initialise();
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
-  if (!analysisfile->IsOpen())
-  {
+  if (!analysisfile->IsOpen()){
     printf("Opening file %s failed, aborting\n", afile);
     return;
   }
@@ -30,9 +29,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   TTigress *tigress = 0;
   if (AnalysisTree->FindBranch("TTigress")){
     AnalysisTree->SetBranchAddress("TTigress", &tigress);
-  }
-  else
-  {
+  }else{
     cout << "Branch 'TTigress' not found! TTigress variable is NULL pointer" << endl;
   }
 
@@ -42,6 +39,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   }else{
     cout << "Branch 'TTip' not found! TTip variable is NULL pointer" << endl;
   }
+  
   unsigned long int numTigressABHits = 0;
   unsigned long int numTipHits = 0;
   unsigned long int numTipPileupHits = 0;
@@ -79,7 +77,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   
 
   printf("\nSorting analysis events...\n");
-  for (int jentry = 0; jentry < analentries; jentry++){
+  for(Long64_t jentry = 0; jentry < analentries; jentry++){
 
     if(AnalysisTree->GetEntry(jentry) == 0){
       //entry not read successfully
@@ -339,6 +337,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
 
   myfile->Write();
   myfile->Close();
+  analysisfile->Close();
 }
 int main(int argc, char **argv)
 {

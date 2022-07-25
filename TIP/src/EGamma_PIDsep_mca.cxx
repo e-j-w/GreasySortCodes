@@ -1,16 +1,16 @@
-//Generates TIGRESS Doppler-corrected gamma-gated gamma ray spectra for PID and time separated data
+//Generates TIGRESS gamma-gated gamma ray spectra for PID and time separated data
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define EDopp_PIDsep_mca_cxx
+#define EGamma_PIDsep_mca_cxx
 #include "common.h"
-#include "EDopp_PIDsep_mca.h"
+#include "EGamma_PIDsep_mca.h"
 
 using namespace std;
 
-void EDopp_PIDsep_mca::WriteData(const unsigned int numP, const unsigned int numA, const int gateEmin, const int gateEmax, const int writeProj){
+void EGamma_PIDsep_mca::WriteData(const unsigned int numP, const unsigned int numA, const int gateEmin, const int gateEmax, const int writeProj){
 
-  char const *outName = Form("EDopp_%up%ua_c%iw%i_gated.fmca",numP,numA,(gateEmax+gateEmin)/2,gateEmax-gateEmin);
+  char const *outName = Form("EGamma_%up%ua_c%iw%i_gated.fmca",numP,numA,(gateEmax+gateEmin)/2,gateEmax-gateEmin);
   cout << "Writing gated histogram to: " << outName << endl;
 
   FILE *out;
@@ -24,7 +24,7 @@ void EDopp_PIDsep_mca::WriteData(const unsigned int numP, const unsigned int num
 
   if(writeProj){
 
-    char const *projName = Form("EDopp_%up%ua_proj.fmca",numP,numA);
+    char const *projName = Form("EGamma_%up%ua_proj.fmca",numP,numA);
     cout << "Writing projection histogram to: " << projName << endl;
 
     FILE *projOut;
@@ -41,7 +41,7 @@ void EDopp_PIDsep_mca::WriteData(const unsigned int numP, const unsigned int num
 
 }
 
-void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const unsigned int numP, const unsigned int numA, const int gateEmin, const int gateEmax, double keVPerBin, const int writeProj){
+void EGamma_PIDsep_mca::SortData(char const *afile, char const *calfile, const unsigned int numP, const unsigned int numA, const int gateEmin, const int gateEmax, double keVPerBin, const int writeProj){
 
   Initialise();
 
@@ -135,16 +135,16 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
                 //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
                 if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
                   //TIGRESS PID separated addback energy
-                  double eDopp1 = getEDoppFusEvap(add_hit,tip,passedtimeGate,gates);
-                  if(eDopp1 < gateEmax){
-                    if(eDopp1 > gateEmin){
+                  double eGamma1 = add_hit->GetEnergy();
+                  if(eGamma1 < gateEmax){
+                    if(eGamma1 > gateEmin){
                       for(int tigHitIndAB2=tigHitIndAB+1;tigHitIndAB2<tigress->GetAddbackMultiplicity();tigHitIndAB2++){
                         if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
                           add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
                           if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
-                            int eDopp2 = (int)(getEDoppFusEvap(add_hit2,tip,passedtimeGate,gates)/keVPerBin);
-                            if(eDopp2>=0 && eDopp2<S32K){
-                              mcaOut[getTIGRESSRing(add_hit2->GetPosition().Theta()*180./PI)+1][eDopp2]++;
+                            int eGamma2 = (int)(add_hit2->GetEnergy()/keVPerBin);
+                            if(eGamma2>=0 && eGamma2<S32K){
+                              mcaOut[getTIGRESSRing(add_hit2->GetPosition().Theta()*180./PI)+1][eGamma2]++;
                             }
                           }
                         }
@@ -152,7 +152,7 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
                     }
                   }
                   if(writeProj){
-                    int projE = (int)(eDopp1/keVPerBin);
+                    int projE = (int)(eGamma1/keVPerBin);
                     if(projE>=0 && projE < S32K){
                       mcaProjOut[getTIGRESSRing(add_hit->GetPosition().Theta()*180./PI)+1][projE]++;
                     }
@@ -182,7 +182,7 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
 
 int main(int argc, char **argv){
 
-  EDopp_PIDsep_mca *mysort = new EDopp_PIDsep_mca();
+  EGamma_PIDsep_mca *mysort = new EGamma_PIDsep_mca();
 
   char const *afile;
   char const *calfile;
@@ -204,8 +204,8 @@ int main(int argc, char **argv){
 
   // Input-chain-file, output-histogram-file
   if((argc != 7)&&(argc != 8)&&(argc != 9)){
-    cout << "Generates TIGRESS mca spectra for Doppler corrected, PID and time separated data." << endl;
-    cout << "Arguments: EDopp_PIDsep_mca analysis_tree calibration_file numP numA gateE_min gateE_max keV_per_bin write_proj" << endl;
+    cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
+    cout << "Arguments: EGamma_PIDsep_mca analysis_tree calibration_file numP numA gateE_min gateE_max keV_per_bin write_proj" << endl;
     cout << "  *analysis_tree* can be a single tree (extension .root) or a" << endl;
     cout << "  plaintext list of trees (one per line, extension .list)." << endl;
     cout << "  *keV_per_bin* defaults to 1." << endl;

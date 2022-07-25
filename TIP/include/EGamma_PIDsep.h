@@ -26,11 +26,11 @@ using namespace std;
 
 TApplication *theApp;
 
-TList *tigPIDSepList, *tipPIDSepList;
+TList *tigPIDSepList[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1], *tipPIDSepList;
 
 //TIGRESS PID Separated plots
 TH1F *tigE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
-TH2F *ringE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
+TH1F *tigE_xayp_ring[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1][NTIGRING];
 
 //TIP PID Separated plots
 TH1F *tipE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
@@ -52,7 +52,11 @@ void EGamma_PIDsep::Initialise(){
   printf("Start initialization\n");
   printf("Creating lists\n");
 
-  tigPIDSepList = new TList;
+  for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
+    for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
+      tigPIDSepList[i][j] = new TList;
+    }
+  }
   tipPIDSepList = new TList;
 
   //Setup TIP PID gates
@@ -68,7 +72,7 @@ void EGamma_PIDsep::Initialise(){
         tigE_xayp[i][j] = new TH1F(Form("TIGRESS addback energy (%ip%ia gate)",i,j),Form("TIGRESS addback energy (%ip%ia gate)",i,j),8192,0,8192);
         tigE_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
         tigE_xayp[i][j]->GetYaxis()->SetTitle("Counts");
-        tigPIDSepList->Add(tigE_xayp[i][j]);
+        tigPIDSepList[i][j]->Add(tigE_xayp[i][j]);
         //TIP
         tipE_xayp[i][j] = new TH1F(Form("TIP energy (%ip%ia gate)",i,j),Form("TIP energy (%ip%ia gate)",i,j),2048,0,128);
         tipE_xayp[i][j]->GetXaxis()->SetTitle("E (MeV)");
@@ -84,11 +88,13 @@ void EGamma_PIDsep::Initialise(){
   for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
     for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
       if((i+j)<=MAX_NUM_PARTICLE){
-        //TIGRESS
-        ringE_xayp[i][j] = new TH2F(Form("TIGRESS Doppler corrected addback energy vs. ring (%ip%ia gate)",i,j),Form("TIGRESS Doppler corrected addback energy vs. ring (%ip%ia gate)",i,j),8192,0,8192,6,0,6);
-        ringE_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
-        ringE_xayp[i][j]->GetYaxis()->SetTitle("TIGRESS ring");
-        tigPIDSepList->Add(ringE_xayp[i][j]);
+        for(int k=0; k<NTIGRING; k++){
+          //TIGRESS ring spectra
+          tigE_xayp_ring[i][j][k] = new TH1F(Form("Ring %i TIGRESS addback energy (%ip%ia gate)",k+1,i,j),Form("Ring %i TIGRESS Doppler corrected addback energy (%ip%ia gate)",k+1,i,j),8192,0,8192);
+          tigE_xayp_ring[i][j][k]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
+          tigE_xayp_ring[i][j][k]->GetYaxis()->SetTitle("Counts");
+          tigPIDSepList[i][j]->Add(tigE_xayp_ring[i][j][k]);
+        }
       }
     }
   }

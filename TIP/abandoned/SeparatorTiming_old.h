@@ -5,16 +5,11 @@
 #include <iomanip>
 #include "TTree.h"
 #include "TChain.h"
-#include "TH2.h"
 #include "TFile.h"
-#include "TDirectory.h"
 #include "TList.h"
 #include "TRandom.h"
-#include "TReaction.h"
-#include "TSRIM.h"
 #include "TTigress.h"
 #include "TTip.h"
-#include "TSpectrum.h"
 #include "TChannel.h"
 #include "TParserLibrary.h"
 #include "TEnv.h"
@@ -31,5 +26,6 @@ class SeparatorTiming{
 
 		SeparatorTiming(){;} 
 		void SortData(const char*, const char*, const char*);
+		void VerifyTimingSep(TTree*, TTree*);
 };
 #endif

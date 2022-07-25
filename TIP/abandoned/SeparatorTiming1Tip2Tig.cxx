@@ -1,13 +1,13 @@
 //Sort code to check TIP and TIGRESS timing windows
 //windows are defined in common.h
 
-#define SeparatorTiming_cxx
+#define SeparatorTiming1Tip2Tig_cxx
 #include "common.h"
-#include "SeparatorTiming.h"
+#include "SeparatorTiming1Tip2Tig.h"
 
 using namespace std;
 
-void SeparatorTiming::SortData(char const *afile, char const *calfile, char const *outfile){
+void SeparatorTiming1Tip2Tig::SortData(char const *afile, char const *calfile, char const *outfile){
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
   if (!analysisfile->IsOpen()){
@@ -53,7 +53,7 @@ void SeparatorTiming::SortData(char const *afile, char const *calfile, char cons
   TChannel::ReadCalFile(calfile);
 
   printf("\nSorting analysis events...\n");
-  for (int jentry = 0; jentry < analentries; jentry++){
+  for(Long64_t jentry = 0; jentry < analentries; jentry++){
 
     if(AnalysisTree->GetEntry(jentry) == 0){
       //entry not read successfully
@@ -73,12 +73,10 @@ void SeparatorTiming::SortData(char const *afile, char const *calfile, char cons
       }
 
       bool pass = false;
-      uint64_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
-      if(passedtimeGate&(1ULL<<61)){
-        if(passedtimeGate&(1ULL<<62)){
-          if(passedtimeGate&(1ULL<<63)){
-            pass = true;
-          }
+      uint64_t passedtimeGate = passesTimeGate1Tip2Tig(tigress,tip); //also rejects pileup
+      if(passedtimeGate&(1ULL<<62)){
+        if(passedtimeGate&(1ULL<<63)){
+          pass = true;
         }
       }
 
@@ -120,11 +118,12 @@ void SeparatorTiming::SortData(char const *afile, char const *calfile, char cons
 
   myfile->Write();
   myfile->Close();
+  analysisfile->Close();
 
 }
 int main(int argc, char **argv){
 
-  SeparatorTiming *mysort = new SeparatorTiming();
+  SeparatorTiming1Tip2Tig *mysort = new SeparatorTiming1Tip2Tig();
 
   char const *afile;
   char const *outfile;
@@ -144,7 +143,7 @@ int main(int argc, char **argv){
   // Input-chain-file, output-histogram-file
   if (argc == 1)
   {
-    cout << "Arguments: SeparatorTiming analysis_tree calibration_file output_file" << endl;
+    cout << "Arguments: SeparatorTiming1Tip2Tig analysis_tree calibration_file output_file" << endl;
     cout << "Default values will be used if arguments (other than analysis tree) are omitted." << endl;
     return 0;
   }

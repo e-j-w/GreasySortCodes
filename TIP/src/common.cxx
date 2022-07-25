@@ -221,9 +221,6 @@ PIDGates::PIDGates(){
 
   }
   
-
-  
-  
 }
 
 //get the particle type for a tip hit
@@ -292,11 +289,12 @@ double_t getEDoppFusEvap(TTigressHit *add_hit, TTip *tip, const uint64_t passedt
 }
 
 double_t getTipFitTime(TTipHit *tip_hit, const Int_t pretrigger_samples){
+  //gets the fit time, without relying on random number generation from GRSISort
   
   double_t tTipFit = 0.;
   if((tip_hit->GetPID() > -1000.)&&(tip_hit->GetWaveform()->size() > 50)){
     tTipFit = tip_hit->GetFitTime() * 10.; //fit time in samples
-    tTipFit += ((tip_hit->GetTimeStamp()) + gRandom->Uniform()) * tip_hit->GetTimeStampUnit();
+    tTipFit += tip_hit->GetTimeStamp() * tip_hit->GetTimeStampUnit();
     tTipFit -= pretrigger_samples * 10.;
   }
   //cout << "fit time: " << tTipFit << ", CFD time: " << tip_hit->GetTime() << endl;
@@ -372,7 +370,6 @@ uint64_t passesTimeGate(TTigress *tigress, TTip *tip){
 
   //Defining Pointers
   TTigressHit *add_hit, *add_hit2;
-  bool suppAdd = false;
 
   bool goodTipTipTime = false;
   bool goodTigTigTime = false;
@@ -424,7 +421,6 @@ uint64_t passesTimeGate(TTigress *tigress, TTip *tip){
       }
 
       if(goodTipTipTime){
-        pass |= (1ULL<<61);
         if(tigress->GetAddbackMultiplicity()>=2){
           for(int i=0;i<tigress->GetAddbackMultiplicity();i++){
             //TIGRESS-TIGRESS addback timing
@@ -433,17 +429,15 @@ uint64_t passesTimeGate(TTigress *tigress, TTip *tip){
               //pileup
               continue;
             }
-            suppAdd = add_hit->BGOFired();
             //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-            if(!suppAdd && add_hit->GetEnergy() > 15){
+            if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
               for(int j=i+1;j<tigress->GetAddbackMultiplicity();j++){
                 add_hit2 = tigress->GetAddbackHit(j);
                 if(add_hit2->GetKValue() != noPileupKValue){
                   //pileup
                   continue;
                 }
-                suppAdd = add_hit2->BGOFired();
-                if(!suppAdd && add_hit2->GetEnergy() > 15){
+                if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
                   double tigtigTDiff = add_hit->GetTime() - add_hit2->GetTime();
                   if(gate1D(tigtigTDiff,tigtigTGate[0],tigtigTGate[1])){
                     goodTigTigTime = true;
@@ -458,14 +452,12 @@ uint64_t passesTimeGate(TTigress *tigress, TTip *tip){
       }
 
       if(goodTigTigTime){
-        pass |= (1ULL<<62);
         for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
           if(pass&(1ULL<<tipHitInd)){
             for(int tigHitIndAB = 0; tigHitIndAB < tigress->GetAddbackMultiplicity(); tigHitIndAB++){
               if(pass&(1ULL<<(MAXNUMTIPHIT+tigHitIndAB))){
                 add_hit = tigress->GetAddbackHit(tigHitIndAB);
-                suppAdd = add_hit->BGOFired();
-                if(!suppAdd && add_hit->GetEnergy() > 15){
+                if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
                   double_t tiptigTDiff = getTipFitTime(tip->GetTipHit(tipHitInd),tip_waveform_pretrigger) - add_hit->GetTime();
                   if(gate1D(tiptigTDiff,tiptigTGate[0],tiptigTGate[1])){
                     goodTipTigTime = true;
@@ -486,18 +478,38 @@ uint64_t passesTimeGate(TTigress *tigress, TTip *tip){
   }
 
   if(goodTipTigTime){
-    pass |= (1ULL<<63);
-    return pass;
+    pass |= (1ULL<<TIPTIPFLAG);
+    pass |= (1ULL<<TIGTIGFLAG);
+    pass |= (1ULL<<TIPTIGFLAG);
   }else{
     pass = 0;
     if(goodTipTipTime){
-      pass |= (1ULL<<61);
+      pass |= (1ULL<<TIPTIPFLAG);
     }
     if(goodTigTigTime){
-      pass |= (1ULL<<62);
+      pass |= (1ULL<<TIGTIGFLAG);
     }
-    return pass;
   }
+
+  
+  /*if(!goodTipTigTime){
+    //report failed events
+    cout << "Event failed timing:" << endl;
+    for(int i=0;i<tip->GetMultiplicity();i++){
+      cout << " TIP hit " << i << ", t:" << tip->GetTipHit(i)->GetTime() << ", K: " << tip->GetTipHit(i)->GetKValue() << endl;
+    }
+    for(int tigHitIndAB = 0; tigHitIndAB < tigress->GetAddbackMultiplicity(); tigHitIndAB++){
+      cout << " TIGRESS AB hit " << tigHitIndAB << ", t: " << tigress->GetAddbackHit(tigHitIndAB)->GetTime() << ", K: " 
+      << tigress->GetAddbackHit(tigHitIndAB)->GetKValue() << ", BGO: " << tigress->GetAddbackHit(tigHitIndAB)->BGOFired() << ", E: " << tigress->GetAddbackHit(tigHitIndAB)->GetEnergy() << endl;
+    }
+    if(goodTipTipTime)
+      cout << "TIP-TIP timing passed" << endl;
+    if(goodTigTigTime)
+      cout << "TIG-TIG timing passed" << endl;
+  }*/
+  
+
+  return pass;
   
 }
 uint64_t passesTimeGate1Tip2Tig(TTigress *tigress, TTip *tip){
@@ -552,7 +564,7 @@ uint64_t passesTimeGate1Tip2Tig(TTigress *tigress, TTip *tip){
         }
       }
       if(goodTipTipTime){
-        pass |= (1ULL<<61);
+        pass |= (1ULL<<TIPTIPFLAG);
         break;
       }
     }
@@ -589,7 +601,6 @@ uint64_t passesTimeGate1Tip2Tig(TTigress *tigress, TTip *tip){
     }
 
     if(goodTigTigTime){
-      pass |= (1ULL<<62);
       for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
         if(tip->GetTipHit(tipHitInd)->GetKValue() != noPileupKValue){
           //pileup
@@ -619,15 +630,16 @@ uint64_t passesTimeGate1Tip2Tig(TTigress *tigress, TTip *tip){
   }
 
   if(goodTipTigTime){
-    pass |= (1ULL<<63);
+    pass |= (1ULL<<TIGTIGFLAG);
+    pass |= (1ULL<<TIPTIGFLAG);
     return pass;
   }else{
     pass = 0;
     if(goodTipTipTime){
-      pass |= (1ULL<<61);
+      pass |= (1ULL<<TIPTIPFLAG);
     }
     if(goodTigTigTime){
-      pass |= (1ULL<<62);
+      pass |= (1ULL<<TIGTIGFLAG);
     }
     return pass;
   }

@@ -45,13 +45,12 @@ void PlotTimeSepPID::SortData(char const *afile, char const *calfile, char const
 
   //Defining Pointers
   TTipHit *tip_hit;
-  const std::vector<Short_t> *wf; //for CsI waveform
 
   printf("Reading calibration file: %s\n", calfile);
   TChannel::ReadCalFile(calfile);
 
   printf("\nSorting analysis events...\n");
-  for (int jentry = 0; jentry < analentries; jentry++){
+  for(Long64_t jentry = 0; jentry < analentries; jentry++){
 
     if(AnalysisTree->GetEntry(jentry) == 0){
       //entry not read successfully
@@ -118,6 +117,7 @@ void PlotTimeSepPID::SortData(char const *afile, char const *calfile, char const
 
   myfile->Write();
   myfile->Close();
+  analysisfile->Close();
 }
 int main(int argc, char **argv){
 

@@ -4,17 +4,9 @@
 #include <iostream>
 #include <iomanip>
 #include "TCutG.h"
-#include "TH1.h"
-#include "TF1.h"
-#include "TCutG.h"
-#include "TTree.h"
-#include "TChain.h"
-#include "TH2.h"
-#include "TFile.h"
 #include "TDirectory.h"
 #include "TList.h"
 #include "TRandom.h"
-#include "TReaction.h"
 #include "TTigress.h"
 #include "TTip.h"
 #include "TParserLibrary.h"
@@ -26,7 +18,7 @@ using namespace std;
 #define NTIPRING 10 //number of TIP rings
 #define NTIGRING 6 //number of TIGRESS rings
 
-#define MAX_NUM_PARTICLE 7 //maximum particle multiplicity
+#define MAX_NUM_PARTICLE 4 //maximum particle multiplicity
 
 #define MAXNUMTIPHIT 30 //maximum number of TIP hits per event
 #define MAXNUMTIGHIT 30 //maximum number of TIGRESS hits per event
@@ -35,18 +27,19 @@ using namespace std;
 
 #define S32K      32768 //maximum number of channels per spectrum in .mca and .fmca (changing breaks file compatibility)
 
+#define TIPTIPFLAG 61
+#define TIGTIGFLAG 62
+#define TIPTIGFLAG 63
+
+#define PI 3.14159265359
 
 //GLOBAL VARIABLES
 //(static to avoid multiple declaration when linking)
 
-static Double_t pi = TMath::Pi();
-static Double_t r2d = TMath::RadToDeg();
-static Double_t d2r = TMath::DegToRad();
-
 //timing windows
 static Double_t tigtigTGate[2] = {-60, 60}; // TIGRESS - TIGRESS timing window (ns)
 static Double_t tiptipTGate[2] = {-200, 200}; // TIP - TIP fit timing window (ns)
-static Double_t tiptigTGate[2] = {-1400, -1100}; // TIP - TIGRESS timing window (ns)
+static Double_t tiptigTGate[2] = {-1500, -1100}; // TIP - TIGRESS timing window (ns)
 static Double_t tigBGOTGate[2] = {0, 380}; // TIGRESS - BGO timing window (ns)
 
 //PID gates

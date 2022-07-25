@@ -55,7 +55,7 @@ void SortData(char const *afile, char const *calfile, const Int_t goodPID, const
   TChannel::ReadCalFile(calfile);
 
   printf("\nSorting analysis events...\n");
-  for (int jentry = 0; jentry < analentries; jentry++){
+  for(Long64_t jentry = 0; jentry < analentries; jentry++){
 
     AnalysisTree->GetEntry(jentry);
     

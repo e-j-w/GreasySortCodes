@@ -49,13 +49,12 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
   //Defining Pointers
   TTipHit *tip_hit;
   TTigressHit *add_hit;
-  const std::vector<Short_t> *wf; //for CsI waveform
 
   printf("Reading calibration file: %s\n", calfile);
   TChannel::ReadCalFile(calfile);
 
   printf("\nSorting analysis events...\n");
-  for (int jentry = 0; jentry < analentries; jentry++){
+  for(Long64_t jentry = 0; jentry < analentries; jentry++){
 
     if(AnalysisTree->GetEntry(jentry) == 0){
       //entry not read successfully
@@ -112,7 +111,7 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
                 if(!suppAdd && add_hit->GetEnergy() > 15){
                   //TIGRESS PID separated addback energy
                   tigE_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit->GetEnergy());
-                  ringE_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit->GetEnergy(),getTIGRESSRing(add_hit->GetPosition().Theta()*180./PI));
+                  tigE_xayp_ring[evtNumProtons][evtNumAlphas][getTIGRESSRing(add_hit->GetPosition().Theta()*180./PI)]->Fill(add_hit->GetEnergy());
                 }
               }
             }
@@ -158,10 +157,14 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
   TFile *myfile = new TFile(outfile, "RECREATE");
   myfile->cd();
 
-  TDirectory *tigpidsepdir = myfile->mkdir("TIGRESS PID Separated");
-  tigpidsepdir->cd();
-  tigPIDSepList->Write();
-  myfile->cd();
+  for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
+    for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
+      TDirectory *tigpidsepdir = myfile->mkdir(Form("TIGRESS PID Separated (%ip%ia gate)",i,j));
+      tigpidsepdir->cd();
+      tigPIDSepList[i][j]->Write();
+      myfile->cd();
+    }
+  }
 
   TDirectory *tippidsepdir = myfile->mkdir("TIP PID Separated");
   tippidsepdir->cd();
@@ -170,6 +173,7 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
 
   myfile->Write();
   myfile->Close();
+  analysisfile->Close();
 }
 
 int main(int argc, char **argv){

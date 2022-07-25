@@ -49,13 +49,12 @@ void EDopp_ETIPtot_PIDsep::SortData(char const *afile, char const *calfile, char
   //Defining Pointers
   TTipHit *tip_hit;
   TTigressHit *add_hit;
-  const std::vector<Short_t> *wf; //for CsI waveform
 
   printf("Reading calibration file: %s\n", calfile);
   TChannel::ReadCalFile(calfile);
 
   printf("\nSorting analysis events...\n");
-  for (int jentry = 0; jentry < analentries; jentry++){
+  for(Long64_t jentry = 0; jentry < analentries; jentry++){
 
     if(AnalysisTree->GetEntry(jentry) == 0){
       //entry not read successfully
@@ -162,6 +161,7 @@ void EDopp_ETIPtot_PIDsep::SortData(char const *afile, char const *calfile, char
 
   myfile->Write();
   myfile->Close();
+  analysisfile->Close();
 }
 
 int main(int argc, char **argv){

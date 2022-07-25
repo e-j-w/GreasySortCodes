@@ -1,5 +1,5 @@
-#ifndef EDopp_PIDsep_mca_h
-#define EDopp_PIDsep_mca_h
+#ifndef EGamma_PIDsep_mca_h
+#define EGamma_PIDsep_mca_h
 
 #include <iostream>
 #include <iomanip>
@@ -32,17 +32,17 @@ float mcaProjOut[NTIGRING+1][S32K]; //output projection
 
 PIDGates *gates;
 
-class EDopp_PIDsep_mca{
+class EGamma_PIDsep_mca{
 	public :
 
-		EDopp_PIDsep_mca(){;}
+		EGamma_PIDsep_mca(){;}
 		void WriteData(const unsigned int, const unsigned int, const int, const int, const int);
 		void SortData(const char*, const char*, const unsigned int, const unsigned int, const int, const int, double, const int);
 		void Initialise();
 };
 #endif
 
-void EDopp_PIDsep_mca::Initialise(){
+void EGamma_PIDsep_mca::Initialise(){
 
   cout << "Creating PID gates." << endl;
 

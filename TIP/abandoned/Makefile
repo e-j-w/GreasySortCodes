@@ -1,7 +1,7 @@
 CXXFLAGS = -std=c++0x -O2
 GRSISORT = -I$(GRSISYS)/include -L$(GRSISYS)/lib `grsi-config --cflags --all-libs --GRSIData-libs` -I$(GRSISYS)/GRSIData/include -L$(GRSISYS)/GRSIData/lib `root-config --cflags --libs` -lTreePlayer -lMathMore
 
-all: common.o SortDiagnostics DrawTIPWaveforms CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EGamma_PIDsep_mca EDopp_PIDsep_mca TTGamma_PIDsep
+all: common.o SortDiagnostics DrawTIPWaveforms CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EDopp_PIDsep_mca TTGamma_PIDsep SeparatorTiming SeparatorTiming1Tip2Tig
 
 common.o: src/common.cxx include/common.h
 	g++ src/common.cxx -I./include $(CXXFLAGS) $(GRSISORT) -c -o common.o
@@ -23,11 +23,13 @@ EEDopp_PIDsep: src/EEDopp_PIDsep.cxx include/EEDopp_PIDsep.h common.o
 	g++ src/EEDopp_PIDsep.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EEDopp_PIDsep
 EDopp_ETIPtot_PIDsep: src/EDopp_ETIPtot_PIDsep.cxx include/EDopp_ETIPtot_PIDsep.h common.o
 	g++ src/EDopp_ETIPtot_PIDsep.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EDopp_ETIPtot_PIDsep
-EGamma_PIDsep_mca: src/EGamma_PIDsep_mca.cxx include/EGamma_PIDsep_mca.h common.o
-	g++ src/EGamma_PIDsep_mca.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EGamma_PIDsep_mca
 EDopp_PIDsep_mca: src/EDopp_PIDsep_mca.cxx include/EDopp_PIDsep_mca.h common.o
 	g++ src/EDopp_PIDsep_mca.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EDopp_PIDsep_mca
 TTGamma_PIDsep: src/TTGamma_PIDsep.cxx include/TTGamma_PIDsep.h common.o
 	g++ src/TTGamma_PIDsep.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o TTGamma_PIDsep
+SeparatorTiming: src/SeparatorTiming.cxx include/SeparatorTiming.h common.o
+	g++ src/SeparatorTiming.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o SeparatorTiming
+SeparatorTiming1Tip2Tig: src/SeparatorTiming1Tip2Tig.cxx include/SeparatorTiming1Tip2Tig.h common.o
+	g++ src/SeparatorTiming1Tip2Tig.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o SeparatorTiming1Tip2Tig
 clean:
-	rm -rf *~ SortDiagnostics DrawTIPWaveforms CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EGamma_PIDsep_mca EDopp_PIDsep_mca TTGamma_PIDsep common.o
+	rm -rf *~ SortDiagnostics DrawTIPWaveforms CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EDopp_PIDsep_mca TTGamma_PIDsep SeparatorTiming SeparatorTiming1Tip2Tig common.o

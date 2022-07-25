@@ -42,20 +42,17 @@ void EEDopp_PIDsep::SortData(char const *afile, char const *calfile, char const 
   unsigned long int numTipHits = 0;
   unsigned long int numTigABHits = 0;
 
-  double_t tipPID = -1000.0;
   unsigned int evtNumProtons, evtNumAlphas;
-  bool suppAdd = false;
 
   //Defining Pointers
   TTipHit *tip_hit;
   TTigressHit *add_hit, *add_hit2;
-  const std::vector<Short_t> *wf; //for CsI waveform
 
   printf("Reading calibration file: %s\n", calfile);
   TChannel::ReadCalFile(calfile);
 
   printf("\nSorting analysis events...\n");
-  for (int jentry = 0; jentry < analentries; jentry++){
+  for(Long64_t jentry = 0; jentry < analentries; jentry++){
 
     if(AnalysisTree->GetEntry(jentry) == 0){
       //entry not read successfully
@@ -108,22 +105,20 @@ void EEDopp_PIDsep::SortData(char const *afile, char const *calfile, char const 
               if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                 numTigABHits++;
                 add_hit = tigress->GetAddbackHit(tigHitIndAB);
-                suppAdd = add_hit->BGOFired();
                 //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                if(!suppAdd && add_hit->GetEnergy() > 15){
+                if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
                   //TIGRESS PID separated addback energy
                   double eDopp1 = getEDoppFusEvap(add_hit,tip,passedtimeGate,gates);
                   for(int tigHitIndAB2=tigHitIndAB+1;tigHitIndAB2<tigress->GetAddbackMultiplicity();tigHitIndAB2++){
-                    add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
-                    suppAdd = add_hit->BGOFired();
-                    if(!suppAdd && add_hit2->GetEnergy() > 15){
-                      double eDopp2 = getEDoppFusEvap(add_hit2,tip,passedtimeGate,gates);
-                      tigEE_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp1,eDopp2);
-                      tigEE_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp2,eDopp1); //symmetrized
+                    if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
+                      add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
+                      if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
+                        double eDopp2 = getEDoppFusEvap(add_hit2,tip,passedtimeGate,gates);
+                        tigEE_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp1,eDopp2);
+                        tigEE_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp2,eDopp1); //symmetrized
+                      }
                     }
                   }
-                  
-                  
                 }
               }
             }
@@ -160,6 +155,7 @@ void EEDopp_PIDsep::SortData(char const *afile, char const *calfile, char const 
 
   myfile->Write();
   myfile->Close();
+  analysisfile->Close();
 }
 
 int main(int argc, char **argv){
