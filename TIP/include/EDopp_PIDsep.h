@@ -32,6 +32,7 @@ TList *tigPIDSepList[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1], *tipPIDSepList;
 //TIGRESS PID Separated plots
 TH1F *tigE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 TH1F *tigE_xayp_ring[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1][NTIGRING];
+TH1F *tigE_xayp_segring[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1][NTIGSEGRING];
 
 //TIP PID Separated plots
 TH1F *tipE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
@@ -95,6 +96,13 @@ void EDopp_PIDsep::Initialise(){
           tigE_xayp_ring[i][j][k]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
           tigE_xayp_ring[i][j][k]->GetYaxis()->SetTitle("Counts");
           tigPIDSepList[i][j]->Add(tigE_xayp_ring[i][j][k]);
+        }
+        for(int k=0; k<NTIGSEGRING; k++){
+          //TIGRESS segment ring spectra
+          tigE_xayp_segring[i][j][k] = new TH1F(Form("Segment ring %i TIGRESS Doppler correctedaddback energy (%ip%ia gate)",k+1,i,j),Form("Segment ring %i TIGRESS Doppler corrected addback energy (%ip%ia gate)",k+1,i,j),8192,0,8192);
+          tigE_xayp_segring[i][j][k]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
+          tigE_xayp_segring[i][j][k]->GetYaxis()->SetTitle("Counts");
+          tigPIDSepList[i][j]->Add(tigE_xayp_segring[i][j][k]);
         }
       }
     }

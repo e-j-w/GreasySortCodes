@@ -1,5 +1,5 @@
-#ifndef TTGamma_PIDsep_h
-#define TTGamma_PIDsep_h
+#ifndef TTipTGamma_PIDsep_h
+#define TTipTGamma_PIDsep_h
 
 #include <iostream>
 #include <iomanip>
@@ -30,18 +30,17 @@ TApplication *theApp;
 
 TList *tttimeList;
 
-//TIGRESS PID Separated plots
-TH1F *tigTT;
+TH2F *tipTtigT_tigE, *tipTtigT_doppE, *EEGamma, *EEDopp;
 
 PIDGates *gates;
 
-class TTGamma_PIDsep{
+class TTipTGamma_PIDsep{
 	public :
 
-		TTGamma_PIDsep(){;}
+		TTipTGamma_PIDsep(){;}
     void WriteData(char const *outfile);
-		void SortData(char const *afile, char const *calfile, const int nP, const int nA, const float Elow_start, const float Ehigh_start, const float Elow_stop, const float Ehigh_stop);
-		void Initialise(const int nP, const int nA, const float Elow_start, const float Ehigh_start, const float Elow_stop, const float Ehigh_stop);
+		void SortData(char const *afile, char const *calfile, const int nP, const int nA);
+		void Initialise(const int nP, const int nA);
 };
 #endif
 

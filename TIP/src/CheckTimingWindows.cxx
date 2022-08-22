@@ -76,14 +76,14 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
 
       numTipTigHits++;
 
-      uint64_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
-      if(passedtimeGate&(1ULL<<61)){
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip,2,2); //also rejects pileup
+      if(passedtimeGate&(1ULL<<TIPTIPFLAG)){
         numPassTipTip++;
       }
-      if(passedtimeGate&(1ULL<<62)){
+      if(passedtimeGate&(1ULL<<TIGTIGFLAG)){
         numPassTigTig++;
       }
-      if(passedtimeGate&(1ULL<<63)){
+      if(passedtimeGate&(1ULL<<TIPTIGFLAG)){
         numPassTipTig++;
       }
 
@@ -179,8 +179,10 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
 
       tiptig_mult->Fill(tip->GetMultiplicity(),tigress->GetMultiplicity());
       tiptig_multSupp->Fill(tip->GetMultiplicity(),tigSuppMult);
-      tiptig_multPassed->Fill(tipMultPassed,tigMultPassed);
-      tiptig_multSuppPassed->Fill(tipMultPassed,tigSuppMultPassed);
+      if(tipMultPassed>0 || tigMultPassed>0){
+        tiptig_multPassed->Fill(tipMultPassed,tigMultPassed);
+        tiptig_multSuppPassed->Fill(tipMultPassed,tigSuppMultPassed);
+      }
 
     }
 

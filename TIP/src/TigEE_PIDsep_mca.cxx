@@ -1,16 +1,31 @@
-//Generates TIGRESS Doppler-corrected gamma-gated gamma ray spectra for PID and time separated data
+//Generates TIGRESS gamma-gated gamma ray spectra for PID and time separated data
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define EDopp_PIDsep_mca_cxx
+#define TigEE_PIDsep_mca_cxx
 #include "common.h"
-#include "EDopp_PIDsep_mca.h"
+#include "TigEE_PIDsep_mca.h"
 
 using namespace std;
 
-void EDopp_PIDsep_mca::WriteData(const unsigned int numP, const unsigned int numA, const int gateEmin, const int gateEmax, const int writeProj){
+void TigEE_PIDsep_mca::WriteData(const unsigned int mode, const unsigned int numP, const unsigned int numA, const int gateEmin, const int gateEmax, const int writeProj){
 
-  char const *outName = Form("EDopp_%up%ua_c%iw%i_gated.fmca",numP,numA,(gateEmax+gateEmin)/2,gateEmax-gateEmin);
+  char const *outName;
+  switch(mode){
+    case 3:
+      outName = Form("EDoppProjGamma_%up%ua_c%iw%i_gated.fmca",numP,numA,(gateEmax+gateEmin)/2,gateEmax-gateEmin);
+      break;
+    case 2:
+      outName = Form("EGammaProjDopp_%up%ua_c%iw%i_gated.fmca",numP,numA,(gateEmax+gateEmin)/2,gateEmax-gateEmin);
+      break;
+    case 1:
+      outName = Form("EDopp_%up%ua_c%iw%i_gated.fmca",numP,numA,(gateEmax+gateEmin)/2,gateEmax-gateEmin);
+      break;
+    default:
+      outName = Form("EGamma_%up%ua_c%iw%i_gated.fmca",numP,numA,(gateEmax+gateEmin)/2,gateEmax-gateEmin);
+      break;
+  }
+  
   cout << "Writing gated histogram to: " << outName << endl;
 
   FILE *out;
@@ -41,7 +56,7 @@ void EDopp_PIDsep_mca::WriteData(const unsigned int numP, const unsigned int num
 
 }
 
-void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const unsigned int numP, const unsigned int numA, const int gateEmin, const int gateEmax, double keVPerBin, const int writeProj){
+void TigEE_PIDsep_mca::SortData(char const *afile, char const *calfile, const unsigned int mode, const unsigned int numP, const unsigned int numA, const int gateEmin, const int gateEmax, double keVPerBin, const int writeProj){
 
   Initialise();
 
@@ -125,6 +140,9 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
         }
       }
       
+      double eAB = 0.0;
+      
+      uint64_t coincGammas = 0;
       if(evtNumProtons==numP){
         if(evtNumAlphas==numA){
           if((evtNumProtons+evtNumAlphas)<=MAX_NUM_PARTICLE){
@@ -133,20 +151,25 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
               if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                 add_hit = tigress->GetAddbackHit(tigHitIndAB);
                 //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
+                if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15.0){
                   //TIGRESS PID separated addback energy
-                  double eDopp1 = getEDoppFusEvap(add_hit,tip,passedtimeGate,gates);
-                  if(eDopp1 < gateEmax){
-                    if(eDopp1 > gateEmin){
+                  switch(mode){
+                    case 3:
+                    case 1:
+                      eAB = getEDoppFusEvap(add_hit,tip,passedtimeGate,gates);
+                      break;
+                    default:
+                      eAB = add_hit->GetEnergy();
+                      break;
+                  }
+                  if(eAB < gateEmax){
+                    if(eAB > gateEmin){
                       for(int tigHitIndAB2=0;tigHitIndAB2<tigress->GetAddbackMultiplicity();tigHitIndAB2++){
                         if(tigHitIndAB != tigHitIndAB2){
                           if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
                             add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
-                            if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
-                              int eDopp2 = (int)(getEDoppFusEvap(add_hit2,tip,passedtimeGate,gates)/keVPerBin);
-                              if(eDopp2>=0 && eDopp2<S32K){
-                                mcaOut[getTIGRESSRing(add_hit2->GetPosition().Theta()*180./PI)+1][eDopp2]++;
-                              }
+                            if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15.0){
+                              coincGammas |= (1U << tigHitIndAB2); //flag gamma as in coincidence
                             }
                           }
                         }
@@ -154,7 +177,7 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
                     }
                   }
                   if(writeProj){
-                    int projE = (int)(eDopp1/keVPerBin);
+                    int projE = (int)(eAB/keVPerBin);
                     if(projE>=0 && projE < S32K){
                       mcaProjOut[getTIGRESSRing(add_hit->GetPosition().Theta()*180./PI)+1][projE]++;
                     }
@@ -163,6 +186,25 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
                 }
               }
             }
+
+            int eCoinc = 0;
+            for(int i=0;i<tigress->GetAddbackMultiplicity();i++){
+              if(coincGammas&(1U<<i)){
+                switch(mode){
+                  case 2:
+                  case 1:
+                    eCoinc = (int)(getEDoppFusEvap(tigress->GetAddbackHit(i),tip,passedtimeGate,gates)/keVPerBin);
+                    break;
+                  default:
+                    eCoinc = (int)(tigress->GetAddbackHit(i)->GetEnergy()/keVPerBin);
+                    break;
+                }
+                if(eCoinc>=0 && eCoinc<S32K){
+                  mcaOut[getTIGRESSRing(tigress->GetAddbackHit(i)->GetPosition().Theta()*180./PI)+1][eCoinc]++;
+                }
+              }
+            }
+
           }else{
             cout << "Event " << jentry << " has too many charged particles (" << evtNumProtons+evtNumAlphas << ")!" << endl;
           }
@@ -184,10 +226,11 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
 
 int main(int argc, char **argv){
 
-  EDopp_PIDsep_mca *mysort = new EDopp_PIDsep_mca();
+  TigEE_PIDsep_mca *mysort = new TigEE_PIDsep_mca();
 
   char const *afile;
   char const *calfile;
+  unsigned int mode;
   unsigned int numP, numA;
   int gateEmin, gateEmax;
   double keVPerBin = 1.0;
@@ -205,9 +248,13 @@ int main(int argc, char **argv){
   TParserLibrary::Get()->Load();
 
   // Input-chain-file, output-histogram-file
-  if((argc != 7)&&(argc != 8)&&(argc != 9)){
+  if((argc != 8)&&(argc != 9)&&(argc !=10)){
     cout << "Generates TIGRESS mca spectra for Doppler corrected, PID and time separated data." << endl;
-    cout << "Arguments: EDopp_PIDsep_mca analysis_tree calibration_file numP numA gateE_min gateE_max keV_per_bin write_proj" << endl;
+    cout << "Arguments: TigEE_PIDsep_mca analysis_tree calibration_file mode numP numA gateE_min gateE_max keV_per_bin write_proj" << endl;
+    cout << "  *mode*: 0 = gate on stopped energy, project out stopped energy" << endl;
+    cout << "          1 = gate on Doppler corrected, project out Doppler corrected" << endl;
+    cout << "          2 = gate on stopped energy, project out Doppler corrected" << endl;
+    cout << "          3 = gate on Doppler corrected, project out stopped energy" << endl;
     cout << "  *analysis_tree* can be a single tree (extension .root) or a" << endl;
     cout << "  plaintext list of trees (one per line, extension .list)." << endl;
     cout << "  *keV_per_bin* defaults to 1." << endl;
@@ -216,18 +263,23 @@ int main(int argc, char **argv){
   }else{
     afile = argv[1];
     calfile = argv[2];
-    numP = (unsigned int)atoi(argv[3]);
-    numA = (unsigned int)atoi(argv[4]);
-    gateEmin = atoi(argv[5]);
-    gateEmax = atoi(argv[6]);
-    if(argc > 7){
-      keVPerBin = atof(argv[7]);
-      if(argc == 9){
-        writeProj = atoi(argv[8]);
+    mode = (unsigned int)atoi(argv[3]);
+    numP = (unsigned int)atoi(argv[4]);
+    numA = (unsigned int)atoi(argv[5]);
+    gateEmin = atoi(argv[6]);
+    gateEmax = atoi(argv[7]);
+    if(argc > 8){
+      keVPerBin = atof(argv[8]);
+      if(argc == 10){
+        writeProj = atoi(argv[9]);
       }
     }
   }
 
+  if(mode>3){
+    cout << "ERROR: invalid sort mode (" << mode << ")." << endl;
+    return 0;
+  }
   if(gateEmax <= gateEmin){
     cout << "ERROR: Energy gate is zero or negative width!" << endl;
     return 0;
@@ -251,12 +303,26 @@ int main(int argc, char **argv){
     cout << "Analysis tree: " << afile << endl;
     cout << "Calibration file: " << calfile << endl;
     cout << "Gating on " << numP << " protons, " << numA << " alphas." << endl;
-    cout << "Energy gate: [" << gateEmin << " " << gateEmax << "]" << endl;
+    switch(mode){
+      case 3:
+        cout << "Energy gate is Doppler corrected, will project out uncorrected energies." << endl;
+        break;
+      case 2:
+        cout << "Energy gate is not Doppler corrected, will project out Doppler corrected energies." << endl;
+        break;
+      case 1:
+        cout << "Energy gate is Doppler corrected, will project out Doppler corrected energies." << endl;
+        break;
+      default:
+        cout << "Energy gate is not Doppler corrected, will project out uncorrected energies." << endl;
+        break;
+    }
+    cout << "Energy gate: [" << gateEmin << " " << gateEmax << "] keV" << endl;
     cout << "Written spectra will have " << keVPerBin << " keV per bin." << endl;
 
     theApp=new TApplication("App", &argc, argv);
 
-    mysort->SortData(afile, calfile, numP, numA, gateEmin, gateEmax, keVPerBin, writeProj);
+    mysort->SortData(afile, calfile, mode, numP, numA, gateEmin, gateEmax, keVPerBin, writeProj);
 
   }else if(strcmp(dot + 1, "list") == 0){
 
@@ -264,7 +330,21 @@ int main(int argc, char **argv){
     cout << "Analysis tree list: " << afile << endl;
     cout << "Calibration file: " << calfile << endl;
     cout << "Gating on " << numP << " protons, " << numA << " alphas." << endl;
-    cout << "Energy gate: [" << gateEmin << " " << gateEmax << "]" << endl;
+    switch(mode){
+      case 3:
+        cout << "Energy gate is Doppler corrected, will project out uncorrected energies." << endl;
+        break;
+      case 2:
+        cout << "Energy gate is not Doppler corrected, will project out Doppler corrected energies." << endl;
+        break;
+      case 1:
+        cout << "Energy gate is Doppler corrected, will project out Doppler corrected energies." << endl;
+        break;
+      default:
+        cout << "Energy gate is not Doppler corrected, will project out uncorrected energies." << endl;
+        break;
+    }
+    cout << "Energy gate: [" << gateEmin << " " << gateEmax << "] keV" << endl;
     cout << "Written spectra will have " << keVPerBin << " keV per bin." << endl;
 
     theApp=new TApplication("App", &argc, argv);
@@ -279,7 +359,7 @@ int main(int argc, char **argv){
       while(!(feof(listfile))){//go until the end of file is reached
         if(fgets(str,256,listfile)!=NULL){ //get an entire line
           str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          mysort->SortData(str, calfile, numP, numA, gateEmin, gateEmax, keVPerBin, writeProj);
+          mysort->SortData(str, calfile, mode, numP, numA, gateEmin, gateEmax, keVPerBin, writeProj);
         }
       }
     }
@@ -288,10 +368,8 @@ int main(int argc, char **argv){
     cout << "ERROR: Invalid analysis tree file type!" << endl;
     return 0;
   }
-
   
-  mysort->WriteData(numP, numA, gateEmin, gateEmax, writeProj);
-  
+  mysort->WriteData(mode, numP, numA, gateEmin, gateEmax, writeProj);
 
   return 0;
 }

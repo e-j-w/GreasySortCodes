@@ -76,7 +76,7 @@ void EDopp_PIDsep::SortData(char const *afile, char const *calfile, char const *
         continue;
       }
 
-      uint64_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip,2,2); //also rejects pileup
 
       //count the number of protons or alphas
       for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
@@ -112,8 +112,10 @@ void EDopp_PIDsep::SortData(char const *afile, char const *calfile, char const *
                 if(!suppAdd && add_hit->GetEnergy() > 15){
                   //TIGRESS PID separated addback energy
                   double eDopp = getEDoppFusEvap(add_hit,tip,passedtimeGate,gates);
+                  double_t thetaDeg = add_hit->GetPosition().Theta()*180./PI;
                   tigE_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp);
-                  tigE_xayp_ring[evtNumProtons][evtNumAlphas][getTIGRESSRing(add_hit->GetPosition().Theta()*180./PI)]->Fill(eDopp);
+                  tigE_xayp_ring[evtNumProtons][evtNumAlphas][getTIGRESSRing(thetaDeg)]->Fill(eDopp);
+                  tigE_xayp_segring[evtNumProtons][evtNumAlphas][getTIGRESSSegmentRing(thetaDeg)]->Fill(eDopp);
                 }
               }
             }

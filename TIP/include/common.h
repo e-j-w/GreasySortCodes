@@ -17,6 +17,7 @@ using namespace std;
 #define NTIP 128 //number of TIP channels
 #define NTIPRING 10 //number of TIP rings
 #define NTIGRING 6 //number of TIGRESS rings
+#define NTIGSEGRING 12 //number of TIGRESS segment rings
 
 #define MAX_NUM_PARTICLE 4 //maximum particle multiplicity
 
@@ -39,7 +40,7 @@ using namespace std;
 //timing windows
 static Double_t tigtigTGate[2] = {-60, 60}; // TIGRESS - TIGRESS timing window (ns)
 static Double_t tiptipTGate[2] = {-200, 200}; // TIP - TIP fit timing window (ns)
-static Double_t tiptigTGate[2] = {-1500, -1100}; // TIP - TIGRESS timing window (ns)
+static Double_t tiptigTGate[2] = {-1400, -1120}; // TIP - TIGRESS timing window (ns)
 static Double_t tigBGOTGate[2] = {0, 380}; // TIGRESS - BGO timing window (ns)
 
 //PID gates
@@ -67,7 +68,7 @@ bool ExptSuppression(TDetectorHit* tig, TBgoHit& bgo);
 bool gate1D(const Double_t value, const Double_t min, const Double_t max);
 Int_t getTIPRing(const Int_t tipPosition);
 Int_t getTIGRESSRing(const float theta);
-uint64_t passesTimeGate(TTigress *tigress, TTip *tip);
-uint64_t passesTimeGate1Tip2Tig(TTigress *tigress, TTip *tip); //timing without requiring TIP-TIP coinc
+Int_t getTIGRESSSegmentRing(const float theta);
+uint64_t passesTimeGate(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit);
 
 #endif

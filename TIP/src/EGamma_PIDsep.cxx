@@ -76,7 +76,7 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
         continue;
       }
 
-      uint64_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip,1,2); //also rejects pileup
 
       //count the number of protons or alphas
       for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
@@ -110,8 +110,10 @@ void EGamma_PIDsep::SortData(char const *afile, char const *calfile, char const 
                 //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
                 if(!suppAdd && add_hit->GetEnergy() > 15){
                   //TIGRESS PID separated addback energy
+                  double_t thetaDeg = add_hit->GetPosition().Theta()*180./PI;
                   tigE_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit->GetEnergy());
-                  tigE_xayp_ring[evtNumProtons][evtNumAlphas][getTIGRESSRing(add_hit->GetPosition().Theta()*180./PI)]->Fill(add_hit->GetEnergy());
+                  tigE_xayp_ring[evtNumProtons][evtNumAlphas][getTIGRESSRing(thetaDeg)]->Fill(add_hit->GetEnergy());
+                  tigE_xayp_segring[evtNumProtons][evtNumAlphas][getTIGRESSSegmentRing(thetaDeg)]->Fill(add_hit->GetEnergy());
                 }
               }
             }

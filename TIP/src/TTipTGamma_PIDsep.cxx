@@ -2,29 +2,44 @@
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define TTGamma_PIDsep_cxx
+#define TTipTGamma_PIDsep_cxx
 #include "common.h"
-#include "TTGamma_PIDsep.h"
+#include "TTipTGamma_PIDsep.h"
 
 using namespace std;
 
-void TTGamma_PIDsep::Initialise(const int nP, const int nA, const float Elow_start, const float Ehigh_start, const float Elow_stop, const float Ehigh_stop){
+void TTipTGamma_PIDsep::Initialise(const int nP, const int nA){
 
   printf("Start initialization\n");
   printf("Creating lists\n");
 
   tttimeList = new TList;
 
-  tigTT = new TH1F(Form("TIGRESS-TIGRESS timing (%ip%ia gate, start %8.2f-%8.2f keV, stop  %8.2f-%8.2f keV)",nP,nA,Elow_start,Ehigh_start,Elow_stop,Ehigh_stop),Form("TIGRESS-TIGRESS timing (%ip%ia gate, start %8.2f-%8.2f keV, stop  %8.2f-%8.2f keV)",nP,nA,Elow_start,Ehigh_start,Elow_stop,Ehigh_stop),4096,-1024,1024);
-  tigTT->GetXaxis()->SetTitle("t_{diff} (ns)");
-  tigTT->GetYaxis()->SetTitle("Counts");
-  tttimeList->Add(tigTT);
+  tipTtigT_tigE = new TH2F(Form("TIP-TIGRESS timing (%ip%ia gate) vs. Addback energy",nP,nA),Form("TIP-TIGRESS timing (%ip%ia gate) vs. Addback energy",nP,nA),4096,0,4096,2048,0,2048);
+  tipTtigT_tigE->GetYaxis()->SetTitle("t_{TIG} - t_{TIP} (ns)");
+  tipTtigT_tigE->GetXaxis()->SetTitle("Addback energy (keV)");
+  tttimeList->Add(tipTtigT_tigE);
+
+  tipTtigT_doppE = new TH2F(Form("TIP-TIGRESS timing (%ip%ia gate) vs. Doppler energy",nP,nA),Form("TIP-TIGRESS timing (%ip%ia gate) vs. Doppler energy",nP,nA),4096,0,4096,2048,0,2048);
+  tipTtigT_doppE->GetYaxis()->SetTitle("t_{TIG} - t_{TIP} (ns)");
+  tipTtigT_doppE->GetXaxis()->SetTitle("Doppler corrected addback energy (keV)");
+  tttimeList->Add(tipTtigT_doppE);
+
+  EEGamma = new TH2F("Addback energy","Addback energy",4096,0,4096,4096,0,4096);
+  EEGamma->GetYaxis()->SetTitle("Addback energy (keV)");
+  EEGamma->GetXaxis()->SetTitle("Addback energy (keV)");
+  tttimeList->Add(EEGamma);
+
+  EEDopp = new TH2F("Doppler energy vs. Doppler energy","Doppler energy vs. Doppler energy",4096,0,4096,4096,0,4096);
+  EEDopp->GetYaxis()->SetTitle("Doppler corrected addback energy (keV)");
+  EEDopp->GetXaxis()->SetTitle("Doppler corrected addback energy (keV)");
+  tttimeList->Add(EEDopp);
 
   //Setup TIP PID gates
   gates = new PIDGates;
 }
 
-void TTGamma_PIDsep::WriteData(char const *outfile){
+void TTipTGamma_PIDsep::WriteData(char const *outfile){
 
   cout << "Event sorting complete" << endl;
   cout << "Writing histograms to " << outfile << endl;
@@ -32,7 +47,7 @@ void TTGamma_PIDsep::WriteData(char const *outfile){
   TFile *myfile = new TFile(outfile, "RECREATE");
   myfile->cd();
 
-  TDirectory *tttimedir = myfile->mkdir("TIG-TIG timing");
+  TDirectory *tttimedir = myfile->mkdir("TIP-TIG timing");
   tttimedir->cd();
   tttimeList->Write();
   myfile->cd();
@@ -42,11 +57,9 @@ void TTGamma_PIDsep::WriteData(char const *outfile){
 
 }
 
-void TTGamma_PIDsep::SortData(char const *afile, char const *calfile, const int nP, const int nA, const float Elow_start, const float Ehigh_start, const float Elow_stop, const float Ehigh_stop){
+void TTipTGamma_PIDsep::SortData(char const *afile, char const *calfile, const int nP, const int nA){
 
   printf("Number of protons: %i, alphas: %i\n", nP, nA);
-  printf("Start gate: %8.2f - %8.2f keV\n", Elow_start, Ehigh_start);
-  printf("Stop gate:  %8.2f - %8.2f keV\n", Elow_stop, Ehigh_stop);
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
   if (!analysisfile->IsOpen()){
@@ -106,7 +119,7 @@ void TTGamma_PIDsep::SortData(char const *afile, char const *calfile, const int 
         continue;
       }
 
-      uint64_t passedtimeGate = passesTimeGate(tigress,tip,2,2); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip,1,(uint8_t)(nP+nA)); //also rejects pileup
 
       if(passedtimeGate&(1ULL<<TIPTIGFLAG)){
         numSeparatedEvents++;
@@ -130,31 +143,43 @@ void TTGamma_PIDsep::SortData(char const *afile, char const *calfile, const int 
           }
         }
         
+        double startTime = -1e30;
         if(evtNumProtons == nP){
+        //if((evtNumProtons >= 1) && (evtNumProtons <= 2)){
           if(evtNumAlphas == nA){
             if(evtNumProtons<=MAX_NUM_PARTICLE){
               if(evtNumAlphas<=MAX_NUM_PARTICLE){
                 if(evtNumProtons+evtNumAlphas<=MAX_NUM_PARTICLE){
+                  for(int tipHitInd=0;tipHitInd<tigress->GetAddbackMultiplicity();tipHitInd++){
+                    if(passedtimeGate&(1ULL<<tipHitInd)){
+                      double fitTime = getTipFitTime(tip->GetTipHit(tipHitInd),tip_waveform_pretrigger);
+                      if(fitTime > startTime){
+                        startTime = fitTime; //the TIP time is the time of the last particle (closest in time to the gamma decay)
+                      }
+                    }
+                  }
                   for(int tigHitIndAB=0;tigHitIndAB<tigress->GetAddbackMultiplicity();tigHitIndAB++){
                     if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                       add_hit = tigress->GetAddbackHit(tigHitIndAB);
                       //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
                       if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
-                        if(add_hit->GetEnergy() >= Elow_start){
-                          if(add_hit->GetEnergy() <= Ehigh_start){
-                            for(int tigHitIndAB2=0;tigHitIndAB2<tigress->GetAddbackMultiplicity();tigHitIndAB2++){
-                              if(tigHitIndAB2!=tigHitIndAB){
-                                if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
-                                  add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
-                                  if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
-                                    if(add_hit2->GetEnergy() >= Elow_stop){
-                                      if(add_hit2->GetEnergy() <= Ehigh_stop){
-                                        cout << "Hit 1: " << add_hit->GetEnergy() << " keV, t=" << add_hit->GetTime() << ", Hit 2: " << add_hit2->GetEnergy() << " keV, t=" << add_hit2->GetTime() << ", tdiff=" << (add_hit2->GetTime() - add_hit->GetTime()) << endl;
-                                        tigTT->Fill(add_hit2->GetTime() - add_hit->GetTime());
-                                      }
-                                    }
-                                  }
-                                }
+                        tipTtigT_tigE->Fill(add_hit->GetEnergy(),add_hit->GetTime() - startTime);
+                        tipTtigT_doppE->Fill(getEDoppFusEvap(add_hit,tip,passedtimeGate,gates),add_hit->GetTime() - startTime);
+                      }
+                    }
+                  }
+                  if(tigress->GetAddbackMultiplicity()>=2){
+                    for(int tigHitIndAB=0;tigHitIndAB<tigress->GetAddbackMultiplicity();tigHitIndAB++){
+                      if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
+                        add_hit = tigress->GetAddbackHit(tigHitIndAB);
+                        //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
+                        if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
+                          for(int tigHitIndAB2=tigHitIndAB+1;tigHitIndAB2<tigress->GetAddbackMultiplicity();tigHitIndAB2++){
+                            if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
+                              add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
+                              if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
+                                EEGamma->Fill(add_hit->GetEnergy(),add_hit2->GetEnergy());
+                                EEDopp->Fill(getEDoppFusEvap(add_hit,tip,passedtimeGate,gates),getEDoppFusEvap(add_hit2,tip,passedtimeGate,gates));
                               }
                             }
                           }
@@ -191,15 +216,11 @@ void TTGamma_PIDsep::SortData(char const *afile, char const *calfile, const int 
 
 int main(int argc, char **argv){
 
-  TTGamma_PIDsep *mysort = new TTGamma_PIDsep();
+  TTipTGamma_PIDsep *mysort = new TTipTGamma_PIDsep();
 
   char const *afile;
   char const *outfile;
   char const *calfile;
-  float Elow_start = 0.0f;
-  float Ehigh_start = 0.0f;
-  float Elow_stop = 0.0f;
-  float Ehigh_stop = 0.0f;
   int nP = 0;
   int nA = 0;
   printf("Starting sortcode\n");
@@ -216,47 +237,31 @@ int main(int argc, char **argv){
 
   // Input-chain-file, output-histogram-file
   if(argc == 1){
-    cout << "Plots TIGRESS timing spectra for PID and time separated data." << endl;
-    cout << "Arguments: TTGamma_PIDsep analysis_tree calibration_file nP nA Elow_start EHigh_start Elow_stop Ehigh_stop output_file" << endl;
+    cout << "Plots TIP-TIGRESS timing spectra for PID and time separated data." << endl;
+    cout << "Arguments: TTipTGamma_PIDsep analysis_tree calibration_file nP nA output_file" << endl;
     cout << "  *analysis_tree* can be a single tree (extension .root) or a" << endl;
     cout << "  plaintext list of trees (one per line, extension .list)." << endl;
     return 0;
-  }else if(argc == 9){
+  }else if(argc == 5){
     afile = argv[1];
     calfile = argv[2];
     nP = atoi(argv[3]);
     nA = atoi(argv[4]);
-    Elow_start = (float)atof(argv[5]);
-    Ehigh_start = (float)atof(argv[6]);
-    Elow_stop = (float)atof(argv[7]);
-    Ehigh_stop = (float)atof(argv[8]);
     outfile = "Histograms.root";
     printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
-  }else if(argc == 10){
+  }else if(argc == 6){
     afile = argv[1];
     calfile = argv[2];
     nP = atoi(argv[3]);
     nA = atoi(argv[4]);
-    Elow_start = (float)atof(argv[5]);
-    Ehigh_start = (float)atof(argv[6]);
-    Elow_stop = (float)atof(argv[7]);
-    Ehigh_stop = (float)atof(argv[8]);
-    outfile = argv[9];
+    outfile = argv[5];
   }else{
     printf("Too many arguments\nArguments: SortData analysis_tree calibration_file output_file\n");
     return 0;
   }
 
   if((nP < 0)||(nA < 0)){
-    printf("ERROR: invalid number of protons or alphas.\n");
-    return 0;
-  }
-  if(Elow_start > Ehigh_start){
-    printf("ERROR: start gate is invalid.\n");
-    return 0;
-  }
-  if(Elow_stop > Ehigh_stop){
-    printf("ERROR: stop gate is invalid.\n");
+    cout << "ERROR: invalid number of protons or alphas." << endl;
     return 0;
   }
 
@@ -268,9 +273,9 @@ int main(int argc, char **argv){
     printf("Calibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
 
     theApp=new TApplication("App", &argc, argv);
-    mysort->Initialise(nP, nA, Elow_start, Ehigh_start, Elow_stop, Ehigh_stop);
+    mysort->Initialise(nP, nA);
 
-    mysort->SortData(afile, calfile, nP, nA, Elow_start, Ehigh_start, Elow_stop, Ehigh_stop);
+    mysort->SortData(afile, calfile, nP, nA);
 
   }else if(strcmp(dot + 1, "list") == 0){
 
@@ -279,7 +284,7 @@ int main(int argc, char **argv){
     printf("Calibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
 
     theApp=new TApplication("App", &argc, argv);
-    mysort->Initialise(nP, nA, Elow_start, Ehigh_start, Elow_stop, Ehigh_stop);
+    mysort->Initialise(nP, nA);
 
     FILE *listfile;
     char str[256];
@@ -291,7 +296,7 @@ int main(int argc, char **argv){
       while(!(feof(listfile))){//go until the end of file is reached
         if(fgets(str,256,listfile)!=NULL){ //get an entire line
           str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          mysort->SortData(str, calfile, nP, nA, Elow_start, Ehigh_start, Elow_stop, Ehigh_stop);
+          mysort->SortData(str, calfile, nP, nA);
         }
       }
     }

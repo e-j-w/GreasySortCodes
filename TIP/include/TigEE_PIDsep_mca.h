@@ -1,5 +1,5 @@
-#ifndef EGamma_PIDsep_mca_h
-#define EGamma_PIDsep_mca_h
+#ifndef TigEE_PIDsep_mca_h
+#define TigEE_PIDsep_mca_h
 
 #include <iostream>
 #include <iomanip>
@@ -27,22 +27,22 @@ using namespace std;
 TApplication *theApp;
 
 //spectra
-float mcaOut[NTIGRING+1][S32K]; //output .fmca data, sp 0 is sum, sp 1-6 are TIGRESS rings, sp 7-18 are segment rings
+float mcaOut[NTIGRING+1][S32K]; //output .fmca data, sp 0 is sum, sp 1-6 are TIGRESS rings
 float mcaProjOut[NTIGRING+1][S32K]; //output projection
 
 PIDGates *gates;
 
-class EGamma_PIDsep_mca{
+class TigEE_PIDsep_mca{
 	public :
 
-		EGamma_PIDsep_mca(){;}
-		void WriteData(const unsigned int, const unsigned int, const int, const int, const int);
-		void SortData(const char*, const char*, const unsigned int, const unsigned int, const int, const int, double, const int);
+		TigEE_PIDsep_mca(){;}
+		void WriteData(const unsigned int, const unsigned int, const unsigned int, const int, const int, const int);
+		void SortData(const char*, const char*, const unsigned int, const unsigned int, const unsigned int, const int, const int, double, const int);
 		void Initialise();
 };
 #endif
 
-void EGamma_PIDsep_mca::Initialise(){
+void TigEE_PIDsep_mca::Initialise(){
 
   cout << "Creating PID gates." << endl;
 

@@ -103,7 +103,7 @@ void SortDiagnostics::Initialise() {
     tigList->Add(addE_ring[i]);
   }
   addE_theta = new TH2F("Addback Energy vs. theta (segment)", "Addback Energy vs. theta (segment)", 180, 0, 180, 8192, 0, 8192);
-  addE_theta->GetXaxis()->SetTitle("#{theta} (deg)");
+  addE_theta->GetXaxis()->SetTitle("{#theta} (deg)");
   addE_theta->GetYaxis()->SetTitle("Addback Energy");
   tigList->Add(addE_theta);
   tigChan = new TH1F("TIGRESS Channel Number","Tigress Channel Number;Channel;Counts/channel",64,0,64);

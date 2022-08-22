@@ -103,7 +103,7 @@ void EGamma_PIDsep_mca::SortData(char const *afile, char const *calfile, const u
         continue;
       }
 
-      uint64_t passedtimeGate = passesTimeGate(tigress,tip); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip,2,2); //also rejects pileup
 
       //count the number of protons or alphas
       for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
@@ -138,13 +138,15 @@ void EGamma_PIDsep_mca::SortData(char const *afile, char const *calfile, const u
                   double eGamma1 = add_hit->GetEnergy();
                   if(eGamma1 < gateEmax){
                     if(eGamma1 > gateEmin){
-                      for(int tigHitIndAB2=tigHitIndAB+1;tigHitIndAB2<tigress->GetAddbackMultiplicity();tigHitIndAB2++){
-                        if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
-                          add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
-                          if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
-                            int eGamma2 = (int)(add_hit2->GetEnergy()/keVPerBin);
-                            if(eGamma2>=0 && eGamma2<S32K){
-                              mcaOut[getTIGRESSRing(add_hit2->GetPosition().Theta()*180./PI)+1][eGamma2]++;
+                      for(int tigHitIndAB2=0;tigHitIndAB2<tigress->GetAddbackMultiplicity();tigHitIndAB2++){
+                        if(tigHitIndAB != tigHitIndAB2){
+                          if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
+                            add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
+                            if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
+                              int eGamma2 = (int)(add_hit2->GetEnergy()/keVPerBin);
+                              if(eGamma2>=0 && eGamma2<S32K){
+                                mcaOut[getTIGRESSRing(add_hit2->GetPosition().Theta()*180./PI)+1][eGamma2]++;
+                              }
                             }
                           }
                         }
@@ -286,10 +288,8 @@ int main(int argc, char **argv){
     cout << "ERROR: Invalid analysis tree file type!" << endl;
     return 0;
   }
-
   
   mysort->WriteData(numP, numA, gateEmin, gateEmax, writeProj);
-  
 
   return 0;
 }
