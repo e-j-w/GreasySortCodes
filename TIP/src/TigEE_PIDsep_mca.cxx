@@ -58,8 +58,6 @@ void TigEE_PIDsep_mca::WriteData(const unsigned int mode, const unsigned int num
 
 void TigEE_PIDsep_mca::SortData(char const *afile, char const *calfile, const unsigned int mode, const unsigned int numP, const unsigned int numA, const int gateEmin, const int gateEmax, double keVPerBin, const int writeProj){
 
-  Initialise();
-
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
   if(!analysisfile->IsOpen()){
     printf("Opening file %s failed, aborting\n", afile);
@@ -118,7 +116,7 @@ void TigEE_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
         continue;
       }
 
-      uint64_t passedtimeGate = passesTimeGate(tigress,tip,2,2); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip,2,numP+numA); //also rejects pileup
 
       //count the number of protons or alphas
       for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
@@ -179,7 +177,10 @@ void TigEE_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
                   if(writeProj){
                     int projE = (int)(eAB/keVPerBin);
                     if(projE>=0 && projE < S32K){
-                      mcaProjOut[getTIGRESSRing(add_hit->GetPosition().Theta()*180./PI)+1][projE]++;
+                      double_t thetaDeg = add_hit->GetPosition().Theta()*180./PI;
+                      mcaProjOut[getTIGRESSRing(thetaDeg)+1][projE]++;
+                      mcaProjOut[getTIGRESSSegmentRing(thetaDeg)+7][projE]++;
+                      mcaProjOut[0][projE]++;
                     }
                   }
                   
@@ -200,7 +201,10 @@ void TigEE_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
                     break;
                 }
                 if(eCoinc>=0 && eCoinc<S32K){
-                  mcaOut[getTIGRESSRing(tigress->GetAddbackHit(i)->GetPosition().Theta()*180./PI)+1][eCoinc]++;
+                  double_t thetaDeg = tigress->GetAddbackHit(i)->GetPosition().Theta()*180./PI;
+                  mcaOut[getTIGRESSRing(thetaDeg)+1][eCoinc]++;
+                  mcaOut[getTIGRESSSegmentRing(thetaDeg)+7][eCoinc]++;
+                  mcaOut[0][eCoinc]++;
                 }
               }
             }
@@ -295,6 +299,10 @@ int main(int argc, char **argv){
 
   memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
   memset(mcaProjOut,0,sizeof(mcaProjOut));
+
+  //Setup TIP PID gates
+  cout << "Creating PID gates." << endl;
+  gates = new PIDGates;
 
   const char *dot = strrchr(afile, '.'); //get the file extension
   if(strcmp(dot + 1, "root") == 0){

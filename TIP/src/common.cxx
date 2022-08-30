@@ -410,27 +410,32 @@ uint64_t passesTimeGate(TTigress *tigress, TTip *tip, const uint8_t minTigHit, c
   uint64_t pass = 0;
 
   //evaluate timing conditions
-  if(tip && tigress){
+  if(tigress){
 
-    if(tip->GetMultiplicity()>MAXNUMTIPHIT || tip->GetMultiplicity()<minTipHit){
+    if(!tip && (minTipHit>0)){
+      return 0;
+    }
+    if(tip && (tip->GetMultiplicity()>MAXNUMTIPHIT || tip->GetMultiplicity()<minTipHit)){
       return 0;
     }
     if(tigress->GetAddbackMultiplicity()>MAXNUMTIGHIT || tigress->GetAddbackMultiplicity()<minTigHit){
       return 0;
     }
-    if(minTigHit==0 && minTipHit == 0){
+    if((minTigHit==0) && (minTipHit==0)){
       //no timing condition, pass all valid TIP and TIGRESS hits
-      for(int i=0;i<tip->GetMultiplicity();i++){
-        if(tip->GetTipHit(i)->GetKValue() != noPileupKValue){
-          //pileup
-          continue;
+      if(tip){
+        for(int i=0;i<tip->GetMultiplicity();i++){
+          if(tip->GetTipHit(i)->GetKValue() != noPileupKValue){
+            //pileup
+            continue;
+          }
+          if(tip->GetTipHit(i)->GetPID()<=0){
+            //failed fit
+            continue;
+          }
+          pass |= (1ULL<<i);
+          goodTipTipTime = true;
         }
-        if(tip->GetTipHit(i)->GetPID()<=0){
-          //failed fit
-          continue;
-        }
-        pass |= (1ULL<<i);
-        goodTipTipTime = true;
       }
       for(int i=0;i<tigress->GetAddbackMultiplicity();i++){
         add_hit = tigress->GetAddbackHit(i);
@@ -451,59 +456,61 @@ uint64_t passesTimeGate(TTigress *tigress, TTip *tip, const uint8_t minTigHit, c
       //evaluate timing conditions
 
       //evaluate TIP timing
-      if(tip->GetMultiplicity()>=minTipHit){
-        if(minTipHit>= 2 && tip->GetMultiplicity()>=2){
-          
-          //TIP-TIP timing
-          for(int i=0;i<tip->GetMultiplicity();i++){
-            if(tip->GetTipHit(i)->GetKValue() != noPileupKValue){
-              //pileup
-              continue;
-            }
-            if(tip->GetTipHit(i)->GetPID()<=0){
-              //failed fit
-              continue;
-            }
-            for(int j=i+1;j<tip->GetMultiplicity();j++){
-              if(tip->GetTipHit(j)->GetKValue() != noPileupKValue){
+      if(tip){
+        if(tip->GetMultiplicity()>=minTipHit){
+          if(minTipHit>= 2 && tip->GetMultiplicity()>=2){
+            
+            //TIP-TIP timing
+            for(int i=0;i<tip->GetMultiplicity();i++){
+              if(tip->GetTipHit(i)->GetKValue() != noPileupKValue){
                 //pileup
                 continue;
               }
-              if(tip->GetTipHit(j)->GetPID()<=0){
+              if(tip->GetTipHit(i)->GetPID()<=0){
                 //failed fit
                 continue;
               }
-              double_t fitT1 = getTipFitTime(tip->GetTipHit(i),tip_waveform_pretrigger);
-              double_t fitT2 = getTipFitTime(tip->GetTipHit(j),tip_waveform_pretrigger);
-              if((fitT1 != 0.)&&(fitT2 != 0.)){
-                double_t fitTDiff = fitT1 - fitT2;
-                if(gate1D(fitTDiff,tiptipTGate[0],tiptipTGate[1])){
-                  goodTipTipTime = true;
-                  pass |= (1ULL<<i);
-                  pass |= (1ULL<<j);
+              for(int j=i+1;j<tip->GetMultiplicity();j++){
+                if(tip->GetTipHit(j)->GetKValue() != noPileupKValue){
+                  //pileup
+                  continue;
+                }
+                if(tip->GetTipHit(j)->GetPID()<=0){
+                  //failed fit
+                  continue;
+                }
+                double_t fitT1 = getTipFitTime(tip->GetTipHit(i),tip_waveform_pretrigger);
+                double_t fitT2 = getTipFitTime(tip->GetTipHit(j),tip_waveform_pretrigger);
+                if((fitT1 != 0.)&&(fitT2 != 0.)){
+                  double_t fitTDiff = fitT1 - fitT2;
+                  if(gate1D(fitTDiff,tiptipTGate[0],tiptipTGate[1])){
+                    goodTipTipTime = true;
+                    pass |= (1ULL<<i);
+                    pass |= (1ULL<<j);
+                  }
                 }
               }
             }
-          }
-        }else{
-          //pass all valid TIP hits
-          for(int i=0;i<tip->GetMultiplicity();i++){
-            if(tip->GetTipHit(i)->GetKValue() != noPileupKValue){
-              //pileup
-              continue;
+          }else{
+            //pass all valid TIP hits
+            for(int i=0;i<tip->GetMultiplicity();i++){
+              if(tip->GetTipHit(i)->GetKValue() != noPileupKValue){
+                //pileup
+                continue;
+              }
+              if(tip->GetTipHit(i)->GetPID()<=0){
+                //failed fit
+                continue;
+              }
+              pass |= (1ULL<<i);
+              goodTipTipTime = true;
             }
-            if(tip->GetTipHit(i)->GetPID()<=0){
-              //failed fit
-              continue;
-            }
-            pass |= (1ULL<<i);
-            goodTipTipTime = true;
           }
         }
       }
 
       //evaluate TIGRESS timing
-      if(goodTipTipTime){
+      if(goodTipTipTime || (minTipHit == 0)){
         if(tigress->GetAddbackMultiplicity()>=minTigHit){
           if(minTigHit>=2 && tigress->GetAddbackMultiplicity()>=2){
             for(int i=0;i<tigress->GetAddbackMultiplicity();i++){
@@ -551,7 +558,7 @@ uint64_t passesTimeGate(TTigress *tigress, TTip *tip, const uint8_t minTigHit, c
       }
 
       //evaluate TIP-TIGRESS timing
-      if(goodTigTigTime){
+      if(goodTigTigTime && (minTipHit > 0) && tip){
 
         bool tigHitTipCoinc[MAXNUMTIGHIT];
         for(int i=0;i<MAXNUMTIGHIT;i++){
@@ -602,17 +609,13 @@ uint64_t passesTimeGate(TTigress *tigress, TTip *tip, const uint8_t minTigHit, c
       }
 
       if(goodTipTigTime){
-        pass |= (1ULL<<TIPTIPFLAG);
-        pass |= (1ULL<<TIGTIGFLAG);
         pass |= (1ULL<<TIPTIGFLAG);
-      }else{
-        pass = 0;
-        if(goodTipTipTime){
-          pass |= (1ULL<<TIPTIPFLAG);
-        }
-        if(goodTigTigTime){
-          pass |= (1ULL<<TIGTIGFLAG);
-        }
+      }
+      if(goodTigTigTime){
+        pass |= (1ULL<<TIGTIGFLAG);
+      }
+      if(goodTipTipTime){
+        pass |= (1ULL<<TIPTIPFLAG);
       }
     }
 

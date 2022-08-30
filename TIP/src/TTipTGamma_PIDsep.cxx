@@ -15,22 +15,22 @@ void TTipTGamma_PIDsep::Initialise(const int nP, const int nA){
 
   tttimeList = new TList;
 
-  tipTtigT_tigE = new TH2F(Form("TIP-TIGRESS timing (%ip%ia gate) vs. Addback energy",nP,nA),Form("TIP-TIGRESS timing (%ip%ia gate) vs. Addback energy",nP,nA),4096,0,4096,2048,0,2048);
+  tipTtigT_tigE = new TH2F(Form("TIP-TIGRESS timing (%ip%ia gate) vs. Addback energy",nP,nA),Form("TIP-TIGRESS timing (%ip%ia gate) vs. Addback energy",nP,nA),8192,0,8192,1024,896,1920);
   tipTtigT_tigE->GetYaxis()->SetTitle("t_{TIG} - t_{TIP} (ns)");
   tipTtigT_tigE->GetXaxis()->SetTitle("Addback energy (keV)");
   tttimeList->Add(tipTtigT_tigE);
 
-  tipTtigT_doppE = new TH2F(Form("TIP-TIGRESS timing (%ip%ia gate) vs. Doppler energy",nP,nA),Form("TIP-TIGRESS timing (%ip%ia gate) vs. Doppler energy",nP,nA),4096,0,4096,2048,0,2048);
+  tipTtigT_doppE = new TH2F(Form("TIP-TIGRESS timing (%ip%ia gate) vs. Doppler energy",nP,nA),Form("TIP-TIGRESS timing (%ip%ia gate) vs. Doppler energy",nP,nA),8192,0,8192,1024,896,1920);
   tipTtigT_doppE->GetYaxis()->SetTitle("t_{TIG} - t_{TIP} (ns)");
   tipTtigT_doppE->GetXaxis()->SetTitle("Doppler corrected addback energy (keV)");
   tttimeList->Add(tipTtigT_doppE);
 
-  EEGamma = new TH2F("Addback energy","Addback energy",4096,0,4096,4096,0,4096);
+  EEGamma = new TH2F("Addback energy","Addback energy",4096,0,8192,4096,0,8192);
   EEGamma->GetYaxis()->SetTitle("Addback energy (keV)");
   EEGamma->GetXaxis()->SetTitle("Addback energy (keV)");
   tttimeList->Add(EEGamma);
 
-  EEDopp = new TH2F("Doppler energy vs. Doppler energy","Doppler energy vs. Doppler energy",4096,0,4096,4096,0,4096);
+  EEDopp = new TH2F("Doppler energy vs. Doppler energy","Doppler energy vs. Doppler energy",4096,0,8192,4096,0,8192);
   EEDopp->GetYaxis()->SetTitle("Doppler corrected addback energy (keV)");
   EEDopp->GetXaxis()->SetTitle("Doppler corrected addback energy (keV)");
   tttimeList->Add(EEDopp);

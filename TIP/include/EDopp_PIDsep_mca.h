@@ -4,12 +4,8 @@
 #include <iostream>
 #include <iomanip>
 #include "TCutG.h"
-#include "TH1.h"
-#include "TF1.h"
-#include "TCutG.h"
 #include "TTree.h"
 #include "TChain.h"
-#include "TH2.h"
 #include "TFile.h"
 #include "TDirectory.h"
 #include "TList.h"
@@ -27,8 +23,7 @@ using namespace std;
 TApplication *theApp;
 
 //spectra
-float mcaOut[NTIGRING+1][S32K]; //output .fmca data, sp 0 is sum, sp 1-6 are TIGRESS rings
-float mcaProjOut[NTIGRING+1][S32K]; //output projection
+float mcaOut[NTIGRING+NTIGSEGRING+1][S32K]; //output .fmca data, sp 0 is sum, sp 1-6 are TIGRESS rings, sp 7-18 are segment rings
 
 PIDGates *gates;
 
@@ -36,18 +31,10 @@ class EDopp_PIDsep_mca{
 	public :
 
 		EDopp_PIDsep_mca(){;}
-		void WriteData(const unsigned int, const unsigned int, const int, const int, const int);
-		void SortData(const char*, const char*, const unsigned int, const unsigned int, const int, const int, double, const int);
-		void Initialise();
+		void WriteData(const unsigned int, const unsigned int);
+		void SortData(const char*, const char*, const unsigned int, const unsigned int, double);
+
 };
+
 #endif
-
-void EDopp_PIDsep_mca::Initialise(){
-
-  cout << "Creating PID gates." << endl;
-
-  //Setup TIP PID gates
-  gates = new PIDGates;
-
-}
 

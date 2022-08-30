@@ -27,8 +27,8 @@ using namespace std;
 TApplication *theApp;
 
 //spectra
-float mcaOut[NTIGRING+1][S32K]; //output .fmca data, sp 0 is sum, sp 1-6 are TIGRESS rings
-float mcaProjOut[NTIGRING+1][S32K]; //output projection
+float mcaOut[NTIGRING+NTIGSEGRING+1][S32K]; //output .fmca data, sp 0 is sum, sp 1-6 are TIGRESS rings
+float mcaProjOut[NTIGRING+NTIGSEGRING+1][S32K]; //output projection
 
 PIDGates *gates;
 
@@ -38,16 +38,7 @@ class TigEE_PIDsep_mca{
 		TigEE_PIDsep_mca(){;}
 		void WriteData(const unsigned int, const unsigned int, const unsigned int, const int, const int, const int);
 		void SortData(const char*, const char*, const unsigned int, const unsigned int, const unsigned int, const int, const int, double, const int);
-		void Initialise();
 };
 #endif
 
-void TigEE_PIDsep_mca::Initialise(){
-
-  cout << "Creating PID gates." << endl;
-
-  //Setup TIP PID gates
-  gates = new PIDGates;
-
-}
 
