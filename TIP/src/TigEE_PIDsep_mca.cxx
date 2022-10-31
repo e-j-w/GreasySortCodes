@@ -39,7 +39,18 @@ void TigEE_PIDsep_mca::WriteData(const unsigned int mode, const unsigned int num
 
   if(writeProj){
 
-    char const *projName = Form("EDopp_%up%ua_proj.fmca",numP,numA);
+    char const *projName;
+    switch(mode){
+      case 3:
+      case 1:
+        projName = Form("EDopp_%up%ua_proj.fmca",numP,numA);
+        break;
+      case 2:
+      default:
+        projName = Form("EGamma_%up%ua_proj.fmca",numP,numA);
+        break;
+    }
+    
     cout << "Writing projection histogram to: " << projName << endl;
 
     FILE *projOut;
@@ -149,7 +160,7 @@ void TigEE_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
               if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                 add_hit = tigress->GetAddbackHit(tigHitIndAB);
                 //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15.0){
+                if(!add_hit->BGOFired() && add_hit->GetEnergy() > MIN_TIG_EAB){
                   //TIGRESS PID separated addback energy
                   switch(mode){
                     case 3:
@@ -166,7 +177,7 @@ void TigEE_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
                         if(tigHitIndAB != tigHitIndAB2){
                           if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
                             add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
-                            if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15.0){
+                            if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > MIN_TIG_EAB){
                               coincGammas |= (1U << tigHitIndAB2); //flag gamma as in coincidence
                             }
                           }

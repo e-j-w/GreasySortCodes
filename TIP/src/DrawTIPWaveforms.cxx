@@ -30,8 +30,7 @@ TApplication *theApp;
 void SortData(char const *afile, char const *calfile, const Int_t goodPID, const Int_t channel){
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
-  if (!analysisfile->IsOpen())
-  {
+  if(!analysisfile->IsOpen()){
     printf("Opening file %s failed, aborting\n", afile);
     return;
   }
@@ -41,7 +40,7 @@ void SortData(char const *afile, char const *calfile, const Int_t goodPID, const
   long analentries = AnalysisTree->GetEntries();
 
   TTip *tip = 0;
-  if (AnalysisTree->FindBranch("TTip")){
+  if(AnalysisTree->FindBranch("TTip")){
     AnalysisTree->SetBranchAddress("TTip", &tip);
   }else{
     cout << "Branch 'TTip' not found! TTip variable is NULL pointer" << endl;
@@ -60,7 +59,7 @@ void SortData(char const *afile, char const *calfile, const Int_t goodPID, const
     AnalysisTree->GetEntry(jentry);
     
     if(tip){
-      for (int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
+      for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
 
         tip_hit = tip->GetTipHit(tipHitInd);
         
@@ -116,7 +115,6 @@ void SortData(char const *afile, char const *calfile, const Int_t goodPID, const
               theApp->Run(kTRUE);
             }
             
-            
           }
         }
 
@@ -139,8 +137,7 @@ int main(int argc, char **argv)
   printf("Starting sortcode\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
-  if (grsi_path.length() > 0)
-  {
+  if(grsi_path.length() > 0){
     grsi_path += "/";
   }
   // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup
@@ -149,49 +146,38 @@ int main(int argc, char **argv)
   TParserLibrary::Get()->Load();
 
   // Input-chain-file, output-histogram-file
-  if (argc == 1)
-  {
+  if(argc == 1){
     cout << "Arguments: DrawTIPWaveforms analysis_tree calibration_file good_PID channel" << endl;
     cout << "Default values will be used if arguments (other than analysis tree) are omitted." << endl;
-    cout << "good_PID: 0 = draw all waveforms, 1 = draw only waveforms where the PID fit did not fail" << endl;
+    cout << "good_PID: 0 = draw all waveforms, 1 = draw only waveforms where the PID fit did not fail." << endl;
     cout << "If the channel is not specified, waveforms on all channels will be drawn." << endl;
     return 0;
-  }
-  else if (argc == 2)
-  {
+  }else if(argc == 2){
     afile = argv[1];
     calfile = "CalibrationFile.cal";
     goodPID = 0;
     channel = -1;
     printf("Analysis file: %s\nCalibration file: %s\nTIP channel: any\n", afile, calfile);
     
-  }
-  else if (argc == 3)
-  {
+  }else if(argc == 3){
     afile = argv[1];
     calfile = argv[2];
     goodPID = 0;
     channel = -1;
     printf("Analysis file: %s\nCalibration file: %s\nTIP channel: any\n", afile, calfile);
-  }
-  else if (argc == 4)
-  {
+  }else if(argc == 4){
     afile = argv[1];
     calfile = argv[2];
     goodPID = atoi(argv[3]);
     channel = -1;
     printf("Analysis file: %s\nCalibration file: %s\nTIP channel: %i\n", afile, calfile, channel);
-  }
-  else if (argc == 5)
-  {
+  }else if(argc == 5){
     afile = argv[1];
     calfile = argv[2];
     goodPID = atoi(argv[3]);
     channel = atoi(argv[4]);
     printf("Analysis file: %s\nCalibration file: %s\nTIP channel: %i\n", afile, calfile, channel);
-  }
-  else
-  {
+  }else{
     printf("Arguments: DrawTIPWaveforms analysis_tree calibration_file good_PID channel\n");
     return 0;
   }

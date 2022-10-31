@@ -107,7 +107,7 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
           add_hit = tigress->GetAddbackHit(tigHitIndAB);
           suppAdd = add_hit->BGOFired();
           //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-          if (!suppAdd && add_hit->GetEnergy() > 15){
+          if (!suppAdd && add_hit->GetEnergy() > MIN_TIG_EAB){
             tigSuppMult++;
             if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
               tigSuppMultPassed++;
@@ -143,7 +143,7 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
         add_hit = tigress->GetAddbackHit(tigHitIndAB);
         suppAdd = add_hit->BGOFired();
         //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-        if (!suppAdd && add_hit->GetEnergy() > 15){
+        if (!suppAdd && add_hit->GetEnergy() > MIN_TIG_EAB){
 
           //check time-correlated TIP events
           for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
@@ -163,7 +163,7 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
 
             add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
             suppAdd = add_hit2->BGOFired();
-            if (!suppAdd && add_hit2->GetEnergy() > 15){
+            if (!suppAdd && add_hit2->GetEnergy() > MIN_TIG_EAB){
               Double_t tDiff = add_hit->GetTime() - add_hit2->GetTime();
               addT_addT->Fill(tDiff);
               if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){

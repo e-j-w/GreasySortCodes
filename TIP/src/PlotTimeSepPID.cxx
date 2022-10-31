@@ -13,8 +13,7 @@ void PlotTimeSepPID::SortData(char const *afile, char const *calfile, char const
   Initialise();
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
-  if (!analysisfile->IsOpen())
-  {
+  if(!analysisfile->IsOpen()){
     printf("Opening file %s failed, aborting\n", afile);
     return;
   }
@@ -24,11 +23,9 @@ void PlotTimeSepPID::SortData(char const *afile, char const *calfile, char const
   long int analentries = AnalysisTree->GetEntries();
 
   TTigress *tigress = 0;
-  if (AnalysisTree->FindBranch("TTigress")){
+  if(AnalysisTree->FindBranch("TTigress")){
     AnalysisTree->SetBranchAddress("TTigress", &tigress);
-  }
-  else
-  {
+  }else{
     cout << "Branch 'TTigress' not found! TTigress variable is NULL pointer" << endl;
   }
 
@@ -119,6 +116,7 @@ void PlotTimeSepPID::SortData(char const *afile, char const *calfile, char const
   myfile->Close();
   analysisfile->Close();
 }
+
 int main(int argc, char **argv){
 
   PlotTimeSepPID *mysort = new PlotTimeSepPID();
@@ -129,8 +127,7 @@ int main(int argc, char **argv){
   printf("Starting sortcode\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
-  if (grsi_path.length() > 0)
-  {
+  if(grsi_path.length() > 0){
     grsi_path += "/";
   }
   // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup

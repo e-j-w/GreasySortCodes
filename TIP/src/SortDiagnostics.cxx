@@ -27,7 +27,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   long int analentries = AnalysisTree->GetEntries();
 
   TTigress *tigress = 0;
-  if (AnalysisTree->FindBranch("TTigress")){
+  if(AnalysisTree->FindBranch("TTigress")){
     AnalysisTree->SetBranchAddress("TTigress", &tigress);
   }else{
     cout << "Branch 'TTigress' not found! TTigress variable is NULL pointer" << endl;
@@ -50,9 +50,11 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   unsigned long int numTipEvt = 0;
   unsigned long int numTipTigEvt = 0;
 
+  Double_t tipFitTimes[MAXNUMTIPHIT];
+
   //Defining Pointers
   TTigressHit *tig_hit, *add_hit, *add_hit2;
-  TTipHit *tip_hit;
+  TTipHit *tip_hit, *tip_hit2;
   const std::vector<Short_t> *wf; //for CsI waveform
 
   double_t tTipCFD;
@@ -84,6 +86,15 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
       cout << "WARNING: could not read entry " << jentry << endl; 
       continue;
     }
+
+    if(tip && tip->GetMultiplicity()>MAXNUMTIPHIT){
+      cout << "Ignoring entry " << jentry << " as it has too many TIP hits (" << tip->GetMultiplicity() << ")!" << endl;
+      continue;
+    }
+    if(tigress && tigress->GetAddbackMultiplicity()>MAXNUMTIGHIT){
+      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << tigress->GetAddbackMultiplicity() << ")!" << endl;
+      continue;
+    }
     
     evtNumProtons=0;
     evtNumAlphas=0;
@@ -96,16 +107,6 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
       numTipEvt++;
       if(tip->GetMultiplicity()>=0){
         tip_mult->Fill(tip->GetMultiplicity());
-      }
-      if(tip->GetMultiplicity()>=2){
-        for(int i=1;i<tip->GetMultiplicity();i++){
-          if((tip->GetTipHit(i)->GetTipChannel() > 0)&&(tip->GetTipHit(i)->GetTipChannel() <= NTIP)){
-            if((tip->GetTipHit(i-1)->GetTipChannel() > 0)&&(tip->GetTipHit(i-1)->GetTipChannel() <= NTIP)){
-              tiptipT->Fill(tip->GetTipHit(i-1)->GetTime() - tip->GetTipHit(i)->GetTime());
-              tiptipFitT->Fill(getTipFitTime(tip->GetTipHit(i-1),tip_waveform_pretrigger) - getTipFitTime(tip->GetTipHit(i),tip_waveform_pretrigger));
-            }
-          }
-        }
       }
 
       tipEEvt = 0.;
@@ -174,7 +175,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
         }
 
         //cout << "TIGRESS hit " << tigHitInd << ", arrayNum: " << tig_hit->GetArrayNumber() << ", charge: " << tig_hit->GetCharge() << endl;
-        if(!suppTig && tig_hit->GetEnergy() > 15){
+        if(!suppTig && tig_hit->GetEnergy() > MIN_TIG_EAB){
           tigE->Fill(tig_hit->GetEnergy());
           tigE_ANum->Fill(tig_hit->GetArrayNumber(), tig_hit->GetEnergy());
           tigChan->Fill(tig_hit->GetArrayNumber());
@@ -185,7 +186,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
             }
           }
         }
-        if(tig_hit->GetEnergy() > 15){
+        if(tig_hit->GetEnergy() > MIN_TIG_EAB){
           tigE_unsupp->Fill(tig_hit->GetEnergy());
 
           bgo_mult->Fill(tigress->GetBGOMultiplicity());
@@ -201,9 +202,8 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
 
       for (int tigHitIndAB = 0; tigHitIndAB < tigress->GetAddbackMultiplicity(); tigHitIndAB++){
         add_hit = tigress->GetAddbackHit(tigHitIndAB);
-        suppAdd = add_hit->BGOFired();
         //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-        if (!suppAdd && add_hit->GetEnergy() > 15){
+        if (!add_hit->BGOFired() && add_hit->GetEnergy() > MIN_TIG_EAB){
 
           numTigressABHits++;
 	  
@@ -228,10 +228,6 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
               if((tip_hit->GetTipChannel() > 0)&&(tip_hit->GetTipChannel() <= NTIP)){
                 numTipTigHits++;
                 tipRingHP |= (1 << getTIPRing(tip_hit->GetTipChannel())); //update ring hitpattern
-                tipT_tigT_diff->Fill(tTipFit - add_hit->GetTime());
-                tigE_tipTtigTdiff->Fill(tTipFit - add_hit->GetTime(),add_hit->GetEnergy());
-                tipTCFD_tigT_diff->Fill(tip_hit->GetTime() - add_hit->GetTime());
-                tipTFit_tigT_diff->Fill(tTipFit - add_hit->GetTime());
               }
             }
 
@@ -245,48 +241,190 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
             tigE_tipMult->Fill(add_hit->GetEnergy(),tip->GetMultiplicity());
 
           }
-
-          //TIGRESS-TIGRESS addback
-          for (int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < tigress->GetAddbackMultiplicity(); tigHitIndAB2++){
-
-            add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
-            suppAdd = add_hit2->BGOFired();
-            if (!suppAdd && add_hit2->GetEnergy() > 15){
-              addT_addT->Fill(add_hit->GetTime() - add_hit2->GetTime());
-              addE_addE->Fill(add_hit->GetEnergy(),add_hit2->GetEnergy());
-              addE_addE->Fill(add_hit2->GetEnergy(),add_hit->GetEnergy()); //symmetrized
-              if (gate1D((add_hit->GetTime() - add_hit2->GetTime()), tigtigTGate[0], tigtigTGate[1])){
-                addE_addE_tg->Fill(add_hit->GetEnergy(),add_hit2->GetEnergy());
-                addE_addE_tg->Fill(add_hit2->GetEnergy(),add_hit->GetEnergy()); //symmetrized
-              }
-            }
-          }
           
+        }else if(add_hit->BGOFired() && add_hit->GetEnergy() > MIN_TIG_EAB){
+          addE_rej->Fill(add_hit->GetEnergy());
         }
       }
     }
+
     if(tip && tigress){
       numTipTigEvt++;
-      
+
+      //check whether event passes all timing gates (TIG-TIG, TIP-TIP, TIP-TIG)
+      //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip,1,2);
+
+      //ensure full TIP-TIGRESS timing condition is met
+      //ie. do not accept hits with partial timing condition match
+      if(!(passedtimeGate&(1ULL<<TIPTIGFLAG))){
+        passedtimeGate = 0;
+      }
+
+      //hit multiplicities
       if((tip->GetMultiplicity()>=0)||(tigress->GetAddbackMultiplicity()>=0)){
         Int_t tigSuppMult=0;
+        Int_t tigSuppTimingMult=0;
+        Int_t tipTimingMult=0;
         for (int tigHitIndAB = 0; tigHitIndAB < tigress->GetAddbackMultiplicity(); tigHitIndAB++){
           add_hit = tigress->GetAddbackHit(tigHitIndAB);
           suppAdd = add_hit->BGOFired();
-          if (!suppAdd && add_hit->GetEnergy() > 15){
+          if(!suppAdd && add_hit->GetEnergy() > MIN_TIG_EAB){
             tigSuppMult++;
+            if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
+              tigSuppTimingMult++;
+            }
           }
         }
+        for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
+           if(passedtimeGate&(1ULL<<tipHitInd)){
+             tipTimingMult++;
+           }
+        }
         tiptig_multSupp->Fill(tip->GetMultiplicity(),tigSuppMult);
+        if((tipTimingMult>0)||(tigSuppTimingMult>0)){
+          tiptig_multSuppTiming->Fill(tipTimingMult,tigSuppTimingMult);
+        }
       }
       if((tip->GetMultiplicity()>=0)||(tigress->GetMultiplicity()>=0)){
         tiptig_mult->Fill(tip->GetMultiplicity(),tigress->GetMultiplicity());
       }
 
+      //evaluate timing conditions
+      //get fit times
+      for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
+        tip_hit = tip->GetTipHit(tipHitInd);
+        tipFitTimes[tipHitInd] = getTipFitTime(tip_hit,tip_waveform_pretrigger);
+      }
+
+      //TIP-TIP timing
+      for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
+        numTipHits++;
+        tip_hit = tip->GetTipHit(tipHitInd);
+        for(int tipHitInd2 = tipHitInd+1; tipHitInd2 < tip->GetMultiplicity(); tipHitInd2++){
+          tip_hit2 = tip->GetTipHit(tipHitInd2);
+          Double_t tDiff = tipFitTimes[tipHitInd] - tipFitTimes[tipHitInd2];
+          tiptipFitT->Fill(tDiff);
+          //tiptipFitT->Fill(tip_hit->GetTime() - tip_hit2->GetTime());
+          if(passedtimeGate&(1ULL<<tipHitInd)){
+            if(passedtimeGate&(1ULL<<tipHitInd2)){
+              tiptipFitTPassed->Fill(tDiff);
+            }
+          }
+        }
+      }
+      
+      for(int tigHitIndAB = 0; tigHitIndAB < tigress->GetAddbackMultiplicity(); tigHitIndAB++){
+        add_hit = tigress->GetAddbackHit(tigHitIndAB);
+        suppAdd = add_hit->BGOFired();
+        //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
+        if (!suppAdd && add_hit->GetEnergy() > MIN_TIG_EAB){
+
+          //TIP-TIG timing and energy
+          for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
+            tip_hit = tip->GetTipHit(tipHitInd);
+            Double_t tDiff = tipFitTimes[tipHitInd] - add_hit->GetTime();
+            Double_t tDiffCFD = tip_hit->GetTime() - add_hit->GetTime();
+            tipT_tigT_diff->Fill(tDiff);
+            tipTCFD_tigT_diff->Fill(tDiffCFD);
+            if(passedtimeGate&(1ULL<<tipHitInd)){
+              if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
+                tipT_tigT_diffPassed->Fill(tDiff);
+                tipTCFD_tigT_diffPassed->Fill(tDiffCFD);
+              }
+            }
+            tigE_tipTtigTdiff->Fill(tDiff,add_hit->GetEnergy());
+          }
+
+          //TIG-TIG timing and energy
+          for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < tigress->GetAddbackMultiplicity(); tigHitIndAB2++){
+            add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
+            suppAdd = add_hit2->BGOFired();
+            if(!suppAdd && add_hit2->GetEnergy() > MIN_TIG_EAB){
+              Double_t tDiff = add_hit->GetTime() - add_hit2->GetTime();
+              addT_addT->Fill(tDiff);
+              addE_addE->Fill(add_hit->GetEnergy(),add_hit2->GetEnergy());
+              addE_addE->Fill(add_hit2->GetEnergy(),add_hit->GetEnergy()); //symmetrized
+              if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
+                if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
+                  addT_addTPassed->Fill(tDiff);
+                  addE_addE_tgPassed->Fill(add_hit->GetEnergy(),add_hit2->GetEnergy());
+                  addE_addE_tgPassed->Fill(add_hit2->GetEnergy(),add_hit->GetEnergy()); //symmetrized
+                }
+              }
+            }
+          }
+        }
+      }
+
+      //count the number of protons or alphas
+      for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
+        if(passedtimeGate&(1ULL<<tipHitInd)){
+          tip_hit = tip->GetTipHit(tipHitInd);
+          numTipHits++;
+
+          switch(getParticleType(tip_hit,gates)){ //see common.cxx
+            case 4:
+              evtNumAlphas++;
+              break;
+            case 1:
+              evtNumProtons++;
+              break;
+            case 0:
+            default:
+              break;
+          }
+        }
+      }
+      
+      if(evtNumProtons<=MAX_NUM_PARTICLE){
+        if(evtNumAlphas<=MAX_NUM_PARTICLE){
+          if(evtNumProtons+evtNumAlphas<=MAX_NUM_PARTICLE){
+
+            for(int tigHitIndAB=0;tigHitIndAB<tigress->GetAddbackMultiplicity();tigHitIndAB++){
+              if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
+                add_hit = tigress->GetAddbackHit(tigHitIndAB);
+                suppAdd = add_hit->BGOFired();
+                //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
+                if(!suppAdd && add_hit->GetEnergy() > MIN_TIG_EAB){
+                  //TIGRESS PID separated addback energy
+                  double_t thetaDeg = add_hit->GetPosition().Theta()*180./PI;
+                  addE_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(add_hit->GetEnergy(),0); //sum spectrum
+                  addE_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(add_hit->GetEnergy(),getTIGRESSRing(thetaDeg)+1);
+                  double eDopp = getEDoppFusEvap(add_hit,tip,passedtimeGate,gates);
+                  addDopp_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(eDopp,0); //sum spectrum
+                  addDopp_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(eDopp,getTIGRESSRing(thetaDeg)+1);
+                  for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < tigress->GetAddbackMultiplicity(); tigHitIndAB2++){
+                    if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
+                      add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
+                      suppAdd = add_hit2->BGOFired();
+                      if(!suppAdd && add_hit2->GetEnergy() > MIN_TIG_EAB){
+                        double eDopp2 = getEDoppFusEvap(add_hit2,tip,passedtimeGate,gates);
+                        addEaddE_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit->GetEnergy(),add_hit2->GetEnergy());
+                        addEaddE_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit2->GetEnergy(),add_hit->GetEnergy()); //symmetrized
+                        addDoppaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp,eDopp2);
+                        addDoppaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp2,eDopp); //symmetrized
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+          }/*else{
+            cout << "Entry " << jentry << " has too many charged particles (" << evtNumProtons+evtNumAlphas << ")!" << endl;
+          }*/
+        }/*else{
+          cout << "Entry " << jentry << " has too many alphas (" << evtNumAlphas << ")!" << endl;
+        }*/
+      }/*else{
+        cout << "Entry " << jentry << " has too many protons (" << evtNumProtons << ")!" << endl;
+      }*/
+
     }
     
 
-    if (jentry % 1000 == 0)
+    if (jentry % 10000 == 0)
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << analentries << ", " << 100 * jentry / analentries << "% complete" << "\r" << flush;
   } // analysis tree
 
@@ -310,6 +448,11 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   tigList->Write();
   myfile->cd();
 
+  TDirectory *tigbgodir = myfile->mkdir("TIGRESS-BGO");
+  tigbgodir->cd();
+  tigbgoList->Write();
+  myfile->cd();
+
   TDirectory *tipdir = myfile->mkdir("TIP");
   tipdir->cd();
   tipList->Write();
@@ -320,19 +463,34 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   tipPIDList->Write();
   myfile->cd();
 
+  TDirectory *tipPIDGatedir = myfile->mkdir("TIP PID Gates");
+  tipPIDGatedir->cd();
+  tipPIDGateList->Write();
+  myfile->cd();
+
+  TDirectory *timingdir = myfile->mkdir("Timing");
+  timingdir->cd();
+  timingList->Write();
+  myfile->cd();
+
   TDirectory *tigtigdir = myfile->mkdir("TIGRESS-TIGRESS");
   tigtigdir->cd();
   tigtigList->Write();
   myfile->cd();
 
-  TDirectory *tigbgodir = myfile->mkdir("TIGRESS-BGO");
-  tigbgodir->cd();
-  tigbgoList->Write();
-  myfile->cd();
-
   TDirectory *tiptigdir = myfile->mkdir("TIP-TIGRESS");
   tiptigdir->cd();
   tiptigList->Write();
+  myfile->cd();
+
+  TDirectory *tigPIDsepdir = myfile->mkdir("TIGRESS PID+Timing Separated");
+  tigPIDsepdir->cd();
+  tigPIDSepList->Write();
+  myfile->cd();
+
+  TDirectory *tigtigPIDsepdir = myfile->mkdir("TIGRESS-TIGRESS PID+Timing Separated");
+  tigtigPIDsepdir->cd();
+  tigtigPIDSepList->Write();
   myfile->cd();
 
   myfile->Write();
@@ -350,8 +508,7 @@ int main(int argc, char **argv)
   printf("Starting SortDiagnostics\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
-  if (grsi_path.length() > 0)
-  {
+  if(grsi_path.length() > 0){
     grsi_path += "/";
   }
   // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup
@@ -360,38 +517,28 @@ int main(int argc, char **argv)
   TParserLibrary::Get()->Load();
 
   // Input-chain-file, output-histogram-file
-  if (argc == 1)
-  {
-    cout << "Code sorts various diagnostic histograms for online TIP+TIGRESS data" << endl;
+  if (argc == 1){
+    cout << "Code sorts a bunch of diagnostic histograms for online TIP+TIGRESS data" << endl;
     cout << "Arguments: SortDiagnostics analysis_tree calibration_file output_file" << endl;
     cout << "Default values will be used if arguments (other than analysis tree) are omitted." << endl;
     return 0;
-  }
-  else if (argc == 2)
-  {
+  }else if(argc == 2){
     afile = argv[1];
     calfile = "CalibrationFile.cal";
     outfile = "Histograms.root";
-    printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
-    
-  }
-  else if (argc == 3)
-  {
+    printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile); 
+  }else if(argc == 3){
     afile = argv[1];
     calfile = argv[2];
     outfile = "Histograms.root";
     printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
-  }
-  else if (argc == 4)
-  {
+  }else if(argc == 4){
     afile = argv[1];
     calfile = argv[2];
     outfile = argv[3];
     printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
-  }
-  else
-  {
-    printf("Too many arguments\nArguments: SortData analysis_tree calibration_file output_file\n");
+  }else{
+    printf("ERROR: too many arguments!\nArguments: SortData analysis_tree calibration_file output_file\n");
     return 0;
   }
 

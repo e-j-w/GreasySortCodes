@@ -32,6 +32,8 @@ using namespace std;
 #define TIGTIGFLAG 62
 #define TIPTIGFLAG 63
 
+#define MIN_TIG_EAB 15 //minimum TIGRESS energy (in keV) for addback
+
 #define PI 3.14159265359
 
 //GLOBAL VARIABLES

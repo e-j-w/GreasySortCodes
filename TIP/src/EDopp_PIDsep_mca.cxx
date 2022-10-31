@@ -120,7 +120,7 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
               if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                 add_hit = tigress->GetAddbackHit(tigHitIndAB);
                 //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
+                if(!add_hit->BGOFired() && add_hit->GetEnergy() > MIN_TIG_EAB){
                   int eDopp = (int)getEDoppFusEvap(add_hit,tip,passedtimeGate,gates);
                   if(eDopp>=0 && eDopp<S32K){
                     double_t thetaDeg = add_hit->GetPosition().Theta()*180./PI;

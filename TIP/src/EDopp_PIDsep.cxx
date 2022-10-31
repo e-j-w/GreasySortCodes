@@ -41,8 +41,6 @@ void EDopp_PIDsep::SortData(char const *afile, char const *calfile, char const *
 
   unsigned long int numTipHits = 0;
   unsigned long int numTigABHits = 0;
-
-  double_t tipPID = -1000.0;
   unsigned int evtNumProtons, evtNumAlphas;
   bool suppAdd = false;
 
@@ -109,7 +107,7 @@ void EDopp_PIDsep::SortData(char const *afile, char const *calfile, char const *
                 add_hit = tigress->GetAddbackHit(tigHitIndAB);
                 suppAdd = add_hit->BGOFired();
                 //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                if(!suppAdd && add_hit->GetEnergy() > 15){
+                if(!suppAdd && add_hit->GetEnergy() > MIN_TIG_EAB){
                   //TIGRESS PID separated addback energy
                   double eDopp = getEDoppFusEvap(add_hit,tip,passedtimeGate,gates);
                   double_t thetaDeg = add_hit->GetPosition().Theta()*180./PI;

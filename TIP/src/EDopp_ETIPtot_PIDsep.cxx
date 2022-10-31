@@ -120,7 +120,7 @@ void EDopp_ETIPtot_PIDsep::SortData(char const *afile, char const *calfile, char
                   add_hit = tigress->GetAddbackHit(tigHitIndAB);
                   suppAdd = add_hit->BGOFired();
                   //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                  if(!suppAdd && add_hit->GetEnergy() > 15){
+                  if(!suppAdd && add_hit->GetEnergy() > MIN_TIG_EAB){
                     //TIGRESS PID separated addback energy
                     tigE_tipETot_xayp[evtNumProtons][evtNumAlphas]->Fill(getEDoppFusEvap(add_hit,tip,passedtimeGate,gates),tipESum);
                   }

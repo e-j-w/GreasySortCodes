@@ -39,9 +39,7 @@ void EGamma_PIDsep_mca::SortData(char const *afile, char const *calfile, const u
   TTigress *tigress = 0;
   if(AnalysisTree->FindBranch("TTigress")){
     AnalysisTree->SetBranchAddress("TTigress", &tigress);
-  }
-  else
-  {
+  }else{
     cout << "Branch 'TTigress' not found! TTigress variable is NULL pointer" << endl;
   }
 
@@ -121,7 +119,7 @@ void EGamma_PIDsep_mca::SortData(char const *afile, char const *calfile, const u
               if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                 add_hit = tigress->GetAddbackHit(tigHitIndAB);
                 //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
+                if(!add_hit->BGOFired() && add_hit->GetEnergy() > MIN_TIG_EAB){
                   int eGamma = (int)(add_hit->GetEnergy()/keVPerBin);
                   if(eGamma>=0 && eGamma<S32K){
                     double_t thetaDeg = add_hit->GetPosition().Theta()*180./PI;
@@ -162,8 +160,7 @@ int main(int argc, char **argv){
   printf("Starting sortcode\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
-  if (grsi_path.length() > 0)
-  {
+  if(grsi_path.length() > 0){
     grsi_path += "/";
   }
   // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup

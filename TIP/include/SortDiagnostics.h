@@ -33,34 +33,48 @@ using namespace std;
 
 TApplication *theApp;
 
-TList *tigList, *tipList, *tipPIDList, *tigtigList, *tigbgoList, *tiptigList; 
+TList *tigList, *tipList, *timingList, *tipPIDList, *tipPIDGateList, *tigtigList;
+TList *tigbgoList, *tiptigList, *tigPIDSepList, *tigtigPIDSepList; 
 
 //Raw TIGRESS
-TH1F *tigE, *tigE_unsupp, *addE, *addE_ring[NTIGRING], *tigRate;
-TH2F *tigE_ANum,*addE_ANum, *addE_theta;
+TH1F *tigE, *tigE_unsupp, *addE, *addE_rej, *addE_ring[NTIGRING], *tigRate;
+TH2F *tigE_ANum, *addE_ANum, *addE_theta;
 TH1F *tigChan;
 
 //TIP
-TH1F *tip_E, *tip_Etot, *tip_CFDFitDiff, *tip_wfrmsize, *tiptipT, *tiptipFitT, *tipRate;
+TH1F *tip_E, *tip_Etot, *tip_CFDFitDiff, *tip_wfrmsize, *tipRate;
 TH2F *tip_E_pos;
 TH1I *tip_mult, *tip_pos, *tip_ring, *tip_fittype;
+
+//Timing
+TH1F *tiptipFitT, *tiptipFitTPassed;
+TH1F *addT_addT, *addT_addTPassed;
+TH1F *tipT_tigT_diff, *tipT_tigT_diffPassed, *tipTCFD_tigT_diff, *tipTCFD_tigT_diffPassed;
 
 //TIP PID
 TH2F *tip_E_PID_Sum, *tip_E_PID_Ring[NTIPRING], *tip_E_PID[NTIP];
 
 //TIGRESS-TIGRESS
-TH1F *addT_addT;
-TH2F *addE_addE, *addE_addE_tg;
+TH2F *addE_addE, *addE_addE_tgPassed;
 
 //TIGRESS-BGO
 TH1I *bgo_mult, *bgo_det;
 TH1F *tigT_bgoT, *tigT_bgoT_supp;
 
 //TIGRESS-TIP
-TH2I *tiptig_mult, *tiptig_multSupp;
-TH1F *tipT_tigT_diff, *tipTCFD_tigT_diff, *tipTFit_tigT_diff, *tigE_TIPtg;
+TH2I *tiptig_mult, *tiptig_multSupp, *tiptig_multSuppTiming;
 TH2F *tigE_tipTtigTdiff, *tigE_tipRing;
 TH2F *tigE_tipMult;
+
+//TIGRESS PID Separated plots
+TH2F *addE_xayp_ring[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
+TH2F *addDopp_xayp_ring[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
+
+//TIGRESS-TIGRESS PID Separated plots
+TH2F *addEaddE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
+TH2F *addDoppaddDopp_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
+
+PIDGates *gates;
 
 class SortDiagnostics {
 
@@ -74,17 +88,20 @@ class SortDiagnostics {
 
 void SortDiagnostics::Initialise() {
 
-  printf("Start initialization\n");
-  printf("Creating lists\n");
+  cout << "Creating lists" << endl;
 
   tigList = new TList;
   tipList = new TList;
+  timingList = new TList;
   tipPIDList = new TList;
+  tipPIDGateList = new TList;
   tigtigList = new TList;
   tigbgoList = new TList;
   tiptigList = new TList;
+  tigPIDSepList = new TList;
+  tigtigPIDSepList = new TList;
 
-  printf("Creating histograms\n");
+  cout << "Creating histograms" << endl;
 
   //Raw TIGRESS Spectra
   tigE_unsupp = new TH1F("Tigress Energy (unsuppressed)", "Tigress Energy (unsuppressed)", 8192, 0, 8192);
@@ -95,6 +112,8 @@ void SortDiagnostics::Initialise() {
   tigList->Add(tigE_ANum);
   addE = new TH1F("Addback Energy", "Addback Energy", 8192, 0, 8192);
   tigList->Add(addE);
+  addE_rej = new TH1F("Suppressed (rejected) Addback Energy", "Suppressed (rejected) Addback Energy", 8192, 0, 8192);
+  tigList->Add(addE_rej);
   addE_ANum = new TH2F("Addback Energy vs. Array Number", "Addback Energy vs. Array Number", 64, 0, 64, 8192, 0, 8192);
   tigList->Add(addE_ANum);
   for(int i=0; i<NTIGRING; i++){
@@ -135,14 +154,36 @@ void SortDiagnostics::Initialise() {
   tip_E_pos->GetXaxis()->SetTitle("E (arb.)");
   tip_E_pos->GetYaxis()->SetTitle("TIP position");
   tipList->Add(tip_E_pos);
-  tiptipT = new TH1F("TIP-TIP timing (CFD)","TIP-TIP timing (CFD)",8192,-4096,4096);
-  tipList->Add(tiptipT);
-  tiptipFitT = new TH1F("TIP-TIP timing (fit)","TIP-TIP timing (fit)",8192,-4096,4096);
-  tipList->Add(tiptipFitT);
   tipRate = new TH1F("TIP Total Rate", "TIP Total Rate", 8192, 0, 8192);
   tipRate->GetXaxis()->SetTitle("Run Time (s)");
   tipRate->GetYaxis()->SetTitle("Count/s");
   tipList->Add(tipRate);
+
+  //Timing spectra
+  tiptipFitT = new TH1F("TIP - TIP time (fit)","TIP - TIP time (fit)",8192,-4096,4096);
+  tiptipFitT->GetXaxis()->SetTitle("t_{TIP, fit} - t_{TIP, fit} (ns)");
+  timingList->Add(tiptipFitT);
+  tiptipFitTPassed = new TH1F("After timing gate: TIP-TIP time (fit)","After timing gate: TIP-TIP time (fit)",8192,-4096,4096);
+  tiptipFitTPassed->GetXaxis()->SetTitle("t_{TIP, fit} - t_{TIP, fit} (ns)");
+  timingList->Add(tiptipFitTPassed);
+  addT_addT = new TH1F("Tigress - Tigress time","Tigress - Tigress time",4096,-2048,2048); 
+  addT_addT->GetXaxis()->SetTitle("t_{TIGRESS} - t_{TIGRESS} (ns)");
+  timingList->Add(addT_addT);
+  addT_addTPassed = new TH1F("After timing gate: Tigress - Tigress time","After timing gate: Tigress - Tigress time",4096,-2048,2048); 
+  addT_addTPassed->GetXaxis()->SetTitle("t_{TIGRESS} - t_{TIGRESS} (ns)");
+  timingList->Add(addT_addTPassed);
+  tipT_tigT_diff = new TH1F("TIP fit - Tigress time","TIP fit - Tigress time",4096,-4096,4096);
+  tipT_tigT_diff->GetXaxis()->SetTitle("t_{TIP, fit} - t_{TIGRESS} (ns)");
+  timingList->Add(tipT_tigT_diff);
+  tipT_tigT_diffPassed = new TH1F("After timing gate: TIP fit - Tigress time","After timing gate: TIP fit - Tigress time",4096,-4096,4096);
+  tipT_tigT_diffPassed->GetXaxis()->SetTitle("t_{TIP, fit} - t_{TIGRESS} (ns)");
+  timingList->Add(tipT_tigT_diffPassed);
+  tipTCFD_tigT_diff = new TH1F("TIP CFD - Tigress time","TIP CFD - Tigress time", 4096,-4096,4096);
+  tipTCFD_tigT_diff->GetXaxis()->SetTitle("t_{TIP, CFD} - t_{TIGRESS} (ns)");
+  timingList->Add(tipTCFD_tigT_diff);
+  tipTCFD_tigT_diffPassed = new TH1F("After timing gate: TIP CFD - Tigress time","After timing gate: TIP CFD - Tigress time", 4096,-4096,4096);
+  tipTCFD_tigT_diffPassed->GetXaxis()->SetTitle("t_{TIP, CFD} - t_{TIGRESS} (ns)");
+  timingList->Add(tipTCFD_tigT_diffPassed);
 
   //TIP PID
   tip_E_PID_Sum = new TH2F("TIP energy vs PID (Sum)","TIP energy vs PID (Sum)",1024,0,128,512,0,512);
@@ -163,17 +204,19 @@ void SortDiagnostics::Initialise() {
   }
 
   //TIGRESS-TIGRESS
-  addT_addT = new TH1F("addT_addT","Tigress-Tigress_time",4096,-2048,2048); 
-  tigtigList->Add(addT_addT);
-  addE_addE = new TH2F("addE_addE", "Addback_Gamma_Gamma", 4096, 0, 8192, 4096, 0, 8192);
+  addE_addE = new TH2F("Addback Gamma-Gamma", "Addback Gamma-Gamma", 4096, 0, 8192, 4096, 0, 8192);
+  addE_addE->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
+  addE_addE->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");
   tigtigList->Add(addE_addE);
-  addE_addE_tg = new TH2F("addE_addE_tg", "Addback_Gamma_Gamma_Time_Gated", 4096, 0, 8192, 4096, 0, 8192);
-  tigtigList->Add(addE_addE_tg);
+  addE_addE_tgPassed = new TH2F("After timing gate: Addback Gamma-Gamma", "After timing gate: Addback Gamma-Gamma", 4096, 0, 8192, 4096, 0, 8192);
+  addE_addE_tgPassed->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
+  addE_addE_tgPassed->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");
+  tigtigList->Add(addE_addE_tgPassed);
 
   //TIGRESS-BGO
-  bgo_mult = new TH1I("BGO multiplicity","BGO multiplicity",100,0,100); 
+  bgo_mult = new TH1I("BGO multiplicity","BGO multiplicity",32,0,32);
   tigbgoList->Add(bgo_mult);
-  bgo_det = new TH1I("BGO detector position","BGO detector position",100,0,100); 
+  bgo_det = new TH1I("BGO detector position","BGO detector position",20,0,20); 
   tigbgoList->Add(bgo_det);
   tigT_bgoT = new TH1F("Tigress-BGO time (unsuppressed)","Tigress-BGO time (unsuppressed)",4096,-2048,2048);
   tigT_bgoT->GetXaxis()->SetTitle("Same-detector Tigress-BGO time (ns)");
@@ -187,65 +230,80 @@ void SortDiagnostics::Initialise() {
   tiptig_mult->GetXaxis()->SetTitle("TIP multiplicity");
   tiptig_mult->GetYaxis()->SetTitle("TIGRESS multiplicity (unsuppressed)");
   tiptigList->Add(tiptig_mult);
-  tiptig_multSupp = new TH2I("TIP-TIGRESS multiplicity (suppressed)","TIP-TIGRESS multiplicity (suppressed)",10,0,10,10,0,10);
+  tiptig_multSupp = new TH2I("TIP-TIGRESS multiplicity (addback suppressed)","TIP-TIGRESS multiplicity (addback suppressed)",10,0,10,10,0,10);
   tiptig_multSupp->GetXaxis()->SetTitle("TIP multiplicity");
-  tiptig_multSupp->GetYaxis()->SetTitle("TIGRESS multiplicity (suppressed)");
+  tiptig_multSupp->GetYaxis()->SetTitle("TIGRESS multiplicity (addback suppressed)");
   tiptigList->Add(tiptig_multSupp);
-  tipT_tigT_diff = new TH1F("TIP fit - Tigress time","TIP fit - Tigress time",4096,-4096,4096);
-  tipT_tigT_diff->GetXaxis()->SetTitle("t_{TIP, fit} - t_{TIGRESS} (ns)");
-  tigE_tipTtigTdiff = new TH2F("Tigress addback energy vs TIP(fit)-Tigress time", "Tigress addback energy vs TIP(fit)-Tigress time",4096,-4096,4096,8192,0,8192);
+  tiptig_multSuppTiming = new TH2I("After timing gate: TIP-TIGRESS multiplicity (addback suppressed)","After timing gate: TIP-TIGRESS multiplicity (addback suppressed)",10,0,10,10,0,10);
+  tiptig_multSuppTiming->GetXaxis()->SetTitle("TIP multiplicity");
+  tiptig_multSuppTiming->GetYaxis()->SetTitle("TIGRESS multiplicity (addback suppressed)");
+  tiptigList->Add(tiptig_multSuppTiming);
+  tigE_tipTtigTdiff = new TH2F("Tigress addback energy vs TIP fit-Tigress time", "Tigress addback energy vs TIP fit-Tigress time",4096,-4096,4096,8192,0,8192);
   tigE_tipTtigTdiff->GetYaxis()->SetTitle("TIGRESS addback energy (keV)");
   tigE_tipTtigTdiff->GetXaxis()->SetTitle("t_{TIP, fit} - t_{TIGRESS} (ns)");
   tiptigList->Add(tigE_tipTtigTdiff);
-  tipTCFD_tigT_diff = new TH1F("TIP CFD - Tigress time","TIP CFD - Tigress time", 4096,-4096,4096);
-  tipTCFD_tigT_diff->GetXaxis()->SetTitle("t_{TIP, CFD} - t_{TIGRESS} (ns)");
-  tiptigList->Add(tipTCFD_tigT_diff);
-  tipTFit_tigT_diff = new TH1F("TIP Fit - Tigress time","TIP Fit - Tigress time", 4096,-4096,4096);
-  tipTFit_tigT_diff->GetXaxis()->SetTitle("t_{TIP, fit} - t_{TIGRESS} (ns)");
-  tiptigList->Add(tipTFit_tigT_diff);
-
-  tigE_TIPtg = new TH1F("Tigress energy (fit time gated)","Tigress energy (CFD time gated)", 8192, 0, 8192); 
-  tiptigList->Add(tigE_TIPtg);
-
   tigE_tipRing = new TH2F("Tigress addback energy vs TIP ring", "Tigress addback energy vs TIP ring", 8192, 0, 8192, 10, 0, 10);
   tigE_tipRing->GetYaxis()->SetTitle("TIP ring");
   tigE_tipRing->GetXaxis()->SetTitle("TIGRESS energy");
   tiptigList->Add(tigE_tipRing);
-
   tigE_tipMult = new TH2F("Tigress addback energy vs TIP multiplicity", "Tigress addback energy vs TIP multiplicity", 8192, 0, 8192, 10, 0, 10);
   tigE_tipMult->GetYaxis()->SetTitle("TIP multiplicity");
   tigE_tipMult->GetXaxis()->SetTitle("TIGRESS energy");
   tiptigList->Add(tigE_tipMult);
 
-  /*//Setup PID gates
-  printf("Creating PID gates\n");
-  //individual gates for each detector
-  for(int i=0; i<NTIPRING; i++){
-    alphaRingCut[i] = new TCutG(Form("ring %i alpha cut",i+1),7);
-    protonRingCut[i] = new TCutG(Form("ring %i proton cut",i+1),7);
-
-    //CHANGE LATER!! this is just proof of concept
-    alphaRingCut[i]->SetPoint(0,10,52);
-    alphaRingCut[i]->SetPoint(1,10,150);
-    alphaRingCut[i]->SetPoint(2,20,197);
-    alphaRingCut[i]->SetPoint(3,20,51);
-    alphaRingCut[i]->SetPoint(4,18,56);
-    alphaRingCut[i]->SetPoint(5,18,27);
-    alphaRingCut[i]->SetPoint(6,10,52);
-
-    protonRingCut[i]->SetPoint(0,10,52);
-    protonRingCut[i]->SetPoint(1,10,150);
-    protonRingCut[i]->SetPoint(2,20,197);
-    protonRingCut[i]->SetPoint(3,20,51);
-    protonRingCut[i]->SetPoint(4,18,56);
-    protonRingCut[i]->SetPoint(5,18,27);
-    protonRingCut[i]->SetPoint(6,10,52);
+  //TIGRESS PID separated
+  for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
+    for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
+      if((i+j)<=MAX_NUM_PARTICLE){
+        //TIGRESS ring spectra
+        addE_xayp_ring[i][j] = new TH2F(Form("TIGRESS addback energy (%ip%ia gate)",i,j),Form("TIGRESS addback energy (%ip%ia gate)",i,j),8192,0,8192,NTIGRING+1,0,NTIGRING+1);
+        addE_xayp_ring[i][j]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
+        addE_xayp_ring[i][j]->GetYaxis()->SetTitle("TIGRESS Ring (ring 0 = sum)");
+        tigPIDSepList->Add(addE_xayp_ring[i][j]);
+      }
+    }
+  }
+  for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
+    for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
+      if((i+j)<=MAX_NUM_PARTICLE){
+        //TIGRESS ring spectra
+        addDopp_xayp_ring[i][j] = new TH2F(Form("Doppler corrected energy (%ip%ia gate)",i,j),Form("TIGRESS Doppler corrected addback energy (%ip%ia gate, beta=%f)",i,j,betaCompound),8192,0,8192,NTIGRING+1,0,NTIGRING+1);
+        addDopp_xayp_ring[i][j]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
+        addDopp_xayp_ring[i][j]->GetYaxis()->SetTitle("TIGRESS Ring (ring 0 = sum)");
+        tigPIDSepList->Add(addDopp_xayp_ring[i][j]);
+      }
+    }
   }
 
-  //add gates to list
+  //TIGRESS-TIGRESS PID separated
+  for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
+    for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
+      if((i+j)<=MAX_NUM_PARTICLE){
+        //TIGRESS ring spectra
+        addEaddE_xayp[i][j] = new TH2F(Form("Addback Gamma-Gamma (%ip%ia gate)",i,j),Form("Addback Gamma-Gamma (%ip%ia gate)",i,j),4096,0,8192,4096,0,8192);
+        addEaddE_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
+        addEaddE_xayp[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");
+        tigtigPIDSepList->Add(addEaddE_xayp[i][j]);
+      }
+    }
+  }
+  for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
+    for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
+      if((i+j)<=MAX_NUM_PARTICLE){
+        //TIGRESS ring spectra
+        addDoppaddDopp_xayp[i][j] = new TH2F(Form("Doppler corrected Gamma-Gamma (%ip%ia gate)",i,j),Form("Doppler corrected Gamma-Gamma (%ip%ia gate, beta=%f)",i,j,betaCompound),4096,0,8192,4096,0,8192);
+        addDoppaddDopp_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
+        addDoppaddDopp_xayp[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");
+        tigtigPIDSepList->Add(addDoppaddDopp_xayp[i][j]);
+      }
+    }
+  }
+
+  //Setup TIP PID gates
+  gates = new PIDGates;
   for(int i=0; i<NTIPRING; i++){
-    tipPIDGateList->Add(alphaRingCut[i]);
-    tipPIDGateList->Add(protonRingCut[i]);
-  }*/
+    tipPIDGateList->Add(gates->alphaRingCut[i]);
+    tipPIDGateList->Add(gates->protonRingCut[i]);
+  }
 
 }

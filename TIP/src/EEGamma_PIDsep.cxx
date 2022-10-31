@@ -13,8 +13,7 @@ void EEGamma_PIDsep::SortData(char const *afile, char const *calfile, char const
   Initialise();
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
-  if (!analysisfile->IsOpen())
-  {
+  if(!analysisfile->IsOpen()){
     printf("Opening file %s failed, aborting\n", afile);
     return;
   }
@@ -26,14 +25,12 @@ void EEGamma_PIDsep::SortData(char const *afile, char const *calfile, char const
   TTigress *tigress = 0;
   if (AnalysisTree->FindBranch("TTigress")){
     AnalysisTree->SetBranchAddress("TTigress", &tigress);
-  }
-  else
-  {
+  }else{
     cout << "Branch 'TTigress' not found! TTigress variable is NULL pointer" << endl;
   }
 
   TTip *tip = 0;
-  if (AnalysisTree->FindBranch("TTip")){
+  if(AnalysisTree->FindBranch("TTip")){
     AnalysisTree->SetBranchAddress("TTip", &tip);
   }else{
     cout << "Branch 'TTip' not found! TTip variable is NULL pointer" << endl;
@@ -106,12 +103,12 @@ void EEGamma_PIDsep::SortData(char const *afile, char const *calfile, char const
                 numTigABHits++;
                 add_hit = tigress->GetAddbackHit(tigHitIndAB);
                 //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
+                if(!add_hit->BGOFired() && add_hit->GetEnergy() > MIN_TIG_EAB){
                   //TIGRESS PID separated addback energy
                   for(int tigHitIndAB2=tigHitIndAB+1;tigHitIndAB2<tigress->GetAddbackMultiplicity();tigHitIndAB2++){
                     if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
                       add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
-                      if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
+                      if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > MIN_TIG_EAB){
                         tigEE_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit->GetEnergy(),add_hit2->GetEnergy());
                         tigEE_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit2->GetEnergy(),add_hit->GetEnergy()); //symmetrized
                       }
@@ -166,8 +163,7 @@ int main(int argc, char **argv){
   printf("Starting sortcode\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
-  if (grsi_path.length() > 0)
-  {
+  if(grsi_path.length() > 0){
     grsi_path += "/";
   }
   // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup

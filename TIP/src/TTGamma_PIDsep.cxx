@@ -49,7 +49,7 @@ void TTGamma_PIDsep::SortData(char const *afile, char const *calfile, const int 
   printf("Stop gate:  %8.2f - %8.2f keV\n", Elow_stop, Ehigh_stop);
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
-  if (!analysisfile->IsOpen()){
+  if(!analysisfile->IsOpen()){
     cout << "Opening file " << afile << " failed, aborting" << endl;
     return;
   }
@@ -59,14 +59,14 @@ void TTGamma_PIDsep::SortData(char const *afile, char const *calfile, const int 
   long int analentries = AnalysisTree->GetEntries();
 
   TTigress *tigress = 0;
-  if (AnalysisTree->FindBranch("TTigress")){
+  if(AnalysisTree->FindBranch("TTigress")){
     AnalysisTree->SetBranchAddress("TTigress", &tigress);
   }else{
     cout << "Branch 'TTigress' not found! TTigress variable is NULL pointer" << endl;
   }
 
   TTip *tip = 0;
-  if (AnalysisTree->FindBranch("TTip")){
+  if(AnalysisTree->FindBranch("TTip")){
     AnalysisTree->SetBranchAddress("TTip", &tip);
   }else{
     cout << "Branch 'TTip' not found! TTip variable is NULL pointer" << endl;
@@ -139,14 +139,14 @@ void TTGamma_PIDsep::SortData(char const *afile, char const *calfile, const int 
                     if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                       add_hit = tigress->GetAddbackHit(tigHitIndAB);
                       //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                      if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
+                      if(!add_hit->BGOFired() && add_hit->GetEnergy() > MIN_TIG_EAB){
                         if(add_hit->GetEnergy() >= Elow_start){
                           if(add_hit->GetEnergy() <= Ehigh_start){
                             for(int tigHitIndAB2=0;tigHitIndAB2<tigress->GetAddbackMultiplicity();tigHitIndAB2++){
                               if(tigHitIndAB2!=tigHitIndAB){
                                 if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
                                   add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
-                                  if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
+                                  if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > MIN_TIG_EAB){
                                     if(add_hit2->GetEnergy() >= Elow_stop){
                                       if(add_hit2->GetEnergy() <= Ehigh_stop){
                                         cout << "Hit 1: " << add_hit->GetEnergy() << " keV, t=" << add_hit->GetTime() << ", Hit 2: " << add_hit2->GetEnergy() << " keV, t=" << add_hit2->GetTime() << ", tdiff=" << (add_hit2->GetTime() - add_hit->GetTime()) << endl;
@@ -205,8 +205,7 @@ int main(int argc, char **argv){
   printf("Starting sortcode\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
-  if (grsi_path.length() > 0)
-  {
+  if(grsi_path.length() > 0){
     grsi_path += "/";
   }
   // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup
