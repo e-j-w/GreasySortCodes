@@ -44,11 +44,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   unsigned long int numTipHits = 0;
   unsigned long int numTipPileupHits = 0;
   unsigned long int numTipTigHits = 0;
-
-  unsigned long int numTigressEvt = 0;
   unsigned long int numTigPileupHits = 0;
-  unsigned long int numTipEvt = 0;
-  unsigned long int numTipTigEvt = 0;
 
   Double_t tipFitTimes[MAXNUMTIPHIT];
 
@@ -104,13 +100,12 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
     
     if(tip){
       
-      numTipEvt++;
       if(tip->GetMultiplicity()>=0){
         tip_mult->Fill(tip->GetMultiplicity());
       }
 
       tipEEvt = 0.;
-      for (int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
+      for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
 
         tip_hit = tip->GetTipHit(tipHitInd);
         if((tip_hit->GetTipChannel() > 0)&&(tip_hit->GetTipChannel() <= NTIP)){
@@ -163,7 +158,6 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
     }
 
     if(tigress){
-      numTigressEvt++;
 
       for (int tigHitInd = 0; tigHitInd < tigress->GetMultiplicity(); tigHitInd++){
         tig_hit = tigress->GetTigressHit(tigHitInd);
@@ -249,7 +243,6 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
     }
 
     if(tip && tigress){
-      numTipTigEvt++;
 
       //check whether event passes all timing gates (TIG-TIG, TIP-TIP, TIP-TIG)
       //also rejects pileup
@@ -297,9 +290,8 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
         tipFitTimes[tipHitInd] = getTipFitTime(tip_hit,tip_waveform_pretrigger);
       }
 
-      //TIP-TIP timing
+      //TIP-TIP timing, position, and energy
       for(int tipHitInd = 0; tipHitInd < tip->GetMultiplicity(); tipHitInd++){
-        numTipHits++;
         tip_hit = tip->GetTipHit(tipHitInd);
         for(int tipHitInd2 = tipHitInd+1; tipHitInd2 < tip->GetMultiplicity(); tipHitInd2++){
           tip_hit2 = tip->GetTipHit(tipHitInd2);
@@ -311,6 +303,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
               tiptipFitTPassed->Fill(tDiff);
             }
           }
+          tipPos_tipPos->Fill(tip_hit->GetTipChannel(),tip_hit2->GetTipChannel());
         }
       }
       
@@ -336,7 +329,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
             tigE_tipTtigTdiff->Fill(tDiff,add_hit->GetEnergy());
           }
 
-          //TIG-TIG timing and energy
+          //TIG-TIG timing, position, and energy
           for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < tigress->GetAddbackMultiplicity(); tigHitIndAB2++){
             add_hit2 = tigress->GetAddbackHit(tigHitIndAB2);
             suppAdd = add_hit2->BGOFired();
@@ -345,6 +338,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
               addT_addT->Fill(tDiff);
               addE_addE->Fill(add_hit->GetEnergy(),add_hit2->GetEnergy());
               addE_addE->Fill(add_hit2->GetEnergy(),add_hit->GetEnergy()); //symmetrized
+              tigPos_tigPos->Fill(add_hit->GetArrayNumber(),add_hit2->GetArrayNumber());
               if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                 if(passedtimeGate&(1ULL<<(tigHitIndAB2+MAXNUMTIPHIT))){
                   addT_addTPassed->Fill(tDiff);
@@ -361,7 +355,6 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
       for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){
         if(passedtimeGate&(1ULL<<tipHitInd)){
           tip_hit = tip->GetTipHit(tipHitInd);
-          numTipHits++;
 
           switch(getParticleType(tip_hit,gates)){ //see common.cxx
             case 4:
@@ -434,10 +427,14 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   cout << "Number of TIP hits: " << numTipHits << endl;
   cout << "Number of TIP pileup hits: " << numTipPileupHits << " (" << (float)(numTipPileupHits*100)/float(numTipPileupHits + numTipHits) << " %)" << endl;
   cout << "Number of TIP + TIGRESS hits: " << numTipTigHits << endl << endl;
-  /*cout << "Number of TIGRESS events: " << numTigressEvt << endl;
-  cout << "Number of TIP events: " << numTipEvt << endl;
-  cout << "Number of TIP + TIGRESS events: " << numTipTigEvt << endl << endl;*/
-  cout << "Event sorting complete" << endl;
+  for(int i=0; i<NTIPRING; i++){
+    double ringPileup = numTipRingPileupHits[i]/(0.01*numTipRingHits[i]);
+    cout << "TIP ring " << i << ": " << ringPileup << "\% pileup" << endl;
+    if(ringPileup > 5.0){
+      cout << "WARNING: excessive pileup in TIP ring " << i << "!" << endl;
+    }
+  }
+  cout << endl << "Event sorting complete" << endl;
 
   cout << "Writing histograms to " << outfile << endl;
 
@@ -471,6 +468,11 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   TDirectory *timingdir = myfile->mkdir("Timing");
   timingdir->cd();
   timingList->Write();
+  myfile->cd();
+
+  TDirectory *tiptipdir = myfile->mkdir("TIP-TIP");
+  tiptipdir->cd();
+  tiptipList->Write();
   myfile->cd();
 
   TDirectory *tigtigdir = myfile->mkdir("TIGRESS-TIGRESS");

@@ -33,7 +33,7 @@ using namespace std;
 
 TApplication *theApp;
 
-TList *tigList, *tipList, *timingList, *tipPIDList, *tipPIDGateList, *tigtigList;
+TList *tigList, *tipList, *timingList, *tipPIDList, *tipPIDGateList, *tiptipList, *tigtigList;
 TList *tigbgoList, *tiptigList, *tigPIDSepList, *tigtigPIDSepList; 
 
 //Raw TIGRESS
@@ -54,7 +54,11 @@ TH1F *tipT_tigT_diff, *tipT_tigT_diffPassed, *tipTCFD_tigT_diff, *tipTCFD_tigT_d
 //TIP PID
 TH2F *tip_E_PID_Sum, *tip_E_PID_Ring[NTIPRING], *tip_E_PID[NTIP];
 
+//TIP-TIP
+TH2I *tipPos_tipPos;
+
 //TIGRESS-TIGRESS
+TH2I *tigPos_tigPos;
 TH2F *addE_addE, *addE_addE_tgPassed;
 
 //TIGRESS-BGO
@@ -95,6 +99,7 @@ void SortDiagnostics::Initialise() {
   timingList = new TList;
   tipPIDList = new TList;
   tipPIDGateList = new TList;
+  tiptipList = new TList;
   tigtigList = new TList;
   tigbgoList = new TList;
   tiptigList = new TList;
@@ -143,7 +148,7 @@ void SortDiagnostics::Initialise() {
   tipList->Add(tip_Etot);
   tip_mult = new TH1I("TIP multiplicity","TIP multiplicity",10,0,10); 
   tipList->Add(tip_mult);
-  tip_wfrmsize = new TH1F("TIP waveform size","TIP waveform size",4096,0,4096); 
+  tip_wfrmsize = new TH1F("TIP waveform size","TIP waveform size",2048,0,2048); 
   tipList->Add(tip_wfrmsize);
   tip_fittype = new TH1I("TIP waveform fit type","TIP waveform fit type",5,0,5);
   tipList->Add(tip_fittype);
@@ -203,7 +208,17 @@ void SortDiagnostics::Initialise() {
     tipPIDList->Add(tip_E_PID[i]);
   }
 
+  //TIP-TIP
+  tipPos_tipPos = new TH2I("TIP-TIP position", "TIP-TIP position", 129, 0, 129, 129, 0, 129);
+  tipPos_tipPos->GetXaxis()->SetTitle("TIP position 1");
+  tipPos_tipPos->GetYaxis()->SetTitle("TIP position 2");
+  tiptipList->Add(tipPos_tipPos);
+
   //TIGRESS-TIGRESS
+  tigPos_tigPos = new TH2I("TIGRESS-TIGRESS position", "TIGRESS-TIGRESS position", 64, 0, 64, 64, 0, 64);
+  tigPos_tigPos->GetXaxis()->SetTitle("TIGRESS position 1");
+  tigPos_tigPos->GetYaxis()->SetTitle("TIGRESS position 2");
+  tigtigList->Add(tigPos_tigPos);
   addE_addE = new TH2F("Addback Gamma-Gamma", "Addback Gamma-Gamma", 4096, 0, 8192, 4096, 0, 8192);
   addE_addE->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
   addE_addE->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");
