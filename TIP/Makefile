@@ -1,7 +1,7 @@
 CXXFLAGS = -std=c++0x -O2
 GRSISORT = -I$(GRSISYS)/include -L$(GRSISYS)/lib `grsi-config --cflags --all-libs --GRSIData-libs` -I$(GRSISYS)/GRSIData/include -L$(GRSISYS)/GRSIData/lib `root-config --cflags --libs` -lTreePlayer -lMathMore
 
-all: common.o SortDiagnostics DrawTIPWaveforms CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EGamma_PIDsep_mca EDopp_PIDsep_mca TigEE_PIDsep_mca TTGamma_PIDsep TTipTGamma_PIDsep
+all: common.o SortDiagnostics DrawTIPWaveforms PrintRFData CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EGamma_PIDsep_mca EDopp_PIDsep_mca TigEE_PIDsep_mca TTGamma_PIDsep TTipTGamma_PIDsep
 
 common.o: src/common.cxx include/common.h
 	g++ src/common.cxx -I./include $(CXXFLAGS) $(GRSISORT) -c -o common.o
@@ -9,6 +9,8 @@ SortDiagnostics: src/SortDiagnostics.cxx include/SortDiagnostics.h common.o
 	g++ src/SortDiagnostics.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o SortDiagnostics
 DrawTIPWaveforms: src/DrawTIPWaveforms.cxx
 	g++ src/DrawTIPWaveforms.cxx -I./include $(CXXFLAGS) $(GRSISORT) -o DrawTIPWaveforms
+PrintRFData: src/PrintRFData.cxx
+	g++ src/PrintRFData.cxx -I./include $(CXXFLAGS) $(GRSISORT) -o PrintRFData
 CheckTimingWindows: src/CheckTimingWindows.cxx include/CheckTimingWindows.h common.o
 	g++ src/CheckTimingWindows.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o CheckTimingWindows
 PlotTimeSepPID: src/PlotTimeSepPID.cxx include/PlotTimeSepPID.h common.o
@@ -34,4 +36,4 @@ TTGamma_PIDsep: src/TTGamma_PIDsep.cxx include/TTGamma_PIDsep.h common.o
 TTipTGamma_PIDsep: src/TTipTGamma_PIDsep.cxx include/TTipTGamma_PIDsep.h common.o
 	g++ src/TTipTGamma_PIDsep.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o TTipTGamma_PIDsep
 clean:
-	rm -rf *~ SortDiagnostics DrawTIPWaveforms CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EGamma_PIDsep_mca EDopp_PIDsep_mca TigEE_PIDsep_mca TTGamma_PIDsep TTipTGamma_PIDsep common.o
+	rm -rf *~ SortDiagnostics DrawTIPWaveforms PrintRFData CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EGamma_PIDsep_mca EDopp_PIDsep_mca TigEE_PIDsep_mca TTGamma_PIDsep TTipTGamma_PIDsep common.o
