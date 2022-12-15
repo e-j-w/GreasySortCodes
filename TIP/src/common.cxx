@@ -2,7 +2,7 @@
 //have access to
 
 #define common_cxx
-#include "common.h"
+#include "../include/common.h"
 
 using namespace std;
 
@@ -227,21 +227,25 @@ PIDGates::PIDGates(){
 //0=unidentified
 //1=proton
 //4=alpha
-Int_t getParticleType(TTipHit *tip_hit, PIDGates *gates){
-  double_t tipPID = tip_hit->GetPID();
-
+Int_t getParticleTypePID(double_t tipPID, double_t energy, Int_t detNum, PIDGates *gates){
   //check if the hit is a proton or alpha
   if(tipPID>=0){ //PID was found
-    if((tip_hit->GetTipChannel() > 0)&&(tip_hit->GetTipChannel() <= NTIP)){
-      Int_t ring = getTIPRing(tip_hit->GetTipChannel());
-      if(gates->protonRingCut[ring]->IsInside(tip_hit->GetEnergy(),tipPID)){
+    Int_t ring = getTIPRing(detNum);
+    if((ring >= 0)&&(ring < NTIPRING)){
+      if(gates->protonRingCut[ring]->IsInside(energy,tipPID)){
         return 1;
-      }else if(gates->alphaRingCut[ring]->IsInside(tip_hit->GetEnergy(),tipPID)){
+      }else if(gates->alphaRingCut[ring]->IsInside(energy,tipPID)){
         return 4;
       }
     }
   }
   return 0;
+}
+Int_t getParticleType(TTipHit *tip_hit, PIDGates *gates){
+  double_t tipPID = tip_hit->GetPID();
+
+  //check if the hit is a proton or alpha
+  return getParticleTypePID(tipPID,tip_hit->GetEnergy(),tip_hit->GetTipChannel(),gates);
 }
 
 //given a TIGRESS hit and the (calibrated in MeV) TIP hits in a fusion-evaporation
@@ -292,7 +296,8 @@ double_t getTipFitTime(TTipHit *tip_hit, const Int_t pretrigger_samples){
   //gets the fit time, without relying on random number generation from GRSISort
   
   double_t tTipFit = 0.;
-  if((tip_hit->GetPID() > -1000.)&&(tip_hit->GetWaveform()->size() > 50)){
+  //if((tip_hit->GetPID() > -1000.)&&(tip_hit->GetWaveform()->size() > 50)){
+  if(tip_hit->GetPID() > 0.){
     tTipFit = tip_hit->GetFitTime() * 10.; //fit time in samples
     tTipFit += tip_hit->GetTimeStamp() * tip_hit->GetTimeStampUnit();
     tTipFit -= pretrigger_samples * 10.;

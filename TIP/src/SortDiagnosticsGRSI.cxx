@@ -1,12 +1,11 @@
 //use the Makefile!
 
-#define SortDiagnostics_cxx
+#define SortDiagnosticsG_cxx
 #include "common.h"
-#include "SortDiagnostics.h"
+#include "SortDiagnosticsGRSI.h"
 
 using namespace std;
 
-float lastTIPHitT[NTIP]; //stores the last hit time for each detector
 Int_t numTipRingPileupHits[NTIPRING], numTipRingHits[NTIPRING];
 
 bool suppTig = false;
@@ -58,12 +57,9 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
   Int_t evtNumProtons, evtNumAlphas;
   Int_t evtNumProtonsDetSumGate, evtNumAlphasDetSumGate;
   Int_t evtNumHorDetSumGate;
-  memset(lastTIPHitT,0,sizeof(lastTIPHitT));
 
   printf("Reading calibration file: %s\n", calfile);
   TChannel::ReadCalFile(calfile);
-
-  tigress->SetSuppressionCriterion(ExptSuppression);
 
   /*cout << "TIGRESS positions: " << endl;
   for(int det=1;det<17;det++){
@@ -123,13 +119,6 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
           numTipRingHits[getTIPRing(tip_hit->GetTipChannel())]++;
           numTipHits++;
 
-          if(lastTIPHitT[tip_hit->GetTipChannel()-1]==0.){
-            lastTIPHitT[tip_hit->GetTipChannel()-1] = tip_hit->GetTime();
-          }else{
-            //cout << "val: " << tip_hit->GetTime() - lastTIPHitT[tip_hit->GetTipChannel()-1] << endl;
-            lastTIPHitT[tip_hit->GetTipChannel()-1] = tip_hit->GetTime();
-          }
-
           wf = tip_hit->GetWaveform();
           tip_wfrmsize->Fill(wf->size());
           tip_fittype->Fill(tip_hit->GetFitType());
@@ -174,7 +163,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
           tigE_ANum->Fill(tig_hit->GetArrayNumber(), tig_hit->GetEnergy());
           tigChan->Fill(tig_hit->GetArrayNumber());
           tigRate->Fill(tig_hit->GetTime()/pow(10,9));
-	  tigNum_time->Fill(tig_hit->GetTime()/pow(10,9),tig_hit->GetArrayNumber());
+	        tigNum_time->Fill(tig_hit->GetTime()/pow(10,9),tig_hit->GetArrayNumber());
           for(int bgoInd=0; bgoInd < tigress->GetBGOMultiplicity(); bgoInd++){
             if((tigress->GetBGO(bgoInd).GetDetector() == tig_hit->GetDetector()) && (tigress->GetBGO(bgoInd).GetEnergy() > 0.)){
               tigT_bgoT_supp->Fill(tig_hit->GetCfd() - tigress->GetBGO(bgoInd).GetCfd());
@@ -334,17 +323,21 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
             tip_hit = tip->GetTipHit(tipHitInd);
             Double_t tDiff = tipFitTimes[tipHitInd] - add_hit->GetTime();
             Double_t tDiffCFD = tip_hit->GetTime() - add_hit->GetTime();
+            Double_t tDiffTS = tip_hit->GetTimeStampNs() - add_hit->GetTime();
             tipT_tigT_diff->Fill(tDiff);
             tipTCFD_tigT_diff->Fill(tDiffCFD);
-	    tigE_tipE->Fill(tip_hit->GetEnergy(),add_hit->GetEnergy());
+            tipTTS_tigT_diff->Fill(tDiffTS);
+            tigE_tipE->Fill(tip_hit->GetEnergy(),add_hit->GetEnergy());
             if(passedtimeGate&(1ULL<<tipHitInd)){
               if(passedtimeGate&(1ULL<<(tigHitIndAB+MAXNUMTIPHIT))){
                 tipT_tigT_diffPassed->Fill(tDiff);
                 tipTCFD_tigT_diffPassed->Fill(tDiffCFD);
+                tipTTS_tigT_diffPassed->Fill(tDiffTS);
               }
             }
             tigE_tipTtigTdiff->Fill(tDiff,add_hit->GetEnergy());
-            tipE_tipTtigTdiff->Fill(tip_hit->GetTime()- add_hit->GetTime(),tip_hit->GetEnergy());
+            tipE_tipTStigTdiff->Fill(tip_hit->GetTimeStampNs()- add_hit->GetTime(),tip_hit->GetEnergy());
+            tipPos_tipTStigTdiff->Fill(tip_hit->GetTimeStampNs()- add_hit->GetTime(),tip_hit->GetTipChannel());
           }
 
           //TIG-TIG timing, position, and energy
@@ -525,7 +518,7 @@ int main(int argc, char **argv)
   char const *afile;
   char const *outfile;
   char const *calfile;
-  printf("Starting SortDiagnostics\n");
+  printf("Starting SortDiagnosticsGRSI\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
   if(grsi_path.length() > 0){
@@ -539,7 +532,7 @@ int main(int argc, char **argv)
   // Input-chain-file, output-histogram-file
   if (argc == 1){
     cout << "Code sorts a bunch of diagnostic histograms for online TIP+TIGRESS data" << endl;
-    cout << "Arguments: SortDiagnostics analysis_tree calibration_file output_file" << endl;
+    cout << "Arguments: SortDiagnosticsGRSI analysis_tree calibration_file output_file" << endl;
     cout << "Default values will be used if arguments (other than analysis tree) are omitted." << endl;
     return 0;
   }else if(argc == 2){
@@ -558,7 +551,7 @@ int main(int argc, char **argv)
     outfile = argv[3];
     printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
   }else{
-    printf("ERROR: too many arguments!\nArguments: SortData analysis_tree calibration_file output_file\n");
+    printf("ERROR: too many arguments!\nArguments: SortDiagnosticsGRSI analysis_tree calibration_file output_file\n");
     return 0;
   }
 
