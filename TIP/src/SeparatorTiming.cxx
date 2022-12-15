@@ -52,60 +52,57 @@ void SeparatorTiming::VerifyTimingSep(TTree *origTree, const char *sepfile, cons
       continue;
     }
 
-      //tigress->ResetAddback();
-      //tigress->BuildHits();
+    memset(&sortedEvt,0,sizeof(sorted_evt));
+    footerVal = 0;
+    fread(&sortedEvt.header,sizeof(evt_header),1,inp);
+    for(int i = 0; i<sortedEvt.header.numTigABHits;i++){
+      fread(&sortedEvt.tigHit[i],sizeof(tigab_hit),1,inp);
+    }
+    for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
+      fread(&sortedEvt.csiHit[i],sizeof(csi_hit),1,inp);
+    }
+    fread(&footerVal,sizeof(uint8_t),1,inp);
+    if(footerVal != 227U){
+      printf("ERROR: invalid footer value in separated event %lu (%u)!\n", sepEntry, footerVal);
+      cout << "Corresponding original entry: " << mapping[jentry] << endl;
+      printf("Original addback multiplicity: %u\n", (uint8_t)tigress->GetAddbackMultiplicity());
+      printf("Original TIP multiplicity: %u\n", (uint8_t)tip->GetMultiplicity());
+      printf("Separated addback multiplicity: %u\n", sortedEvt.header.numTigABHits);
+      printf("Separated TIP multiplicity: %u\n", sortedEvt.header.numCsIHits);
+      exit(-1);
+    }
+    /*if(((uint8_t)tigress->GetAddbackMultiplicity() != sortedEvt.header.numTigABHits)||((uint8_t)tip->GetMultiplicity() != sortedEvt.header.numCsIHits)){
+      printf("ERROR: invalid hit multiplicity in separated event %lu!\n", sepEntry);
+      cout << "Corresponding original entry: " << mapping[jentry] << endl;
+      printf("Original addback multiplicity: %u\n", (uint8_t)tigress->GetAddbackMultiplicity());
+      printf("Original TIP multiplicity: %u\n", (uint8_t)tip->GetMultiplicity());
+      printf("Separated addback multiplicity: %u\n", sortedEvt.header.numTigABHits);
+      printf("Separated TIP multiplicity: %u\n", sortedEvt.header.numCsIHits);
+      exit(-1);
+    }*/
 
-      memset(&sortedEvt,0,sizeof(sorted_evt));
-      footerVal = 0;
-      fread(&sortedEvt.header,sizeof(evt_header),1,inp);
-      for(int i = 0; i<sortedEvt.header.numTigABHits;i++){
-        fread(&sortedEvt.tigHit[i],sizeof(tigab_hit),1,inp);
+    //check event
+    for(int i = 0; i<tigress->GetAddbackMultiplicity();i++){
+      add_hit = tigress->GetAddbackHit(i);
+      if(floorf(add_hit->GetEnergy()) != floorf(sortedEvt.tigHit[i].energy)){
+        cout << "Entry " << mapping[jentry] << " addback hit " << i << " energy mismatch: [" << add_hit->GetEnergy() << "," << sortedEvt.tigHit[i].energy << "]" << endl;
       }
-      for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
-        fread(&sortedEvt.csiHit[i],sizeof(csi_hit),1,inp);
+      if(fabs(add_hit->GetTime() - sortedEvt.tigHit[i].timeNs) > 1.0){
+        cout << "Entry " << mapping[jentry] << " addback hit " << i << " time mismatch: [" << add_hit->GetTime() << "," << sortedEvt.tigHit[i].timeNs << "]" << endl;
       }
-      fread(&footerVal,sizeof(uint8_t),1,inp);
-      if(footerVal != 227U){
-        printf("ERROR: invalid footer value in separated event %lu (%u)!\n", sepEntry, footerVal);
-        cout << "Corresponding original entry: " << mapping[jentry] << endl;
-        printf("Original addback multiplicity: %u\n", (uint8_t)tigress->GetAddbackMultiplicity());
-        printf("Original TIP multiplicity: %u\n", (uint8_t)tip->GetMultiplicity());
-        printf("Separated addback multiplicity: %u\n", sortedEvt.header.numTigABHits);
-        printf("Separated TIP multiplicity: %u\n", sortedEvt.header.numCsIHits);
-        exit(-1);
-      }
-      /*if(((uint8_t)tigress->GetAddbackMultiplicity() != sortedEvt.header.numTigABHits)||((uint8_t)tip->GetMultiplicity() != sortedEvt.header.numCsIHits)){
-        printf("ERROR: invalid hit multiplicity in separated event %lu!\n", sepEntry);
-        cout << "Corresponding original entry: " << mapping[jentry] << endl;
-        printf("Original addback multiplicity: %u\n", (uint8_t)tigress->GetAddbackMultiplicity());
-        printf("Original TIP multiplicity: %u\n", (uint8_t)tip->GetMultiplicity());
-        printf("Separated addback multiplicity: %u\n", sortedEvt.header.numTigABHits);
-        printf("Separated TIP multiplicity: %u\n", sortedEvt.header.numCsIHits);
-        exit(-1);
-      }*/
+    }
 
-      //check event
-      for(int i = 0; i<tigress->GetAddbackMultiplicity();i++){
-        add_hit = tigress->GetAddbackHit(i);
-        if(floorf(add_hit->GetEnergy()) != floorf(sortedEvt.tigHit[i].energy)){
-          cout << "Entry " << mapping[jentry] << " addback hit " << i << " energy mismatch: [" << add_hit->GetEnergy() << "," << sortedEvt.tigHit[i].energy << "]" << endl;
-        }
-        if(fabs(add_hit->GetTime() - sortedEvt.tigHit[i].timeNs) > 1.0){
-          cout << "Entry " << mapping[jentry] << " addback hit " << i << " time mismatch: [" << add_hit->GetTime() << "," << sortedEvt.tigHit[i].timeNs << "]" << endl;
-        }
+    for(int i = 0; i<tip->GetMultiplicity();i++){
+      tip_hit = tip->GetTipHit(i);
+      if(floorf(tip_hit->GetEnergy()) != floorf(sortedEvt.csiHit[i].energy)){
+        cout << "Entry " << mapping[jentry] << " CsI hit " << i << " energy mismatch: [" << tip_hit->GetEnergy() << "," << sortedEvt.csiHit[i].energy << "]" << endl;
       }
-
-      for(int i = 0; i<tip->GetMultiplicity();i++){
-        tip_hit = tip->GetTipHit(i);
-        if(floorf(tip_hit->GetEnergy()) != floorf(sortedEvt.csiHit[i].energy)){
-          cout << "Entry " << mapping[jentry] << " CsI hit " << i << " energy mismatch: [" << tip_hit->GetEnergy() << "," << sortedEvt.csiHit[i].energy << "]" << endl;
-        }
-        if(floor(getTipFitTime(tip_hit,tip_waveform_pretrigger)) != floor(sortedEvt.csiHit[i].timeNs)){
-          cout << "Entry " << mapping[jentry] << " CsI hit " << i << " time mismatch: [" << getTipFitTime(tip_hit,tip_waveform_pretrigger) << "," << sortedEvt.csiHit[i].timeNs << "]" << endl;
-        }
+      if(floor(getTipFitTime(tip_hit,tip_waveform_pretrigger)) != floor(sortedEvt.csiHit[i].timeNs)){
+        cout << "Entry " << mapping[jentry] << " CsI hit " << i << " time mismatch: [" << getTipFitTime(tip_hit,tip_waveform_pretrigger) << "," << sortedEvt.csiHit[i].timeNs << "]" << endl;
       }
+    }
 
-      sepEntry++;
+    sepEntry++;
       
     if (jentry % 1000 == 0)
       cout << setiosflags(ios::fixed) << "Verified entry " << mapping[jentry] << " of " << origTree->GetEntries() << ", " << 100 * mapping[jentry] / origTree->GetEntries() << "% complete" << "\r" << flush;
@@ -254,7 +251,7 @@ int main(int argc, char **argv){
   char const *afile;
   char const *outfile;
   char const *calfile;
-  printf("Starting sortcode\n");
+  printf("Starting SeparatorTiming code\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
   if (grsi_path.length() > 0){
@@ -274,22 +271,20 @@ int main(int argc, char **argv){
     afile = argv[1];
     calfile = "CalibrationFile.cal";
     outfile = "Separated.smol";
-    printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
-    
   }else if (argc == 3){
     afile = argv[1];
     calfile = argv[2];
     outfile = "Separated.smol";
-    printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
   }else if (argc == 4){
     afile = argv[1];
     calfile = argv[2];
     outfile = argv[3];
-    printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
   }else{
-    printf("Too many arguments\nArguments: SortData analysis_tree calibration_file output_file\n");
+    printf("Too many arguments\nArguments: SeparatorTiming analysis_tree calibration_file output_file\n");
     return 0;
   }
+
+  printf("Analysis file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
 
   theApp=new TApplication("App", &argc, argv);
 

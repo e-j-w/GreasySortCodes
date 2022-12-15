@@ -19,10 +19,10 @@ PIDGates::PIDGates(){
       case 9:
         //ring 9
         protonRingCut[i]->SetPoint(0,2,51);
-        protonRingCut[i]->SetPoint(1,2.5,94);
-        protonRingCut[i]->SetPoint(2,13.5,104.5);
-        protonRingCut[i]->SetPoint(3,13.3,82.9);
-        protonRingCut[i]->SetPoint(4,7.4,50.1);
+        protonRingCut[i]->SetPoint(1,2.9,125);
+        protonRingCut[i]->SetPoint(2,14,143);
+        protonRingCut[i]->SetPoint(3,14,82.9);
+        protonRingCut[i]->SetPoint(4,7.7,43.5);
         protonRingCut[i]->SetPoint(5,5.6,29.3);
         protonRingCut[i]->SetPoint(6,3.7,27.7);
         protonRingCut[i]->SetPoint(7,2,51);
@@ -31,19 +31,19 @@ PIDGates::PIDGates(){
         alphaRingCut[i]->SetPoint(1,5,24);
         alphaRingCut[i]->SetPoint(2,20,37);
         alphaRingCut[i]->SetPoint(3,20,13);
-        alphaRingCut[i]->SetPoint(4,5.5,8);
-        alphaRingCut[i]->SetPoint(5,3.7,2.5);
+        alphaRingCut[i]->SetPoint(4,8,2);
+        alphaRingCut[i]->SetPoint(5,3.7,2);
         alphaRingCut[i]->SetPoint(6,2,11);
         alphaRingCut[i]->SetPoint(7,2.2,24);
         break;
       case 8:
         //ring 8
         protonRingCut[i]->SetPoint(0,1,37);
-        protonRingCut[i]->SetPoint(1,3.5,94.9);
-        protonRingCut[i]->SetPoint(2,12.4,112);
-        protonRingCut[i]->SetPoint(3,12.7,83.6);
-        protonRingCut[i]->SetPoint(4,7.1,47.8);
-        protonRingCut[i]->SetPoint(5,5.7,28.5);
+        protonRingCut[i]->SetPoint(1,3.2,110);
+        protonRingCut[i]->SetPoint(2,14,130);
+        protonRingCut[i]->SetPoint(3,14,83.6);
+        protonRingCut[i]->SetPoint(4,7.5,40);
+        protonRingCut[i]->SetPoint(5,7,29.5);
         protonRingCut[i]->SetPoint(6,3.6,24.1);
         protonRingCut[i]->SetPoint(7,1,37);
 
@@ -51,7 +51,7 @@ PIDGates::PIDGates(){
         alphaRingCut[i]->SetPoint(1,4.9,23.7);
         alphaRingCut[i]->SetPoint(2,19,27);
         alphaRingCut[i]->SetPoint(3,19,20);
-        alphaRingCut[i]->SetPoint(4,6.3,8.9);
+        alphaRingCut[i]->SetPoint(4,9,3);
         alphaRingCut[i]->SetPoint(5,4.2,3);
         alphaRingCut[i]->SetPoint(6,2.7,6.5);
         alphaRingCut[i]->SetPoint(7,1.2,22.8);
@@ -59,10 +59,10 @@ PIDGates::PIDGates(){
       case 7:
         //ring 7
         protonRingCut[i]->SetPoint(0,2.5,33.5);
-        protonRingCut[i]->SetPoint(1,2,96);
-        protonRingCut[i]->SetPoint(2,19,115);
+        protonRingCut[i]->SetPoint(1,2.7,121.5);
+        protonRingCut[i]->SetPoint(2,20,144);
         protonRingCut[i]->SetPoint(3,20,76);
-        protonRingCut[i]->SetPoint(4,9.8,60);
+        protonRingCut[i]->SetPoint(4,9.8,55);
         protonRingCut[i]->SetPoint(5,7.6,45);
         protonRingCut[i]->SetPoint(6,6.75,37);
         protonRingCut[i]->SetPoint(7,2.5,33.5);
@@ -70,7 +70,7 @@ PIDGates::PIDGates(){
         alphaRingCut[i]->SetPoint(0,1.9,26);
         alphaRingCut[i]->SetPoint(1,26,46);
         alphaRingCut[i]->SetPoint(2,27,15);
-        alphaRingCut[i]->SetPoint(3,7,0);
+        alphaRingCut[i]->SetPoint(3,8,2);
         alphaRingCut[i]->SetPoint(4,3,2);
         alphaRingCut[i]->SetPoint(5,1.5,6);
         alphaRingCut[i]->SetPoint(6,1.2,13);
@@ -79,143 +79,143 @@ PIDGates::PIDGates(){
       case 6:
         //ring 6
         protonRingCut[i]->SetPoint(0,1.8,31);
-        protonRingCut[i]->SetPoint(1,2.5,97);
-        protonRingCut[i]->SetPoint(2,20,110);
+        protonRingCut[i]->SetPoint(1,2.5,105);
+        protonRingCut[i]->SetPoint(2,24,126);
         protonRingCut[i]->SetPoint(3,24,78);
         protonRingCut[i]->SetPoint(4,12,64);
         protonRingCut[i]->SetPoint(5,9,46);
-        protonRingCut[i]->SetPoint(6,7,37.2);
+        protonRingCut[i]->SetPoint(6,7,31);
         protonRingCut[i]->SetPoint(7,1.8,31);
 
         alphaRingCut[i]->SetPoint(0,1.8,22);
-        alphaRingCut[i]->SetPoint(1,7,24);
+        alphaRingCut[i]->SetPoint(1,7.5,29);
         alphaRingCut[i]->SetPoint(2,32,32);
         alphaRingCut[i]->SetPoint(3,33,11);
-        alphaRingCut[i]->SetPoint(4,10,3);
-        alphaRingCut[i]->SetPoint(5,4.2,3);
+        alphaRingCut[i]->SetPoint(4,10,2);
+        alphaRingCut[i]->SetPoint(5,3,2);
         alphaRingCut[i]->SetPoint(6,1.5,7);
         alphaRingCut[i]->SetPoint(7,1.8,22);
         break;
       case 5:
         //ring 5
         protonRingCut[i]->SetPoint(0,1.2,36);
-        protonRingCut[i]->SetPoint(1,2.5,92);
-        protonRingCut[i]->SetPoint(2,19.5,118);
-        protonRingCut[i]->SetPoint(3,20,90);
-        protonRingCut[i]->SetPoint(4,11.4,69.3);
-        protonRingCut[i]->SetPoint(5,8.7,51);
+        protonRingCut[i]->SetPoint(1,2.9,112);
+        protonRingCut[i]->SetPoint(2,20,124);
+        protonRingCut[i]->SetPoint(3,20,84);
+        protonRingCut[i]->SetPoint(4,11.4,60);
+        protonRingCut[i]->SetPoint(5,9,49.5);
         protonRingCut[i]->SetPoint(6,8.3,44.8);
         protonRingCut[i]->SetPoint(7,1.2,36);
 
-        alphaRingCut[i]->SetPoint(0,1.2,34);
+        alphaRingCut[i]->SetPoint(0,1.9,30);
         alphaRingCut[i]->SetPoint(1,5.8,38);
-        alphaRingCut[i]->SetPoint(2,20,51);
-        alphaRingCut[i]->SetPoint(3,20,12);
-        alphaRingCut[i]->SetPoint(4,5.5,3);
-        alphaRingCut[i]->SetPoint(5,2.6,3.1);
+        alphaRingCut[i]->SetPoint(2,21.5,61);
+        alphaRingCut[i]->SetPoint(3,21,12);
+        alphaRingCut[i]->SetPoint(4,9.5,2);
+        alphaRingCut[i]->SetPoint(5,2.6,2);
         alphaRingCut[i]->SetPoint(6,1,11);
-        alphaRingCut[i]->SetPoint(7,1.2,34);
+        alphaRingCut[i]->SetPoint(7,1.9,30);
         break;
       case 4:
         //ring 4
-        protonRingCut[i]->SetPoint(0,1.5,42);
-        protonRingCut[i]->SetPoint(1,2.8,101);
-        protonRingCut[i]->SetPoint(2,16,115);
-        protonRingCut[i]->SetPoint(3,14.3,91.4);
-        protonRingCut[i]->SetPoint(4,11.8,71.2);
-        protonRingCut[i]->SetPoint(5,10,58.3);
-        protonRingCut[i]->SetPoint(6,8.9,48.2);
-        protonRingCut[i]->SetPoint(7,1.5,42);
+        protonRingCut[i]->SetPoint(0,1.8,31.5);
+        protonRingCut[i]->SetPoint(1,3,120);
+        protonRingCut[i]->SetPoint(2,17.5,135);
+        protonRingCut[i]->SetPoint(3,17.5,83.5);
+        protonRingCut[i]->SetPoint(4,11.8,57);
+        protonRingCut[i]->SetPoint(5,9,44.8);
+        protonRingCut[i]->SetPoint(6,6.2,40.5);
+        protonRingCut[i]->SetPoint(7,1.8,31.5);
 
-        alphaRingCut[i]->SetPoint(0,1.2,33);
+        alphaRingCut[i]->SetPoint(0,2.6,28.2);
         alphaRingCut[i]->SetPoint(1,8,41);
-        alphaRingCut[i]->SetPoint(2,23,52);
+        alphaRingCut[i]->SetPoint(2,23,60);
         alphaRingCut[i]->SetPoint(3,23,25);
-        alphaRingCut[i]->SetPoint(4,10.6,14);
-        alphaRingCut[i]->SetPoint(5,7.27,3);
-        alphaRingCut[i]->SetPoint(6,1,5);
-        alphaRingCut[i]->SetPoint(7,1.2,33);
+        alphaRingCut[i]->SetPoint(4,10.6,9.5);
+        alphaRingCut[i]->SetPoint(5,8.5,2);
+        alphaRingCut[i]->SetPoint(6,2.3,2);
+        alphaRingCut[i]->SetPoint(7,2.6,28.2);
         break;
       case 3:
         //ring 3
-        protonRingCut[i]->SetPoint(0,1.5,45);
-        protonRingCut[i]->SetPoint(1,3,90);
-        protonRingCut[i]->SetPoint(2,9.6,112);
-        protonRingCut[i]->SetPoint(3,18.1,120);
-        protonRingCut[i]->SetPoint(4,19.6,94.8);
-        protonRingCut[i]->SetPoint(5,13.6,79.7);
+        protonRingCut[i]->SetPoint(0,1.5,44);
+        protonRingCut[i]->SetPoint(1,3.2,130);
+        protonRingCut[i]->SetPoint(2,12,146);
+        protonRingCut[i]->SetPoint(3,20,150);
+        protonRingCut[i]->SetPoint(4,21.2,87);
+        protonRingCut[i]->SetPoint(5,12.8,63.5);
         protonRingCut[i]->SetPoint(6,11.6,50);
         protonRingCut[i]->SetPoint(7,1.5,45);
 
-        alphaRingCut[i]->SetPoint(0,2.9,37.6);
-        alphaRingCut[i]->SetPoint(1,10,42);
-        alphaRingCut[i]->SetPoint(2,28,50);
+        alphaRingCut[i]->SetPoint(0,2.9,42);
+        alphaRingCut[i]->SetPoint(1,10,47);
+        alphaRingCut[i]->SetPoint(2,28,59);
         alphaRingCut[i]->SetPoint(3,28,26);
-        alphaRingCut[i]->SetPoint(4,12.4,14.3);
-        alphaRingCut[i]->SetPoint(5,9.6,5.1);
-        alphaRingCut[i]->SetPoint(6,1.5,2.9);
-        alphaRingCut[i]->SetPoint(7,2.9,37.6);
+        alphaRingCut[i]->SetPoint(4,12.8,11.5);
+        alphaRingCut[i]->SetPoint(5,9.6,2);
+        alphaRingCut[i]->SetPoint(6,1.5,2);
+        alphaRingCut[i]->SetPoint(7,2.9,42);
         break;
       case 2:
         //ring 2
-        protonRingCut[i]->SetPoint(0,1.5,50);
-        protonRingCut[i]->SetPoint(1,2.6,95);
-        protonRingCut[i]->SetPoint(2,19.3,124.1);
-        protonRingCut[i]->SetPoint(3,23,97.7);
+        protonRingCut[i]->SetPoint(0,1.5,43);
+        protonRingCut[i]->SetPoint(1,3,134);
+        protonRingCut[i]->SetPoint(2,23,146);
+        protonRingCut[i]->SetPoint(3,25,98);
         protonRingCut[i]->SetPoint(4,16,71);
-        protonRingCut[i]->SetPoint(5,11,54);
-        protonRingCut[i]->SetPoint(6,7,46);
-        protonRingCut[i]->SetPoint(7,1.5,50);
+        protonRingCut[i]->SetPoint(5,13.5,53);
+        protonRingCut[i]->SetPoint(6,8,45);
+        protonRingCut[i]->SetPoint(7,1.5,43);
 
-        alphaRingCut[i]->SetPoint(0,1.5,38);
+        alphaRingCut[i]->SetPoint(0,2.2,41);
         alphaRingCut[i]->SetPoint(1,11,44);
         alphaRingCut[i]->SetPoint(2,30,53);
         alphaRingCut[i]->SetPoint(3,31,31);
-        alphaRingCut[i]->SetPoint(4,12.7,9.7);
+        alphaRingCut[i]->SetPoint(4,14.5,2);
         alphaRingCut[i]->SetPoint(5,4,2);
         alphaRingCut[i]->SetPoint(6,1,4);
-        alphaRingCut[i]->SetPoint(7,1.5,38);
+        alphaRingCut[i]->SetPoint(7,2.2,41);
         break;
       case 1:
         //ring 1
-        protonRingCut[i]->SetPoint(0,3,76);
-        protonRingCut[i]->SetPoint(1,8,112);
-        protonRingCut[i]->SetPoint(2,30,116);
+        protonRingCut[i]->SetPoint(0,3,103);
+        protonRingCut[i]->SetPoint(1,8,126);
+        protonRingCut[i]->SetPoint(2,30,127);
         protonRingCut[i]->SetPoint(3,35,91);
         protonRingCut[i]->SetPoint(4,22,55);
         protonRingCut[i]->SetPoint(5,12,49);
-        protonRingCut[i]->SetPoint(6,2.1,49);
-        protonRingCut[i]->SetPoint(7,3,76);
+        protonRingCut[i]->SetPoint(6,2.1,46.5);
+        protonRingCut[i]->SetPoint(7,3,103);
 
-        alphaRingCut[i]->SetPoint(0,2.7,38);
-        alphaRingCut[i]->SetPoint(1,22,45.5);
-        alphaRingCut[i]->SetPoint(2,40,49);
-        alphaRingCut[i]->SetPoint(3,41,29);
+        alphaRingCut[i]->SetPoint(0,2.7,44);
+        alphaRingCut[i]->SetPoint(1,22,54);
+        alphaRingCut[i]->SetPoint(2,43,65);
+        alphaRingCut[i]->SetPoint(3,43,29);
         alphaRingCut[i]->SetPoint(4,21,13);
-        alphaRingCut[i]->SetPoint(5,15.6,3);
-        alphaRingCut[i]->SetPoint(6,2.4,3.6);
-        alphaRingCut[i]->SetPoint(7,2.7,38);
+        alphaRingCut[i]->SetPoint(5,15.6,2);
+        alphaRingCut[i]->SetPoint(6,2.4,2);
+        alphaRingCut[i]->SetPoint(7,2.7,44);
         break;
       case 0:
       default:
         //ring 0
-        protonRingCut[i]->SetPoint(0,4,50);
-        protonRingCut[i]->SetPoint(1,5,127);
-        protonRingCut[i]->SetPoint(2,19,136);
+        protonRingCut[i]->SetPoint(0,3,50);
+        protonRingCut[i]->SetPoint(1,3.3,127);
+        protonRingCut[i]->SetPoint(2,17,158);
         protonRingCut[i]->SetPoint(3,26,138);
         protonRingCut[i]->SetPoint(4,26,73);
         protonRingCut[i]->SetPoint(5,12,57);
-        protonRingCut[i]->SetPoint(6,9,50);
-        protonRingCut[i]->SetPoint(7,4,50);
+        protonRingCut[i]->SetPoint(6,7.8,50);
+        protonRingCut[i]->SetPoint(7,3,50);
 
-        alphaRingCut[i]->SetPoint(0,3,27);
-        alphaRingCut[i]->SetPoint(1,8,42);
-        alphaRingCut[i]->SetPoint(2,18,52);
-        alphaRingCut[i]->SetPoint(3,32,55);
+        alphaRingCut[i]->SetPoint(0,3,40);
+        alphaRingCut[i]->SetPoint(1,8,48);
+        alphaRingCut[i]->SetPoint(2,18,62);
+        alphaRingCut[i]->SetPoint(3,32,76);
         alphaRingCut[i]->SetPoint(4,30,23);
-        alphaRingCut[i]->SetPoint(5,16.1,6.7);
-        alphaRingCut[i]->SetPoint(6,5,4);
-        alphaRingCut[i]->SetPoint(7,3,27);
+        alphaRingCut[i]->SetPoint(5,16.1,4);
+        alphaRingCut[i]->SetPoint(6,2.6,3);
+        alphaRingCut[i]->SetPoint(7,3,40);
         break;
     }
 
