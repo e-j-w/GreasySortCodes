@@ -25,6 +25,6 @@ class SeparatorTiming{
 	public :
 
 		SeparatorTiming(){;} 
-		void SortData(const char*, const uint8_t, const uint8_t, const char*, const char*);
+		uint64_t SortData(const char*, const uint8_t, const uint8_t, const char*, PIDGates*);
 };
 #endif

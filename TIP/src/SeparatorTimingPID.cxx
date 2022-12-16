@@ -10,13 +10,14 @@
 using namespace std;
 
 uint64_t *mapping;
+FILE *out;
 
-void SeparatorTiming::SortData(const char *afile, const uint8_t nP, const uint8_t nA, const char *calfile, const char *outfile){
+uint64_t SeparatorTiming::SortData(const char *afile, const uint8_t nP, const uint8_t nA, const char *calfile, PIDGates *gates){
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
   if (!analysisfile->IsOpen()){
-    printf("Opening file %s failed, aborting\n", afile);
-    return;
+    printf("WARNING: opening file %s failed!\n", afile);
+    return 0;
   }
 
   printf("File %s opened\n", afile);
@@ -29,7 +30,7 @@ void SeparatorTiming::SortData(const char *afile, const uint8_t nP, const uint8_
     AnalysisTree->SetBranchAddress("TTigress", &tigress);
   }else{
     cout << "ERROR: Branch 'TTigress' not found! TTigress variable is NULL pointer" << endl;
-    return;
+    return 0;
   }
 
   TTip *tip = 0;
@@ -37,22 +38,13 @@ void SeparatorTiming::SortData(const char *afile, const uint8_t nP, const uint8_
     AnalysisTree->SetBranchAddress("TTip", &tip);
   }else{
     cout << "ERROR: Branch 'TTip' not found! TTip variable is NULL pointer" << endl;
-    return;
+    return 0;
   }
 
   TTigressHit *add_hit;
   TTipHit *tip_hit;
-
-  //Setup TIP PID gates
-  PIDGates *gates = new PIDGates;
-
-  //setup the output file
-  FILE *out = fopen(outfile, "wb");
-
   sorted_evt sortedEvt;
   uint8_t footerVal = 227U;
-  uint64_t numSepEvts = 0U;
-  fwrite(&numSepEvts,sizeof(uint64_t),1,out);
 
   TChannel::ReadCalFile(calfile);
 
@@ -159,20 +151,14 @@ void SeparatorTiming::SortData(const char *afile, const uint8_t nP, const uint8_
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << analentries << ", " << 100 * jentry / analentries << "% complete" << "\r" << flush;
   } // analysis tree
 
-  //write the number of separated events to the beginning of the file
-  numSepEvts = (uint64_t)numSeparatedEvents;
-  fseek(out,0,SEEK_SET);
-  fwrite(&numSepEvts,sizeof(uint64_t),1,out);
-
   cout << "Entry " << analentries << " of " << analentries << ", 100% complete" << endl;
   cout << "Event sorting complete" << endl;
-  cout << "Number of separated events: " << numSepEvts << " ("<< 100.0f*numSepEvts/(float)analentries << "\% of total)" << endl;
+  cout << "Number of separated events: " << numSeparatedEvents << " ("<< 100.0f*numSeparatedEvents/(float)analentries << "\% of total)" << endl;
 
-  cout << "Wrote separated data to: " << outfile << endl;
-
-  fclose(out);
 
   analysisfile->Close();
+
+  return (uint64_t)numSeparatedEvents;
 
 }
 int main(int argc, char **argv){
@@ -198,6 +184,7 @@ int main(int argc, char **argv){
   // Input-chain-file, output-histogram-file
   if (argc == 1){
     cout << "Arguments: SeparatorTimingPID analysis_tree numP numA calibration_file output_file" << endl;
+    cout << "*analysis_tree* can be a single analysis tree (extension .root), or a list of analysis trees (extension .list, one filepath per line)." << endl;
     cout << "Default values will be used if arguments (other than analysis tree, nP, nA) are omitted." << endl;
     return 0;
   }else if (argc == 4){
@@ -223,11 +210,52 @@ int main(int argc, char **argv){
     return 0;
   }
 
-  printf("Analysis file: %s\nNumber of protons: %u\nNumber of alphas: %u\nCalibration file: %s\nOutput file: %s\n", afile, nP, nA, calfile, outfile);
-
   theApp=new TApplication("App", &argc, argv);
 
-  mysort->SortData(afile, nP, nA, calfile, outfile);
+  const char *dot = strrchr(afile, '.'); //get the file extension
+  if(dot==NULL){
+    cout << "ERROR: couldn't get analysis tree or list file name." << endl;
+    return 0;
+  }
+
+  //Setup TIP PID gates
+  PIDGates *gates = new PIDGates;
+
+  //setup the output file
+  out = fopen(outfile, "wb");
+  uint64_t numSepEvts = 0U;
+  fwrite(&numSepEvts,sizeof(uint64_t),1,out);
+
+  if(strcmp(dot + 1, "root") == 0){
+    printf("Analysis tree file: %s\nNumber of protons: %u\nNumber of alphas: %u\nCalibration file: %s\nOutput file: %s\n", afile, nP, nA, calfile, outfile);
+    numSepEvts += mysort->SortData(afile, nP, nA, calfile, gates);
+  }else if(strcmp(dot + 1, "list") == 0){
+    printf("Analysis tree list: %s\nNumber of protons: %u\nNumber of alphas: %u\nCalibration file: %s\nOutput file: %s\n", afile, nP, nA, calfile, outfile);
+    
+    FILE *listfile;
+    char str[256];
+
+    if((listfile=fopen(afile,"r"))==NULL){
+      cout << "ERROR: Cannot open the list file: " << afile << endl;
+      return 0;
+    }else{
+      while(!(feof(listfile))){//go until the end of file is reached
+        if(fgets(str,256,listfile)!=NULL){ //get an entire line
+          str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
+          numSepEvts += mysort->SortData(str, nP, nA, calfile, gates);
+        }
+      }
+    }
+  }else{
+    cout << "ERROR: improper file extension for analysis tree or list (should be .root or .list)." << endl;
+    return 0;
+  }
+
+  //write the number of separated events to the beginning of the file
+  fseek(out,0,SEEK_SET);
+  fwrite(&numSepEvts,sizeof(uint64_t),1,out);
+  cout << "Wrote " << numSepEvts << " separated events to: " << outfile << endl;
+  fclose(out);
 
   return 0;
 }

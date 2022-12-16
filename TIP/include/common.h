@@ -12,6 +12,8 @@
 #include "TParserLibrary.h"
 #include "TEnv.h"
 
+#include "evt_fmt.h"
+
 using namespace std;
 
 #define NTIP 128 //number of TIP channels
@@ -65,6 +67,7 @@ static Int_t noPileupKValue = 700; //should be 0 for TIG-10s, 700 for GRIF-16s
 //FUNCTION PROTOTYPES
 Int_t getParticleTypePID(double_t tipPID, double_t energy, Int_t detNum, PIDGates *gates);
 Int_t getParticleType(TTipHit *tip_hit, PIDGates *gates);
+double_t getEDoppFusEvapDirect(tigab_hit *add_hit, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates);
 double_t getEDoppFusEvap(TTigressHit *add_hit, TTip *tip, const uint64_t passedtimeGate, PIDGates *gates);
 double_t getTipFitTime(TTipHit *tip_hit, const Int_t pretrigger_samples);
 bool ExptSuppression(TDetectorHit* tig, TBgoHit& bgo);

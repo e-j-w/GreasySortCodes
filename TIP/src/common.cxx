@@ -3,6 +3,7 @@
 
 #define common_cxx
 #include "../include/common.h"
+#include "position_arrays.cxx"
 
 using namespace std;
 
@@ -246,6 +247,81 @@ Int_t getParticleType(TTipHit *tip_hit, PIDGates *gates){
 
   //check if the hit is a proton or alpha
   return getParticleTypePID(tipPID,tip_hit->GetEnergy(),tip_hit->GetTipChannel(),gates);
+}
+
+double_t TigGetDoppler(double beta, double eTig, uint8_t core, uint8_t seg, TVector3* vec = nullptr){
+  if(vec == nullptr) {
+    cout << "ERROR: need to define momentum vector for Doppler correction!" << endl;
+    exit(-1);
+  }
+  if(seg > 8){
+    cout << "ERROR: invalid TIGRESS segment (" << seg << ")." << endl;
+    exit(-1);
+  }
+  double tmp   = 0;
+  double gamma = 1.0 / (sqrt(1.0 - pow(beta, 2)));
+  TVector3 hitPos(0,0,0);
+  switch(core % 4){
+    case 3:
+      //white core
+      hitPos.SetXYZ(GeWhitePositionBack[(core/4) + 1][seg][0],GeWhitePositionBack[(core/4) + 1][seg][1],GeWhitePositionBack[(core/4) + 1][seg][2]);
+      break;
+    case 2:
+      //red core
+      hitPos.SetXYZ(GeRedPositionBack[(core/4) + 1][seg][0],GeRedPositionBack[(core/4) + 1][seg][1],GeRedPositionBack[(core/4) + 1][seg][2]);
+      break;
+    case 1:
+      //green core
+      hitPos.SetXYZ(GeGreenPositionBack[(core/4) + 1][seg][0],GeGreenPositionBack[(core/4) + 1][seg][1],GeGreenPositionBack[(core/4) + 1][seg][2]);
+      break;
+    case 0:
+    default:
+      //blue core
+      hitPos.SetXYZ(GeBluePositionBack[(core/4) + 1][seg][0],GeBluePositionBack[(core/4) + 1][seg][1],GeBluePositionBack[(core/4) + 1][seg][2]);
+      break;
+  }
+  
+  tmp = eTig * gamma * (1 - beta * TMath::Cos(hitPos.Angle(*vec)));
+  return tmp;
+}
+
+//implementation of getEDoppFusEvap for the SMOL data format
+double_t getEDoppFusEvapDirect(tigab_hit *add_hit, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates){
+  double_t resM = compoundM_AMU*AMU; //residual mass prior to particle evaporation
+  TVector3 p_compound(0,0,resM*betaCompound/(1.0-betaCompound*betaCompound));
+  //cout << "p_compound: " << p_compound.X() << " " << p_compound.Y() << " " << p_compound.Z() << endl;
+  TVector3 p_part;
+  double_t resBeta = 0.;
+  if(numCsIHits<=MAXNUMTIPHIT){
+    for(int tipHitInd=0;tipHitInd<numCsIHits;tipHitInd++){
+      switch(getParticleTypePID(tip_hits[tipHitInd].PID,tip_hits[tipHitInd].energy,tip_hits[tipHitInd].detNum,gates)){ //see common.cxx
+        case 4:
+          p_part.SetXYZ(TipCsIPosition[tip_hits[tipHitInd].detNum-1][0],TipCsIPosition[tip_hits[tipHitInd].detNum-1][1],TipCsIPosition[tip_hits[tipHitInd].detNum-1][2]);
+          //cout << "p_alpha " << tipHitInd << ": " << p_part.X() << " " << p_part.Y() << " " << p_part.Z() << endl;
+          p_part.SetMag(sqrt(2.0*4.0015*AMU*tip_hits[tipHitInd].energy));
+          //p_part.SetMag(sqrt(2.0*4.0015*AMU*10)); //TEMPORARY - ASSUME 10 MeV
+          p_compound -= p_part;
+          resM -= 2.0*4.0015*AMU; //technically not true due to binding energy!
+          break;
+        case 1:
+          p_part.SetXYZ(TipCsIPosition[tip_hits[tipHitInd].detNum-1][0],TipCsIPosition[tip_hits[tipHitInd].detNum-1][1],TipCsIPosition[tip_hits[tipHitInd].detNum-1][2]);
+          //cout << "p_proton " << tipHitInd << ": " << p_part.X() << " " << p_part.Y() << " " << p_part.Z() << endl;
+          p_part.SetMag(sqrt(2.0*938.272*tip_hits[tipHitInd].energy));
+          //p_part.SetMag(sqrt(2.0*938.272*10)); //TEMPORARY - ASSUME 10 MeV
+          p_compound -= p_part;
+          resM -= 2.0*938.272; //technically not true due to binding energy!
+          break;
+        case 0:
+        default:
+          break;
+      }
+    }
+  }
+  //cout << "p_res: " << p_compound.X() << " " << p_compound.Y() << " " << p_compound.Z() << endl;
+  resBeta = sqrt(1.0 - 1.0/(1.0 + pow(p_compound.Mag()/resM,2)));
+  //cout << "resBeta: " << resBeta << ", E: " << TigGetDoppler(resBeta,add_hit->energy,add_hit->core,add_hit->seg,&p_compound) << endl;
+  return TigGetDoppler(resBeta,add_hit->energy,add_hit->core,add_hit->seg,&p_compound);
+  
 }
 
 //given a TIGRESS hit and the (calibrated in MeV) TIP hits in a fusion-evaporation

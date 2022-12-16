@@ -214,6 +214,19 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
               //double_t thetaDeg = sortedEvt.tigHit[tigHitIndAB]->GetPosition().Theta()*180./PI;
               addE_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB].energy,0); //sum spectrum
               //addE_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB].energy,getTIGRESSRing(thetaDeg)+1);
+              double eDopp = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+              addDopp_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(eDopp,0); //sum spectrum
+              for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < sortedEvt.header.numTigABHits; tigHitIndAB2++){
+                if(sortedEvt.tigHit[tigHitIndAB2].energy > MIN_TIG_EAB){
+                  addEaddE_xayp[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB].energy,sortedEvt.tigHit[tigHitIndAB2].energy);
+                  addEaddE_xayp[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,sortedEvt.tigHit[tigHitIndAB].energy); //symmetrized
+                  double eDopp2 = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+                  addDoppaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp,eDopp2);
+                  addDoppaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp2,eDopp); //symmetrized
+                  addEaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB].energy,eDopp2);
+                  addEaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,eDopp); //symmetrized
+                }
+              }
             }
           }
 

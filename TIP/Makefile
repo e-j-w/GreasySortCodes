@@ -3,7 +3,7 @@ GRSISORT = -I$(GRSISYS)/include -L$(GRSISYS)/lib `grsi-config --cflags --all-lib
 
 all: common.o SortDiagnosticsGRSI SortDiagnosticsSMOL DrawTIPWaveforms PrintRFData CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EGamma_PIDsep_mca EDopp_PIDsep_mca TigEE_PIDsep_mca TTGamma_PIDsep TTipTGamma_PIDsep SeparatorTiming SeparatorTimingPID
 
-common.o: src/common.cxx include/common.h
+common.o: src/common.cxx src/position_arrays.cxx include/common.h include/evt_fmt.h
 	g++ src/common.cxx -I./include $(CXXFLAGS) $(GRSISORT) -c -o common.o
 SortDiagnosticsGRSI: src/SortDiagnosticsGRSI.cxx include/SortDiagnosticsGRSI.h common.o
 	g++ src/SortDiagnosticsGRSI.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o SortDiagnosticsGRSI

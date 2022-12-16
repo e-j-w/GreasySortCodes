@@ -65,6 +65,7 @@ TH2F *addDopp_xayp_ring[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 //TIGRESS-TIGRESS PID Separated plots
 TH2F *addEaddE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 TH2F *addDoppaddDopp_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
+TH2F *addEaddDopp_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 
 PIDGates *gates;
 
@@ -321,6 +322,17 @@ void SortDiagnostics::Initialise() {
         addDoppaddDopp_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
         addDoppaddDopp_xayp[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");
         tigtigPIDSepList->Add(addDoppaddDopp_xayp[i][j]);
+      }
+    }
+  }
+  for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
+    for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
+      if((i+j)<=MAX_NUM_PARTICLE){
+        //TIGRESS ring spectra
+        addEaddDopp_xayp[i][j] = new TH2F(Form("Addback Gamma-Doppler corrected Gamma (%ip%ia gate)",i,j),Form("Addback Gamma-Doppler corrected Gamma (%ip%ia gate, beta=%f)",i,j,betaCompound),4096,0,8192,4096,0,8192);
+        addEaddDopp_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
+        addEaddDopp_xayp[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV, Doppler corrected)");
+        tigtigPIDSepList->Add(addEaddDopp_xayp[i][j]);
       }
     }
   }
