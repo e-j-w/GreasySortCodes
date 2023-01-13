@@ -1,6 +1,6 @@
 //use the Makefile!
 
-#define SortDiagnosticsG_cxx
+#define SortDiagnosticsS_cxx
 #include "common.h"
 #include "SortDiagnosticsSMOL.h"
 
@@ -106,7 +106,7 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
     }
     tip_Etot->Fill(tipEEvt);
 
-    for (int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigABHits; tigHitIndAB++){
+    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigABHits; tigHitIndAB++){
 
       //cout << "energy: " << sortedEvt.tigHit[tigHitIndAB].energy << ", array num: " << sortedEvt.tigHit[tigHitIndAB].core << ", address: " << sortedEvt.tigHit[tigHitIndAB]->GetAddress() << endl;
 
@@ -118,10 +118,10 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
         tigNum_time->Fill(sortedEvt.tigHit[tigHitIndAB].timeNs/pow(10,9),sortedEvt.tigHit[tigHitIndAB].core);
         //cout << "hit " << tigHitIndAB << ", Anum: " << sortedEvt.tigHit[tigHitIndAB].core << ", energy: " << sortedEvt.tigHit[tigHitIndAB].energy << endl;
         addE_ANum->Fill(sortedEvt.tigHit[tigHitIndAB].core, sortedEvt.tigHit[tigHitIndAB].energy);
-        //float theta = sortedEvt.tigHit[tigHitIndAB]->GetPosition().Theta()*180./PI;
-        //addE_theta->Fill(theta, sortedEvt.tigHit[tigHitIndAB].energy);
+        double theta = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg).Theta()*180./PI;
+        addE_theta->Fill(theta, sortedEvt.tigHit[tigHitIndAB].energy);
         //fill ring spectra
-        //addE_ring[getTIGRESSRing(theta)]->Fill(sortedEvt.tigHit[tigHitIndAB].energy);
+        addE_ring[getTIGRESSRing(theta)]->Fill(sortedEvt.tigHit[tigHitIndAB].energy);
 
         //check time-correlated TIP events
         uint16_t tipRingHP = 0;
@@ -211,11 +211,12 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
             //cout << "energy: " << sortedEvt.tigHit[tigHitIndAB].energy << ", array num: " << sortedEvt.tigHit[tigHitIndAB].core << ", address: " << sortedEvt.tigHit[tigHitIndAB]->GetAddress() << endl;
             if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
               //TIGRESS PID separated addback energy
-              //double_t thetaDeg = sortedEvt.tigHit[tigHitIndAB]->GetPosition().Theta()*180./PI;
+              Double_t angle = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg).Theta()*180.0/PI;
               addE_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB].energy,0); //sum spectrum
-              //addE_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB].energy,getTIGRESSRing(thetaDeg)+1);
+              addE_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB].energy,getTIGRESSSegmentRing(angle)+1);
               double eDopp = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
               addDopp_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(eDopp,0); //sum spectrum
+              addDopp_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(eDopp,getTIGRESSSegmentRing(angle)+1);
               for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < sortedEvt.header.numTigABHits; tigHitIndAB2++){
                 if(sortedEvt.tigHit[tigHitIndAB2].energy > MIN_TIG_EAB){
                   addEaddE_xayp[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB].energy,sortedEvt.tigHit[tigHitIndAB2].energy);
@@ -321,7 +322,7 @@ int main(int argc, char **argv)
   // Input-chain-file, output-histogram-file
   if (argc == 1){
     cout << "Code sorts a bunch of diagnostic histograms for online TIP+TIGRESS data" << endl;
-    cout << "Arguments: SortDiagnostics SMOL smol_file output_file" << endl;
+    cout << "Arguments: SortDiagnosticsSMOL smol_file output_file" << endl;
     cout << "Default values will be used if arguments (other than SMOL file) are omitted." << endl;
     return 0;
   }else if(argc == 2){

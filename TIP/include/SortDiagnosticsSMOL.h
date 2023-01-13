@@ -98,7 +98,7 @@ void SortDiagnostics::Initialise() {
   tigNum_time = new TH2F("Tigress Array Number vs Time","Tigress Array Number vs Time;Time (s);Array Number",3600,0,3600,64,0,64);
   tigNum_time->GetXaxis()->SetTitle("Run Time (s)");
   tigList->Add(tigNum_time);
-  addE = new TH1F("Addback Energy", "Addback Energy", 8192, 0, 8192);
+  addE = new TH1F("Addback Energy", "Addback Energy", 16384, 0, 8192);
   tigList->Add(addE);
   addE_ANum = new TH2F("Addback Energy vs. Array Number", "Addback Energy vs. Array Number", 64, 0, 64, 8192, 0, 8192);
   tigList->Add(addE_ANum);
@@ -107,8 +107,8 @@ void SortDiagnostics::Initialise() {
     addE_ring[i]->GetXaxis()->SetTitle("Addback Energy");
     tigList->Add(addE_ring[i]);
   }
-  addE_theta = new TH2F("Addback Energy vs. theta (segment)", "Addback Energy vs. theta (segment)", 180, 0, 180, 8192, 0, 8192);
-  addE_theta->GetXaxis()->SetTitle("{#theta} (deg)");
+  addE_theta = new TH2F("Addback Energy vs. theta (segment)", "Addback Energy vs. theta (segment)", 1800, 0, 180, 8192, 0, 8192);
+  addE_theta->GetXaxis()->SetTitle("#theta (deg)");
   addE_theta->GetYaxis()->SetTitle("Addback Energy");
   tigList->Add(addE_theta);
   tigRate = new TH1F("TIGRESS Total Rate", "TIGRESS Total Rate", 8192, 0, 8192);
@@ -214,7 +214,7 @@ void SortDiagnostics::Initialise() {
     for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
       if((i+j)<=MAX_NUM_PARTICLE){
         //TIGRESS ring spectra
-        addE_xayp_ring[i][j] = new TH2F(Form("TIGRESS addback energy (%ip%ia gate)",i,j),Form("TIGRESS addback energy (%ip%ia gate)",i,j),8192,0,8192,NTIGRING+1,0,NTIGRING+1);
+        addE_xayp_ring[i][j] = new TH2F(Form("TIGRESS addback energy (%ip%ia gate)",i,j),Form("TIGRESS addback energy (%ip%ia gate)",i,j),8192,0,8192,NTIGSEGRING+1,0,NTIGSEGRING+1);
         addE_xayp_ring[i][j]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
         addE_xayp_ring[i][j]->GetYaxis()->SetTitle("TIGRESS Ring (ring 0 = sum)");
         tigPIDSepList->Add(addE_xayp_ring[i][j]);
@@ -225,7 +225,7 @@ void SortDiagnostics::Initialise() {
     for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
       if((i+j)<=MAX_NUM_PARTICLE){
         //TIGRESS ring spectra
-        addDopp_xayp_ring[i][j] = new TH2F(Form("Doppler corrected energy (%ip%ia gate)",i,j),Form("TIGRESS Doppler corrected addback energy (%ip%ia gate, beta=%f)",i,j,betaCompound),8192,0,8192,NTIGRING+1,0,NTIGRING+1);
+        addDopp_xayp_ring[i][j] = new TH2F(Form("Doppler corrected energy (%ip%ia gate)",i,j),Form("TIGRESS Doppler corrected addback energy (%ip%ia gate, beta=%f)",i,j,betaCompound),8192,0,8192,NTIGSEGRING+1,0,NTIGSEGRING+1);
         addDopp_xayp_ring[i][j]->GetXaxis()->SetTitle("E_{#gamma} (keV)");
         addDopp_xayp_ring[i][j]->GetYaxis()->SetTitle("TIGRESS Ring (ring 0 = sum)");
         tigPIDSepList->Add(addDopp_xayp_ring[i][j]);
@@ -238,7 +238,7 @@ void SortDiagnostics::Initialise() {
     for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
       if((i+j)<=MAX_NUM_PARTICLE){
         //TIGRESS ring spectra
-        addEaddE_xayp[i][j] = new TH2F(Form("Addback Gamma-Gamma (%ip%ia gate)",i,j),Form("Addback Gamma-Gamma (%ip%ia gate)",i,j),4096,0,8192,4096,0,8192);
+        addEaddE_xayp[i][j] = new TH2F(Form("Addback Gamma-Gamma (%ip%ia gate)",i,j),Form("Addback Gamma-Gamma (%ip%ia gate)",i,j),8192,0,8192,8192,0,8192);
         addEaddE_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
         addEaddE_xayp[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");
         tigtigPIDSepList->Add(addEaddE_xayp[i][j]);
@@ -249,7 +249,7 @@ void SortDiagnostics::Initialise() {
     for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
       if((i+j)<=MAX_NUM_PARTICLE){
         //TIGRESS ring spectra
-        addDoppaddDopp_xayp[i][j] = new TH2F(Form("Doppler corrected Gamma-Gamma (%ip%ia gate)",i,j),Form("Doppler corrected Gamma-Gamma (%ip%ia gate, beta=%f)",i,j,betaCompound),4096,0,8192,4096,0,8192);
+        addDoppaddDopp_xayp[i][j] = new TH2F(Form("Doppler corrected Gamma-Gamma (%ip%ia gate)",i,j),Form("Doppler corrected Gamma-Gamma (%ip%ia gate, beta=%f)",i,j,betaCompound),8192,0,8192,8192,0,8192);
         addDoppaddDopp_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV, Doppler corrected)");
         addDoppaddDopp_xayp[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV, Doppler corrected)");
         tigtigPIDSepList->Add(addDoppaddDopp_xayp[i][j]);
@@ -260,7 +260,7 @@ void SortDiagnostics::Initialise() {
     for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
       if((i+j)<=MAX_NUM_PARTICLE){
         //TIGRESS ring spectra
-        addEaddDopp_xayp[i][j] = new TH2F(Form("Addback Gamma-Doppler corrected Gamma (%ip%ia gate)",i,j),Form("Addback Gamma-Doppler corrected Gamma (%ip%ia gate, beta=%f)",i,j,betaCompound),4096,0,8192,4096,0,8192);
+        addEaddDopp_xayp[i][j] = new TH2F(Form("Addback Gamma-Doppler corrected Gamma (%ip%ia gate)",i,j),Form("Addback Gamma-Doppler corrected Gamma (%ip%ia gate, beta=%f)",i,j,betaCompound),8192,0,8192,8192,0,8192);
         addEaddDopp_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
         addEaddDopp_xayp[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV, Doppler corrected)");
         tigtigPIDSepList->Add(addEaddDopp_xayp[i][j]);

@@ -1,5 +1,5 @@
-#ifndef SeparatorTiming_h
-#define SeparatorTiming_h
+#ifndef SeparatorSource_h
+#define SeparatorSource_h
 
 #include <iostream>
 #include <iomanip>
@@ -21,10 +21,10 @@ using namespace std;
 
 TApplication *theApp;
 
-class SeparatorTiming{
+class SeparatorSource{
 	public :
 
-		SeparatorTiming(){;} 
-		uint64_t SortData(const char*, const int, const int, const int, const char*, PIDGates*);
+		SeparatorSource(){;} 
+		uint64_t SortData(const char*, const char*, const int);
 };
 #endif

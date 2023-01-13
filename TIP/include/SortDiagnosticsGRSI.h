@@ -41,7 +41,7 @@ TH1F *addT_addT, *addT_addTPassed;
 TH1F *tipT_tigT_diff, *tipT_tigT_diffPassed, *tipTCFD_tigT_diff, *tipTCFD_tigT_diffPassed, *tipTTS_tigT_diff, *tipTTS_tigT_diffPassed;
 
 //TIP PID
-TH2F *tip_E_PID_Sum, *tip_E_PID_Ring[NTIPRING], *tip_E_PID[NTIP];
+TH2F *tip_E_PID_Sum, *tip_E_PID_Ring[NTIPRING], *tip_E_PID[NTIP], *tip_PID_Sum, *tip_PID_Ring[NTIPRING];
 
 //TIP-TIP
 TH2I *tipPos_tipPos;
@@ -100,14 +100,14 @@ void SortDiagnostics::Initialise() {
   //Raw TIGRESS Spectra
   tigE_unsupp = new TH1F("Tigress Energy (unsuppressed)", "Tigress Energy (unsuppressed)", 8192, 0, 8192);
   tigList->Add(tigE_unsupp);
-  tigE = new TH1F("Tigress Energy", "Tigress Energy", 8192, 0, 8192);
+  tigE = new TH1F("Tigress Energy", "Tigress Energy", 16384, 0, 8192);
   tigList->Add(tigE);
   tigE_ANum = new TH2F("Tigress Energy vs. Array Number", "Tigress Energy vs. Array Number", 64, 0, 64, 8192, 0, 8192);
   tigList->Add(tigE_ANum);
   tigNum_time = new TH2F("Tigress Array Number vs Time","Tigress Array Number vs Time;Time (s);Array Number",3600,0,3600,64,0,64);
   tigNum_time->GetXaxis()->SetTitle("Run Time (s)");
   tigList->Add(tigNum_time);
-  addE = new TH1F("Addback Energy", "Addback Energy", 8192, 0, 8192);
+  addE = new TH1F("Addback Energy", "Addback Energy", 16384, 0, 8192);
   tigList->Add(addE);
   addE_rej = new TH1F("Suppressed (rejected) Addback Energy", "Suppressed (rejected) Addback Energy", 8192, 0, 8192);
   tigList->Add(addE_rej);
@@ -204,6 +204,16 @@ void SortDiagnostics::Initialise() {
     tip_E_PID[i]->GetYaxis()->SetTitle("A_{S}/A_{F} x 100");
     tip_E_PID[i]->GetXaxis()->SetTitle("CsI E (MeV)");
     tipPIDList->Add(tip_E_PID[i]);
+  }
+  tip_PID_Sum = new TH2F("TIP PID (Sum)","TIP PID (Sum)",512,0,4096,512,0,2048);
+  tip_PID_Sum->GetYaxis()->SetTitle("A_{S}");
+  tip_PID_Sum->GetXaxis()->SetTitle("A_{F}");
+  tipPIDList->Add(tip_PID_Sum);
+  for(int i=0; i<NTIPRING; i++){
+    tip_PID_Ring[i] = new TH2F(Form("TIP PID (Ring %i)",i),Form("TIP PID (Ring %i)",i),512,0,4096,512,0,2048);
+    tip_PID_Ring[i]->GetYaxis()->SetTitle("A_{S}");
+    tip_PID_Ring[i]->GetXaxis()->SetTitle("A_{F}");
+    tipPIDList->Add(tip_PID_Ring[i]);
   }
 
   //TIP-TIP
@@ -307,7 +317,7 @@ void SortDiagnostics::Initialise() {
     for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
       if((i+j)<=MAX_NUM_PARTICLE){
         //TIGRESS ring spectra
-        addEaddE_xayp[i][j] = new TH2F(Form("Addback Gamma-Gamma (%ip%ia gate)",i,j),Form("Addback Gamma-Gamma (%ip%ia gate)",i,j),4096,0,8192,4096,0,8192);
+        addEaddE_xayp[i][j] = new TH2F(Form("Addback Gamma-Gamma (%ip%ia gate)",i,j),Form("Addback Gamma-Gamma (%ip%ia gate)",i,j),8192,0,8192,8192,0,8192);
         addEaddE_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
         addEaddE_xayp[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");
         tigtigPIDSepList->Add(addEaddE_xayp[i][j]);
@@ -318,7 +328,7 @@ void SortDiagnostics::Initialise() {
     for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
       if((i+j)<=MAX_NUM_PARTICLE){
         //TIGRESS ring spectra
-        addDoppaddDopp_xayp[i][j] = new TH2F(Form("Doppler corrected Gamma-Gamma (%ip%ia gate)",i,j),Form("Doppler corrected Gamma-Gamma (%ip%ia gate, beta=%f)",i,j,betaCompound),4096,0,8192,4096,0,8192);
+        addDoppaddDopp_xayp[i][j] = new TH2F(Form("Doppler corrected Gamma-Gamma (%ip%ia gate)",i,j),Form("Doppler corrected Gamma-Gamma (%ip%ia gate, beta=%f)",i,j,betaCompound),8192,0,8192,8192,0,8192);
         addDoppaddDopp_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
         addDoppaddDopp_xayp[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");
         tigtigPIDSepList->Add(addDoppaddDopp_xayp[i][j]);
@@ -329,7 +339,7 @@ void SortDiagnostics::Initialise() {
     for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
       if((i+j)<=MAX_NUM_PARTICLE){
         //TIGRESS ring spectra
-        addEaddDopp_xayp[i][j] = new TH2F(Form("Addback Gamma-Doppler corrected Gamma (%ip%ia gate)",i,j),Form("Addback Gamma-Doppler corrected Gamma (%ip%ia gate, beta=%f)",i,j,betaCompound),4096,0,8192,4096,0,8192);
+        addEaddDopp_xayp[i][j] = new TH2F(Form("Addback Gamma-Doppler corrected Gamma (%ip%ia gate)",i,j),Form("Addback Gamma-Doppler corrected Gamma (%ip%ia gate, beta=%f)",i,j,betaCompound),8192,0,8192,8192,0,8192);
         addEaddDopp_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
         addEaddDopp_xayp[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV, Doppler corrected)");
         tigtigPIDSepList->Add(addEaddDopp_xayp[i][j]);

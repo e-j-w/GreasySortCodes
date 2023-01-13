@@ -409,7 +409,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
                         addDoppaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp,eDopp2);
                         addDoppaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp2,eDopp); //symmetrized
                         addEaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit->GetEnergy(),eDopp2);
-                  addEaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit2->GetEnergy(),eDopp); //symmetrized
+                        addEaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(add_hit2->GetEnergy(),eDopp); //symmetrized
                       }
                     }
                   }
