@@ -20,6 +20,7 @@ using namespace std;
 #define NTIPRING 10 //number of TIP rings
 #define NTIGRING 6 //number of TIGRESS rings
 #define NTIGSEGRING 13 //number of TIGRESS segment rings (last ring contains hits with no segments)
+#define NTIGPOS 16 //number of TIGRESS positions (clovers)
 
 #define MAX_NUM_PARTICLE 4 //maximum particle multiplicity
 
@@ -43,8 +44,10 @@ using namespace std;
 
 //timing windows
 static Double_t tigtigTGate[2] = {-60, 60}; // TIGRESS - TIGRESS timing window (ns)
-static Double_t tiptipTGate[2] = {-200, 200}; // TIP - TIP fit timing window (ns)
-static Double_t tiptigTGate[2] = {-1480, -1000}; // TIP - TIGRESS timing window (ns)
+//static Double_t tiptipTGate[2] = {-200, 200}; // TIP - TIP fit timing window (ns)
+static Double_t tiptipTGate[2] = {-60, 60}; // narrow TIP - TIP fit timing window (ns)
+//static Double_t tiptigTGate[2] = {-1480, -1000}; // TIP - TIGRESS timing window (ns)
+static Double_t tiptigTGate[2] = {-1880, -600}; // wide TIP - TIGRESS timing window (ns)
 static Double_t tigBGOTGate[2] = {0, 380}; // TIGRESS - BGO timing window (ns)
 
 //PID gates
@@ -58,8 +61,10 @@ class PIDGates{
 
 static Int_t tip_waveform_pretrigger = 250;
 
-static Double_t betaCompound = 0.04093; //compound nucleus recoil beta
-static Int_t compoundM_AMU = 33.96786701; //compound mass in atomic mass units
+//static Double_t betaCompound = 0.02953; //compound nucleus recoil beta (26Mg)
+//static Double_t betaCompound = 0.04143; //compound nucleus recoil beta (31Si)
+static Double_t betaCompound = 0.04093; //compound nucleus recoil beta (32Si)
+static Int_t compoundM_AMU = 33.96786701; //compound mass in atomic mass units (34Si)
 
 static Int_t noPileupKValue = 700; //should be 0 for TIG-10s, 700 for GRIF-16s
 

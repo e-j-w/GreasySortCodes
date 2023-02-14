@@ -133,6 +133,7 @@ int main(int argc, char **argv){
   char const *afile;
   char const *outfile;
   char const *calfile;
+  int noAddback;
   printf("Starting SeparatorSource code\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
@@ -146,28 +147,42 @@ int main(int argc, char **argv){
 
   // Input-chain-file, output-histogram-file
   if (argc == 1){
-    cout << "Arguments: SeparatorSource analysis_tree calibration_file output_file" << endl;
+    cout << "Arguments: SeparatorSource analysis_tree calibration_file output_file noAddback" << endl;
     cout << "*analysis_tree* can be a single analysis tree (extension .root), or a list of analysis trees (extension .list, one filepath per line)." << endl;
-    cout << "Default values will be used if arguments (other than analysis tree, nP, nA) are omitted." << endl;
+    cout << "Default values will be used if arguments (other than analysis_tree) are omitted." << endl;
     return 0;
   }else if (argc == 2){
     afile = argv[1];
     calfile = "CalibrationFile.cal";
     outfile = "Separated.smol";
+    noAddback = 0;
   }else if (argc == 3){
     afile = argv[1];
     calfile = argv[2];
     outfile = "Separated.smol";
+    noAddback = 0;
   }else if (argc == 4){
     afile = argv[1];
     calfile = argv[2];
     outfile = argv[3];
+    noAddback = 0;
+  }else if (argc == 5){
+    afile = argv[1];
+    calfile = argv[2];
+    outfile = argv[3];
+    noAddback = atoi(argv[4]);
   }else{
-    printf("Incorrect arguments\nArguments: SeparatorSource analysis_tree calibration_file output_file\n");
+    printf("Incorrect arguments\nArguments: SeparatorSource analysis_tree calibration_file output_file noAddback\n");
     return 0;
   }
 
   theApp=new TApplication("App", &argc, argv);
+
+  if(noAddback){
+    cout << "Will not sort addback energies." << endl;
+  }else{
+    cout << "Will sort addback energies." << endl;
+  }
 
   const char *dot = strrchr(afile, '.'); //get the file extension
   if(dot==NULL){
@@ -182,7 +197,7 @@ int main(int argc, char **argv){
 
   if(strcmp(dot + 1, "root") == 0){
     printf("Analysis tree file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
-    numSepEvts += mysort->SortData(afile, calfile, 0);
+    numSepEvts += mysort->SortData(afile, calfile, noAddback);
   }else if(strcmp(dot + 1, "list") == 0){
     printf("Analysis tree list: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
     
@@ -196,7 +211,7 @@ int main(int argc, char **argv){
       while(!(feof(listfile))){//go until the end of file is reached
         if(fgets(str,256,listfile)!=NULL){ //get an entire line
           str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          numSepEvts += mysort->SortData(str, calfile, 0);
+          numSepEvts += mysort->SortData(str, calfile, noAddback);
         }
       }
     }

@@ -118,7 +118,9 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
         tigNum_time->Fill(sortedEvt.tigHit[tigHitIndAB].timeNs/pow(10,9),sortedEvt.tigHit[tigHitIndAB].core);
         //cout << "hit " << tigHitIndAB << ", Anum: " << sortedEvt.tigHit[tigHitIndAB].core << ", energy: " << sortedEvt.tigHit[tigHitIndAB].energy << endl;
         addE_ANum->Fill(sortedEvt.tigHit[tigHitIndAB].core, sortedEvt.tigHit[tigHitIndAB].energy);
-        double theta = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg).Theta()*180./PI;
+        TVector3 tigVec = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg);
+        //tigVec.SetZ(tigVec.Z() - 5.0); //target position offset
+        double theta = tigVec.Theta()*180./PI;
         addE_theta->Fill(theta, sortedEvt.tigHit[tigHitIndAB].energy);
         //fill ring spectra
         addE_ring[getTIGRESSRing(theta)]->Fill(sortedEvt.tigHit[tigHitIndAB].energy);
@@ -150,8 +152,13 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
 
     //evaluate timing conditions
     //get fit times
+    Double_t avgTIPHitT = 0;
     for(int tipHitInd = 0; tipHitInd < sortedEvt.header.numCsIHits; tipHitInd++){
       tipFitTimes[tipHitInd] = sortedEvt.csiHit[tipHitInd].timeNs;
+      avgTIPHitT += sortedEvt.csiHit[tipHitInd].timeNs;
+    }
+    if(sortedEvt.header.numCsIHits > 0){
+      avgTIPHitT /= sortedEvt.header.numCsIHits;
     }
 
     //TIP-TIP timing, position, and energy
@@ -171,6 +178,13 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
         for(int tipHitInd = 0; tipHitInd < sortedEvt.header.numCsIHits; tipHitInd++){
           Double_t tDiff = tipFitTimes[tipHitInd] - sortedEvt.tigHit[tigHitIndAB].timeNs;
           tipT_tigT_diff->Fill(tDiff);
+          tipTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy,sortedEvt.tigHit[tigHitIndAB].timeNs-avgTIPHitT);
+          double eDopp = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+          Double_t ring = getTIGRESSRing(getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg).Theta()*180.0/PI);
+          if((ring!=2)&&(ring!=3)){
+            tipTtigT_EDopp_no90->Fill(eDopp,sortedEvt.tigHit[tigHitIndAB].timeNs-avgTIPHitT);
+          }
+          tipTtigT_EDopp->Fill(eDopp,sortedEvt.tigHit[tigHitIndAB].timeNs-avgTIPHitT);
           tigE_tipE->Fill(sortedEvt.csiHit[tipHitInd].energy,sortedEvt.tigHit[tigHitIndAB].energy);
           tigE_tipTtigTdiff->Fill(tDiff,sortedEvt.tigHit[tigHitIndAB].energy);
         }
@@ -183,6 +197,8 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
             addE_addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy,sortedEvt.tigHit[tigHitIndAB2].energy);
             addE_addE->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,sortedEvt.tigHit[tigHitIndAB].energy); //symmetrized
             tigPos_tigPos->Fill(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB2].core);
+            tigTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy,fabs(sortedEvt.tigHit[tigHitIndAB].timeNs-sortedEvt.tigHit[tigHitIndAB2].timeNs));
+            tigTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,fabs(sortedEvt.tigHit[tigHitIndAB].timeNs-sortedEvt.tigHit[tigHitIndAB2].timeNs));
           }
         }
       }
@@ -231,6 +247,7 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
             }
           }
 
+
         }/*else{
           cout << "Entry " << jentry << " has too many charged particles (" << evtNumProtons+evtNumAlphas << ")!" << endl;
         }*/
@@ -240,7 +257,6 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
     }/*else{
       cout << "Entry " << jentry << " has too many protons (" << evtNumProtons << ")!" << endl;
     }*/
-    
 
     if (jentry % 10000 == 0)
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / sentries << "% complete" << "\r" << flush;
@@ -266,12 +282,12 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
   tipList->Write();
   myfile->cd();
 
-  TDirectory *tipPIDdir = myfile->mkdir("TIP PID Plots");
+  TDirectory *tipPIDdir = myfile->mkdir("TIP_PID_Plots");
   tipPIDdir->cd();
   tipPIDList->Write();
   myfile->cd();
 
-  TDirectory *tipPIDGatedir = myfile->mkdir("TIP PID Gates");
+  TDirectory *tipPIDGatedir = myfile->mkdir("TIP_PID_Gates");
   tipPIDGatedir->cd();
   tipPIDGateList->Write();
   myfile->cd();
@@ -281,27 +297,27 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
   timingList->Write();
   myfile->cd();
 
-  TDirectory *tiptipdir = myfile->mkdir("TIP-TIP");
+  TDirectory *tiptipdir = myfile->mkdir("TIP_TIP");
   tiptipdir->cd();
   tiptipList->Write();
   myfile->cd();
 
-  TDirectory *tigtigdir = myfile->mkdir("TIGRESS-TIGRESS");
+  TDirectory *tigtigdir = myfile->mkdir("TIGRESS_TIGRESS");
   tigtigdir->cd();
   tigtigList->Write();
   myfile->cd();
 
-  TDirectory *tiptigdir = myfile->mkdir("TIP-TIGRESS");
+  TDirectory *tiptigdir = myfile->mkdir("TIP_TIGRESS");
   tiptigdir->cd();
   tiptigList->Write();
   myfile->cd();
 
-  TDirectory *tigPIDsepdir = myfile->mkdir("TIGRESS PID+Timing Separated");
+  TDirectory *tigPIDsepdir = myfile->mkdir("TIGRESS_PID_and_Timing_Separated");
   tigPIDsepdir->cd();
   tigPIDSepList->Write();
   myfile->cd();
 
-  TDirectory *tigtigPIDsepdir = myfile->mkdir("TIGRESS-TIGRESS PID+Timing Separated");
+  TDirectory *tigtigPIDsepdir = myfile->mkdir("TIGRESS_TIGRESS_PID_and_Timing_Separated");
   tigtigPIDsepdir->cd();
   tigtigPIDSepList->Write();
   myfile->cd();

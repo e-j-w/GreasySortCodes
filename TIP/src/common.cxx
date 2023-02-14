@@ -459,10 +459,7 @@ Int_t getTIGRESSRing(const float theta){
 //over 'rings' each with 4 angles covering a ~2.5 deg range
 //there are also core-only hits without any assigned segment
 Int_t getTIGRESSSegmentRing(const float theta){
-  if((theta < 0.0f)||(theta > 180.0f)){
-    cout << "Invalid TIGRESS angle: " << theta << endl;
-    return 12; //no segment
-  }else if(theta <= 37.0f){
+  if((theta >= 30.0f)&&(theta <= 37.0f)){
     return 0; //34.325 deg (low 32.95, high 35.55)
   }else if((theta >= 40.0f)&&(theta <= 43.0f)){
     return 1; //41.283 deg (low 40.55, high 42.15, missing 1 angle)
@@ -487,6 +484,7 @@ Int_t getTIGRESSSegmentRing(const float theta){
   }else if((theta >= 143.0f)&&(theta <= 148.0f)){
     return 11; //145.680 deg (low 144.45, high 147.05)
   }else{
+    //cout << "Invalid TIGRESS angle: " << theta << endl;
     return 12; //no segment
   }
 }

@@ -304,7 +304,7 @@ void AngCorr::SortData(char const *sfile, char const *outfile)
   }
 
   //plot data with error bars 
-	TGraphErrors *grCoreNorm = new TGraphErrors(numBins,xCore,yCoreNorm,nullptr,eCoreNorm);
+	TGraphErrors *grCoreNorm = new TGraphErrors(numBins-3,xCore,yCoreNorm,nullptr,eCoreNorm);
 	grCoreNorm->SetTitle("Normalized angular correlation");
 	grCoreNorm->GetYaxis()->SetTitle("W(#theta)");
 	grCoreNorm->GetYaxis()->SetTitleSize(0.085);
@@ -328,9 +328,9 @@ void AngCorr::SortData(char const *sfile, char const *outfile)
 
   
   grCoreNorm->Fit("corr420");
-  cout << "chisq/ndf 4->2->0: " << corr420->GetChisquare()/(numBins) << endl;
+  cout << "chisq/ndf 4->2->0: " << corr420->GetChisquare()/(numBins-3) << endl;
   grCoreNorm->Fit("corr520");
-  cout << "chisq/ndf 5->2->0: " << corr520->GetChisquare()/(numBins) << endl;
+  cout << "chisq/ndf 5->2->0: " << corr520->GetChisquare()/(numBins-3) << endl;
 
   acList->Add(grCoreNorm);
   
