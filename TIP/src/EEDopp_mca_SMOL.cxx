@@ -40,8 +40,8 @@ void EEDopp_mca_SMOL::SortData(char const *sfile, const double eLow, const doubl
     memset(&sortedEvt,0,sizeof(sorted_evt));
     footerVal = 0;
     fread(&sortedEvt.header,sizeof(evt_header),1,inp);
-    for(int i = 0; i<sortedEvt.header.numTigABHits;i++){
-      fread(&sortedEvt.tigHit[i],sizeof(tigab_hit),1,inp);
+    for(int i = 0; i<sortedEvt.header.numTigHits;i++){
+      fread(&sortedEvt.tigHit[i],sizeof(tig_hit),1,inp);
     }
     for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
       fread(&sortedEvt.csiHit[i],sizeof(csi_hit),1,inp);
@@ -56,16 +56,16 @@ void EEDopp_mca_SMOL::SortData(char const *sfile, const double eLow, const doubl
       cout << "Ignoring entry " << jentry << " as it has too many TIP hits (" << sortedEvt.header.numCsIHits << ")!" << endl;
       continue;
     }
-    if(sortedEvt.header.numTigABHits>MAXNUMTIGHIT){
-      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << sortedEvt.header.numTigABHits << ")!" << endl;
+    if(sortedEvt.header.numTigHits>MAXNUMTIGHIT){
+      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << sortedEvt.header.numTigHits << ")!" << endl;
       continue;
     }
 
-    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigABHits; tigHitIndAB++){
+    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
 
       int eDopp = (int)(getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates));
       if((eDopp >= eLow)&&(eDopp <= eHigh)){
-        for(int tigHitIndAB2 = 0; tigHitIndAB2 < sortedEvt.header.numTigABHits; tigHitIndAB2++){
+        for(int tigHitIndAB2 = 0; tigHitIndAB2 < sortedEvt.header.numTigHits; tigHitIndAB2++){
           if(tigHitIndAB2 != tigHitIndAB){
             int eDopp2 = (int)(getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates)/keVPerBin);
             if(eDopp2>=0 && eDopp2<S32K){

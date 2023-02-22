@@ -18,30 +18,32 @@
 
 typedef struct
 {
-  uint8_t numTigABHits;
+  uint8_t numTigHits;
 	uint8_t numCsIHits;
 	uint8_t numRFHits;
+	double evtTimeNs; //time of the first hit, in ns - float doesn't have enough precision
 }evt_header;
 
 typedef struct
 {
-	double timeNs; //absolute time - float doesn't have enough precision
+	float timeOffsetNs; //relative to evtTimeNs
 	float energy;
 	uint8_t core;
 	uint8_t seg;
-}tigab_hit;
+}tig_hit;
 
 typedef struct
 {
-	double timeNs; //absolute time - float doesn't have enough precision
+	float timeOffsetNs; //relative to evtTimeNs
 	float energy;
 	float PID;
 	uint8_t detNum;
+	uint8_t metadata; //bits 0-2: CsI fit type
 }csi_hit;
 
 typedef struct
 {
-	double timeNs; //absolute time - float doesn't have enough precision
+	float timeOffsetNs; //relative to evtTimeNs
 	float freq;
 	float phase;
 }rf_hit;
@@ -51,9 +53,13 @@ typedef struct
 typedef struct
 {
   evt_header header;
-	tigab_hit tigHit[MAX_EVT_HIT];
+	tig_hit tigHit[MAX_EVT_HIT];
 	csi_hit csiHit[MAX_EVT_HIT];
 	rf_hit rfHit;
 }sorted_evt;
+
+inline static double tigHitTime(const sorted_evt *evt, const int hit){return (double)(evt->header.evtTimeNs + evt->tigHit[hit].timeOffsetNs);};
+inline static double csiHitTime(const sorted_evt *evt, const int hit){return (double)(evt->header.evtTimeNs + evt->csiHit[hit].timeOffsetNs);};
+inline static uint8_t csiFitType(const csi_hit *hit){return (uint8_t)(hit->metadata & 7U);};
 
 #endif

@@ -2,7 +2,7 @@
 
 #define ComptonAngle_S_cxx
 #include "common.h"
-#include "ComptonAngle_SMOL.h"
+#include "ComptonAngle_SMOL_EDopp.h"
 
 using namespace std;
 
@@ -73,7 +73,7 @@ void ComptonAngle_S::SortData(const char *sfile, const char *outfile)
         exit(-1);
       }
       coreFoldPos[sortedEvt.tigHit[tigHitInd].core/4]++;
-      eABPos[sortedEvt.tigHit[tigHitInd].core/4] += sortedEvt.tigHit[tigHitInd].energy;
+      eABPos[sortedEvt.tigHit[tigHitInd].core/4] += getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitInd],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
     }
 
     for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numTigHits; tigHitInd++){
@@ -82,10 +82,13 @@ void ComptonAngle_S::SortData(const char *sfile, const char *outfile)
       float eAB = eABPos[tigPos];
 
       if(coreFoldPos[tigPos] == 2){
+        //if(!((tigPos > 3)&&(tigPos < 13))){ //non-90 deg only
         //if((tigPos > 3)&&(tigPos < 13)){ //90 deg only
           if((eAB >= eGate[0])&&(eAB <= eGate[1])){
 
-            if(sortedEvt.tigHit[tigHitInd].energy > 30.){
+            Double_t eDopp = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitInd],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+
+            if(eDopp > 30.){
               TVector3 vecG1 = getTigVector(sortedEvt.tigHit[tigHitInd].core,0);
               TVector3 norm = vecG1.Cross(vecBeam); //norm of reaction plane
               
@@ -96,21 +99,22 @@ void ComptonAngle_S::SortData(const char *sfile, const char *outfile)
                   if(!(sortedEvt.tigHit[tigHitInd].core == sortedEvt.tigHit[tigHitInd2].core)){
                     //make sure both hits are in the same clover
                     if((sortedEvt.tigHit[tigHitInd2].core/4)==tigPos){
-                      if(sortedEvt.tigHit[tigHitInd2].energy > 30.){
+                      Double_t eDopp2 = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+                      if(eDopp2 > 30.){
                         TVector3 vecG2 = getTigVector(sortedEvt.tigHit[tigHitInd2].core,0);
                         TVector3 norm2 = vecG2.Cross(vecG1); //norm of Compton scattering plane
                         Double_t angle = norm2.Angle(norm)*180/PI;
                         compAngHist->Fill(angle);
-                        if((angle > 88)&&(angle < 92)){
+                        if((angle > 75)&&(angle < 105)){
                           ctsPerp++;
-                        }else if((angle >= 0 && angle < 2)||(angle > 178 && angle <= 180)){
+                        }else if((angle >= 0 && angle < 20)||(angle > 160 && angle <= 180)){
                           //cout << angle << endl;
                           ctsParallel++;
                         }
                         /*if((angle > 20)&&(angle < 60)){
                           printf("\nPosition %i, tDiff %f\n",tigPos,tDiff);
-                          printf("Hit 1: core %u, seg %u, energy %f\n",sortedEvt.tigHit[tigHitInd].core,sortedEvt.tigHit[tigHitInd].seg,sortedEvt.tigHit[tigHitInd].energy);
-                          printf("Hit 2: core %u, seg %u, energy %f\n",sortedEvt.tigHit[tigHitInd2].core,sortedEvt.tigHit[tigHitInd2].seg,sortedEvt.tigHit[tigHitInd2].energy);
+                          printf("Hit 1: core %u, seg %u, energy %f\n",sortedEvt.tigHit[tigHitInd].core,sortedEvt.tigHit[tigHitInd].seg,eDopp);
+                          printf("Hit 2: core %u, seg %u, energy %f\n",sortedEvt.tigHit[tigHitInd2].core,sortedEvt.tigHit[tigHitInd2].seg,eDopp2);
                           //printf("Vec: [%f %f %f]\n",vecCS.X(),vecCS.Y(),vecCS.Z());
                           printf("Angle: %f\n",angle);
                         }*/
@@ -163,12 +167,12 @@ int main(int argc, char **argv)
   ComptonAngle_S *mysort = new ComptonAngle_S();
 
   const char *sfile, *outfile;
-  printf("Starting ComptonAngle_SMOL\n");
+  printf("Starting ComptonAngle_SMOL_EDopp\n");
 
   // Input-chain-file, output-histogram-file
   if (argc == 1){
     cout << "Code sorts DCO ratios." << endl;
-    cout << "Arguments: ComptonAngle_SMOL smol_file eGateLow eGateHigh output_root_file" << endl;
+    cout << "Arguments: ComptonAngle_SMOL_EDopp smol_file eGateLow eGateHigh output_root_file" << endl;
     return 0;
   }else if(argc == 5){
     
@@ -187,10 +191,11 @@ int main(int argc, char **argv)
     printf("SMOL file: %s\n", sfile);
     cout << "Gate:  [" << eGate[0] << " " << eGate[1] << "] keV" << endl;
     printf("Output file: %s\n", outfile);
+    gates = new PIDGates;
     mysort->SortData(sfile,outfile);
 
   }else{
-    printf("ERROR: Improper number of arguments!\nArguments: ComptonAngle_SMOL smol_file eGateLow eGateHigh output_root_file\n");
+    printf("ERROR: Improper number of arguments!\nArguments: ComptonAngle_SMOL_EDopp smol_file eGateLow eGateHigh output_root_file\n");
     return 0;
   }
 

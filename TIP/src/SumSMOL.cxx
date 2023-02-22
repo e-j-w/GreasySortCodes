@@ -26,8 +26,8 @@ uint64_t Sum::SortData(const char *sfile, FILE *out)
     memset(&sortedEvt,0,sizeof(sorted_evt));
     footerVal = 0;
     fread(&sortedEvt.header,sizeof(evt_header),1,inp);
-    for(int i = 0; i<sortedEvt.header.numTigABHits;i++){
-      fread(&sortedEvt.tigHit[i],sizeof(tigab_hit),1,inp);
+    for(int i = 0; i<sortedEvt.header.numTigHits;i++){
+      fread(&sortedEvt.tigHit[i],sizeof(tig_hit),1,inp);
     }
     for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
       fread(&sortedEvt.csiHit[i],sizeof(csi_hit),1,inp);
@@ -39,8 +39,8 @@ uint64_t Sum::SortData(const char *sfile, FILE *out)
     }
 
     fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
-    for(int i = 0; i<sortedEvt.header.numTigABHits;i++){
-      fwrite(&sortedEvt.tigHit[i],sizeof(tigab_hit),1,out);
+    for(int i = 0; i<sortedEvt.header.numTigHits;i++){
+      fwrite(&sortedEvt.tigHit[i],sizeof(tig_hit),1,out);
     }
     for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
       fwrite(&sortedEvt.csiHit[i],sizeof(csi_hit),1,out);
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 
   // Input-chain-file, output-histogram-file
   if(argc == 1){
-    cout << "Code sorts a bunch of diagnostic histograms for online TIP+TIGRESS data" << endl;
+    cout << "Code adds together 2 data files in the SMOL format" << endl;
     cout << "Arguments: SumSMOL smol_file1 smol_file2 output_file" << endl;
     cout << "Default values will be used if arguments (other than input SMOL files) are omitted." << endl;
     return 0;

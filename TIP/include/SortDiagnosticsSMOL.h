@@ -35,7 +35,7 @@ TH2F *addE_ANum, *addE_theta, *tigNum_time;
 //TIP
 TH1F *tip_E, *tip_Etot, *tipRate;
 TH2F *tip_E_pos;
-TH1I *tip_mult, *tip_pos, *tip_ring;
+TH1I *tip_mult, *tip_pos, *tip_ring, *tip_fittype;
 
 //Timing
 TH1F *tiptipFitT;
@@ -129,6 +129,8 @@ void SortDiagnostics::Initialise() {
   tipList->Add(tip_Etot);
   tip_mult = new TH1I("TIP_multiplicity","TIP multiplicity",10,0,10); 
   tipList->Add(tip_mult);
+  tip_fittype = new TH1I("TIP waveform fit type","TIP waveform fit type",5,0,5);
+  tipList->Add(tip_fittype);
   tip_E_pos = new TH2F("TIP_energy_vs_position","TIP energy vs position",8192,0,128,129,0,129);
   tip_E_pos->GetXaxis()->SetTitle("E (arb.)");
   tip_E_pos->GetYaxis()->SetTitle("TIP position");
@@ -148,19 +150,19 @@ void SortDiagnostics::Initialise() {
   tipT_tigT_diff = new TH1F("TIP_fit_Tigress_time","TIP fit - Tigress time",4096,-4096,4096);
   tipT_tigT_diff->GetXaxis()->SetTitle("t_{TIP, fit} - t_{TIGRESS} (ns)");
   timingList->Add(tipT_tigT_diff);
-  tipTtigT_addE = new TH2F("addE_TIP_fit_Tigress_time","Addback energy vs. Tigress - TIP (first hit) fit time",4096,0,8192,4096,-4096,4096);
-  tipTtigT_addE->GetYaxis()->SetTitle("t_{TIGRESS} (ns) - t_{first TIP, fit}");
+  tipTtigT_addE = new TH2F("addE_TIP_fit_Tigress_time","Addback energy vs. Tigress - TIP (avg of hits) fit time",4096,0,8192,4096,0,4096);
+  tipTtigT_addE->GetYaxis()->SetTitle("t_{TIGRESS} (ns) - t_{avg TIP, fit}");
   tipTtigT_addE->GetXaxis()->SetTitle("Addback Energy");
   timingList->Add(tipTtigT_addE);
-  tipTtigT_EDopp = new TH2F("EDopp_TIP_fit_Tigress_time","Doppler energy vs. Tigress - TIP (first hit) fit time",4096,0,8192,4096,-4096,4096);
-  tipTtigT_EDopp->GetYaxis()->SetTitle("t_{TIGRESS} (ns) - t_{first TIP, fit}");
+  tipTtigT_EDopp = new TH2F("EDopp_TIP_fit_Tigress_time","Doppler energy vs. Tigress - TIP (avg of hits) fit time",4096,0,8192,4096,0,4096);
+  tipTtigT_EDopp->GetYaxis()->SetTitle("t_{TIGRESS} (ns) - t_{avg TIP, fit}");
   tipTtigT_EDopp->GetXaxis()->SetTitle("Doppler Energy");
   timingList->Add(tipTtigT_EDopp);
-  tipTtigT_EDopp_no90 = new TH2F("EDopp_no90_TIP_fit_Tigress_time","Doppler energy (no 90 degree positions) vs. Tigress - TIP (first hit) fit time",4096,0,8192,4096,-4096,4096);
-  tipTtigT_EDopp_no90->GetYaxis()->SetTitle("t_{TIGRESS} - t_{first TIP, fit} (ns)");
+  tipTtigT_EDopp_no90 = new TH2F("EDopp_no90_TIP_fit_Tigress_time","Doppler energy (no 90 degree positions) vs. Tigress - TIP (avg of hits) fit time",4096,0,8192,4096,0,4096);
+  tipTtigT_EDopp_no90->GetYaxis()->SetTitle("t_{TIGRESS} - t_{avg TIP, fit} (ns)");
   tipTtigT_EDopp_no90->GetXaxis()->SetTitle("Doppler Energy");
   timingList->Add(tipTtigT_EDopp_no90);
-  tigTtigT_addE = new TH2F("addE_Tigress-TIGRESS_time","Doppler energy vs. Tigress - TIP (first hit) fit time",4096,0,8192,4096,-4096,4096);
+  tigTtigT_addE = new TH2F("addE_Tigress-Tigress_time","Doppler energy vs. Tigress - Tigress time",4096,0,8192,4096,-4096,4096);
   tigTtigT_addE->GetYaxis()->SetTitle("t_{TIGRESS,2} - t_{TIGRESS,1} (ns)");
   tigTtigT_addE->GetXaxis()->SetTitle("Addback Energy");
   timingList->Add(tigTtigT_addE);

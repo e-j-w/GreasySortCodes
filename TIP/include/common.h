@@ -44,10 +44,10 @@ using namespace std;
 
 //timing windows
 static Double_t tigtigTGate[2] = {-60, 60}; // TIGRESS - TIGRESS timing window (ns)
-//static Double_t tiptipTGate[2] = {-200, 200}; // TIP - TIP fit timing window (ns)
-static Double_t tiptipTGate[2] = {-60, 60}; // narrow TIP - TIP fit timing window (ns)
-//static Double_t tiptigTGate[2] = {-1480, -1000}; // TIP - TIGRESS timing window (ns)
-static Double_t tiptigTGate[2] = {-1880, -600}; // wide TIP - TIGRESS timing window (ns)
+static Double_t tiptipTGate[2] = {-200, 200}; // TIP - TIP fit timing window (ns)
+//static Double_t tiptipTGate[2] = {-60, 60}; // narrow TIP - TIP fit timing window (ns)
+static Double_t tiptigTGate[2] = {-1480, -1000}; // TIP - TIGRESS timing window (ns)
+//static Double_t tiptigTGate[2] = {-1880, -600}; // wide TIP - TIGRESS timing window (ns)
 static Double_t tigBGOTGate[2] = {0, 380}; // TIGRESS - BGO timing window (ns)
 
 //PID gates
@@ -73,7 +73,7 @@ static Int_t noPileupKValue = 700; //should be 0 for TIG-10s, 700 for GRIF-16s
 Int_t getParticleTypePID(double_t tipPID, double_t energy, Int_t detNum, PIDGates *gates);
 Int_t getParticleType(TTipHit *tip_hit, PIDGates *gates);
 TVector3 getTigVector(uint8_t core, uint8_t seg);
-double_t getEDoppFusEvapDirect(tigab_hit *add_hit, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates);
+double_t getEDoppFusEvapDirect(tig_hit *add_hit, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates);
 double_t getEDoppFusEvap(TTigressHit *add_hit, TTip *tip, const uint64_t passedtimeGate, PIDGates *gates);
 double_t getTipFitTime(TTipHit *tip_hit, const Int_t pretrigger_samples);
 bool ExptSuppression(TDetectorHit* tig, TBgoHit& bgo);

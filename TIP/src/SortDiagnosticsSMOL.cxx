@@ -46,8 +46,8 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
     memset(&sortedEvt,0,sizeof(sorted_evt));
     footerVal = 0;
     fread(&sortedEvt.header,sizeof(evt_header),1,inp);
-    for(int i = 0; i<sortedEvt.header.numTigABHits;i++){
-      fread(&sortedEvt.tigHit[i],sizeof(tigab_hit),1,inp);
+    for(int i = 0; i<sortedEvt.header.numTigHits;i++){
+      fread(&sortedEvt.tigHit[i],sizeof(tig_hit),1,inp);
     }
     for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
       fread(&sortedEvt.csiHit[i],sizeof(csi_hit),1,inp);
@@ -62,8 +62,8 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
       cout << "Ignoring entry " << jentry << " as it has too many TIP hits (" << sortedEvt.header.numCsIHits << ")!" << endl;
       continue;
     }
-    if(sortedEvt.header.numTigABHits>MAXNUMTIGHIT){
-      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << sortedEvt.header.numTigABHits << ")!" << endl;
+    if(sortedEvt.header.numTigHits>MAXNUMTIGHIT){
+      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << sortedEvt.header.numTigHits << ")!" << endl;
       continue;
     }
     
@@ -83,7 +83,7 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
 
       if((sortedEvt.csiHit[tipHitInd].detNum > 0)&&(sortedEvt.csiHit[tipHitInd].detNum <= NTIP)){
 
-        tipRate->Fill(sortedEvt.csiHit[tipHitInd].timeNs/pow(10,9));
+        tipRate->Fill(csiHitTime(&sortedEvt,tipHitInd)/pow(10,9));
         
         numTipRingHits[getTIPRing(sortedEvt.csiHit[tipHitInd].detNum)]++;
         numTipHits++;
@@ -93,6 +93,7 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
         tip_pos->Fill(sortedEvt.csiHit[tipHitInd].detNum);
         tip_ring->Fill(getTIPRing(sortedEvt.csiHit[tipHitInd].detNum));
         tip_E_pos->Fill(sortedEvt.csiHit[tipHitInd].energy,sortedEvt.csiHit[tipHitInd].detNum);
+        tip_fittype->Fill(csiFitType(&sortedEvt.csiHit[tipHitInd]));
 
         //PID related stuff
         if(sortedEvt.csiHit[tipHitInd].PID >= 0){ //PID was found
@@ -106,7 +107,7 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
     }
     tip_Etot->Fill(tipEEvt);
 
-    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigABHits; tigHitIndAB++){
+    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
 
       //cout << "energy: " << sortedEvt.tigHit[tigHitIndAB].energy << ", array num: " << sortedEvt.tigHit[tigHitIndAB].core << ", address: " << sortedEvt.tigHit[tigHitIndAB]->GetAddress() << endl;
 
@@ -114,8 +115,8 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
 
       if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
         addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy);
-        tigRate->Fill(sortedEvt.tigHit[tigHitIndAB].timeNs/pow(10,9));
-        tigNum_time->Fill(sortedEvt.tigHit[tigHitIndAB].timeNs/pow(10,9),sortedEvt.tigHit[tigHitIndAB].core);
+        tigRate->Fill(tigHitTime(&sortedEvt,tigHitIndAB)/pow(10,9));
+        tigNum_time->Fill(tigHitTime(&sortedEvt,tigHitIndAB)/pow(10,9),sortedEvt.tigHit[tigHitIndAB].core);
         //cout << "hit " << tigHitIndAB << ", Anum: " << sortedEvt.tigHit[tigHitIndAB].core << ", energy: " << sortedEvt.tigHit[tigHitIndAB].energy << endl;
         addE_ANum->Fill(sortedEvt.tigHit[tigHitIndAB].core, sortedEvt.tigHit[tigHitIndAB].energy);
         TVector3 tigVec = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg);
@@ -146,16 +147,16 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
       
     }
 
-    if((sortedEvt.header.numCsIHits>=0)||(sortedEvt.header.numTigABHits>=0)){
-      tiptig_Amult->Fill(sortedEvt.header.numCsIHits,sortedEvt.header.numTigABHits);
+    if((sortedEvt.header.numCsIHits>=0)||(sortedEvt.header.numTigHits>=0)){
+      tiptig_Amult->Fill(sortedEvt.header.numCsIHits,sortedEvt.header.numTigHits);
     }
 
     //evaluate timing conditions
     //get fit times
     Double_t avgTIPHitT = 0;
     for(int tipHitInd = 0; tipHitInd < sortedEvt.header.numCsIHits; tipHitInd++){
-      tipFitTimes[tipHitInd] = sortedEvt.csiHit[tipHitInd].timeNs;
-      avgTIPHitT += sortedEvt.csiHit[tipHitInd].timeNs;
+      tipFitTimes[tipHitInd] = csiHitTime(&sortedEvt,tipHitInd);
+      avgTIPHitT += csiHitTime(&sortedEvt,tipHitInd);
     }
     if(sortedEvt.header.numCsIHits > 0){
       avgTIPHitT /= sortedEvt.header.numCsIHits;
@@ -170,35 +171,35 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
       }
     }
     
-    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigABHits; tigHitIndAB++){
+    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
 
       if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
 
         //TIP-TIG timing and energy
         for(int tipHitInd = 0; tipHitInd < sortedEvt.header.numCsIHits; tipHitInd++){
-          Double_t tDiff = tipFitTimes[tipHitInd] - sortedEvt.tigHit[tigHitIndAB].timeNs;
+          Double_t tDiff = tipFitTimes[tipHitInd] - tigHitTime(&sortedEvt,tigHitIndAB);
           tipT_tigT_diff->Fill(tDiff);
-          tipTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy,sortedEvt.tigHit[tigHitIndAB].timeNs-avgTIPHitT);
+          tipTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy,tigHitTime(&sortedEvt,tigHitIndAB)-avgTIPHitT);
           double eDopp = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
           Double_t ring = getTIGRESSRing(getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg).Theta()*180.0/PI);
           if((ring!=2)&&(ring!=3)){
-            tipTtigT_EDopp_no90->Fill(eDopp,sortedEvt.tigHit[tigHitIndAB].timeNs-avgTIPHitT);
+            tipTtigT_EDopp_no90->Fill(eDopp,tigHitTime(&sortedEvt,tigHitIndAB)-avgTIPHitT);
           }
-          tipTtigT_EDopp->Fill(eDopp,sortedEvt.tigHit[tigHitIndAB].timeNs-avgTIPHitT);
+          tipTtigT_EDopp->Fill(eDopp,tigHitTime(&sortedEvt,tigHitIndAB)-avgTIPHitT);
           tigE_tipE->Fill(sortedEvt.csiHit[tipHitInd].energy,sortedEvt.tigHit[tigHitIndAB].energy);
           tigE_tipTtigTdiff->Fill(tDiff,sortedEvt.tigHit[tigHitIndAB].energy);
         }
 
         //TIG-TIG timing, position, and energy
-        for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < sortedEvt.header.numTigABHits; tigHitIndAB2++){
+        for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < sortedEvt.header.numTigHits; tigHitIndAB2++){
           if(sortedEvt.tigHit[tigHitIndAB2].energy > MIN_TIG_EAB){
-            Double_t tDiff = sortedEvt.tigHit[tigHitIndAB].timeNs - sortedEvt.tigHit[tigHitIndAB2].timeNs;
+            Double_t tDiff = tigHitTime(&sortedEvt,tigHitIndAB) - tigHitTime(&sortedEvt,tigHitIndAB2);
             addT_addT->Fill(tDiff);
             addE_addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy,sortedEvt.tigHit[tigHitIndAB2].energy);
             addE_addE->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,sortedEvt.tigHit[tigHitIndAB].energy); //symmetrized
             tigPos_tigPos->Fill(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB2].core);
-            tigTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy,fabs(sortedEvt.tigHit[tigHitIndAB].timeNs-sortedEvt.tigHit[tigHitIndAB2].timeNs));
-            tigTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,fabs(sortedEvt.tigHit[tigHitIndAB].timeNs-sortedEvt.tigHit[tigHitIndAB2].timeNs));
+            tigTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy,fabs(tigHitTime(&sortedEvt,tigHitIndAB)-tigHitTime(&sortedEvt,tigHitIndAB2)));
+            tigTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,fabs(tigHitTime(&sortedEvt,tigHitIndAB)-tigHitTime(&sortedEvt,tigHitIndAB2)));
           }
         }
       }
@@ -223,7 +224,7 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
       if(evtNumAlphas<=MAX_NUM_PARTICLE){
         if(evtNumProtons+evtNumAlphas<=MAX_NUM_PARTICLE){
 
-          for(int tigHitIndAB=0;tigHitIndAB<sortedEvt.header.numTigABHits;tigHitIndAB++){
+          for(int tigHitIndAB=0;tigHitIndAB<sortedEvt.header.numTigHits;tigHitIndAB++){
             //cout << "energy: " << sortedEvt.tigHit[tigHitIndAB].energy << ", array num: " << sortedEvt.tigHit[tigHitIndAB].core << ", address: " << sortedEvt.tigHit[tigHitIndAB]->GetAddress() << endl;
             if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
               //TIGRESS PID separated addback energy
@@ -233,7 +234,7 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
               double eDopp = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
               addDopp_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(eDopp,0); //sum spectrum
               addDopp_xayp_ring[evtNumProtons][evtNumAlphas]->Fill(eDopp,getTIGRESSSegmentRing(angle)+1);
-              for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < sortedEvt.header.numTigABHits; tigHitIndAB2++){
+              for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < sortedEvt.header.numTigHits; tigHitIndAB2++){
                 if(sortedEvt.tigHit[tigHitIndAB2].energy > MIN_TIG_EAB){
                   addEaddE_xayp[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB].energy,sortedEvt.tigHit[tigHitIndAB2].energy);
                   addEaddE_xayp[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,sortedEvt.tigHit[tigHitIndAB].energy); //symmetrized

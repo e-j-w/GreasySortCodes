@@ -30,7 +30,7 @@ void AngCorr::SortData(char const *sfile, char const *outfile)
   uint8_t footerVal;
 
   //for event mixing
-  tigab_hit pastHit[NUM_PAST_HIT];
+  tig_hit pastHit[NUM_PAST_HIT];
   memset(pastHit,0,sizeof(pastHit));
   Long64_t pastHitEvt[NUM_PAST_HIT];
   memset(pastHitEvt,0,sizeof(pastHitEvt));
@@ -51,8 +51,8 @@ void AngCorr::SortData(char const *sfile, char const *outfile)
     memset(&sortedEvt,0,sizeof(sorted_evt));
     footerVal = 0;
     fread(&sortedEvt.header,sizeof(evt_header),1,inp);
-    for(int i = 0; i<sortedEvt.header.numTigABHits;i++){
-      fread(&sortedEvt.tigHit[i],sizeof(tigab_hit),1,inp);
+    for(int i = 0; i<sortedEvt.header.numTigHits;i++){
+      fread(&sortedEvt.tigHit[i],sizeof(tig_hit),1,inp);
     }
     for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
       fread(&sortedEvt.csiHit[i],sizeof(csi_hit),1,inp);
@@ -67,17 +67,17 @@ void AngCorr::SortData(char const *sfile, char const *outfile)
       cout << "Ignoring entry " << jentry << " as it has too many TIP hits (" << sortedEvt.header.numCsIHits << ")!" << endl;
       continue;
     }
-    if(sortedEvt.header.numTigABHits>MAXNUMTIGHIT){
-      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << sortedEvt.header.numTigABHits << ")!" << endl;
+    if(sortedEvt.header.numTigHits>MAXNUMTIGHIT){
+      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << sortedEvt.header.numTigHits << ")!" << endl;
       continue;
     }
 
-    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numTigABHits; tigHitInd++){
+    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numTigHits; tigHitInd++){
       float addE1 = sortedEvt.tigHit[tigHitInd].energy;
 
       if(addE1 > MIN_TIG_EAB){
         if((addE1 >= eGamma1[0])&&(addE1 <= eGamma1[1])){
-          for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numTigABHits; tigHitInd2++){
+          for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numTigHits; tigHitInd2++){
             float addE2 = sortedEvt.tigHit[tigHitInd2].energy;
             if((addE2 >= eGamma2[0])&&(addE2 <= eGamma2[1])){
               //cascade identified
@@ -91,14 +91,14 @@ void AngCorr::SortData(char const *sfile, char const *outfile)
               angCorrCoreRaw->Fill(cos(coreangle));
             }
           }
-          memcpy(&pastHit[pastEvtInd],&sortedEvt.tigHit[tigHitInd],sizeof(tigab_hit));
+          memcpy(&pastHit[pastEvtInd],&sortedEvt.tigHit[tigHitInd],sizeof(tig_hit));
           pastHitEvt[pastEvtInd] = jentry;
           pastEvtInd++;
           if(pastEvtInd >= NUM_PAST_HIT){
             pastEvtInd = 0; //roll over
           }
         }else if((addE1 >= eGamma2[0])&&(addE1 <= eGamma2[1])){
-          for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numTigABHits; tigHitInd2++){
+          for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numTigHits; tigHitInd2++){
             float addE2 = sortedEvt.tigHit[tigHitInd2].energy;
             if((addE2 >= eGamma1[0])&&(addE2 <= eGamma1[1])){
               //cascade identified
@@ -112,7 +112,7 @@ void AngCorr::SortData(char const *sfile, char const *outfile)
               angCorrCoreRaw->Fill(cos(coreangle));
             }
           }
-          memcpy(&pastHit[pastEvtInd],&sortedEvt.tigHit[tigHitInd],sizeof(tigab_hit));
+          memcpy(&pastHit[pastEvtInd],&sortedEvt.tigHit[tigHitInd],sizeof(tig_hit));
           pastHitEvt[pastEvtInd] = jentry;
           pastEvtInd++;
           if(pastEvtInd >= NUM_PAST_HIT){
@@ -120,7 +120,7 @@ void AngCorr::SortData(char const *sfile, char const *outfile)
           }
         }
         if((addE1 >= eBG1[0])&&(addE1 <= eBG1[1])){
-          for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numTigABHits; tigHitInd2++){
+          for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numTigHits; tigHitInd2++){
             float addE2 = sortedEvt.tigHit[tigHitInd2].energy;
             if((addE2 >= eBG2[0])&&(addE2 <= eBG2[1])){
               //cascade identified
@@ -134,14 +134,14 @@ void AngCorr::SortData(char const *sfile, char const *outfile)
               angCorrCoreBG->Fill(cos(coreangle));
             }
           }
-          memcpy(&pastHit[pastEvtInd],&sortedEvt.tigHit[tigHitInd],sizeof(tigab_hit));
+          memcpy(&pastHit[pastEvtInd],&sortedEvt.tigHit[tigHitInd],sizeof(tig_hit));
           pastHitEvt[pastEvtInd] = jentry;
           pastEvtInd++;
           if(pastEvtInd >= NUM_PAST_HIT){
             pastEvtInd = 0; //roll over
           }
         }else if((addE1 >= eBG2[0])&&(addE1 <= eBG2[1])){
-          for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numTigABHits; tigHitInd2++){
+          for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numTigHits; tigHitInd2++){
             float addE2 = sortedEvt.tigHit[tigHitInd2].energy;
             if((addE2 >= eBG1[0])&&(addE2 <= eBG1[1])){
               //cascade identified
@@ -155,7 +155,7 @@ void AngCorr::SortData(char const *sfile, char const *outfile)
               angCorrCoreBG->Fill(cos(coreangle));
             }
           }
-          memcpy(&pastHit[pastEvtInd],&sortedEvt.tigHit[tigHitInd],sizeof(tigab_hit));
+          memcpy(&pastHit[pastEvtInd],&sortedEvt.tigHit[tigHitInd],sizeof(tig_hit));
           pastHitEvt[pastEvtInd] = jentry;
           pastEvtInd++;
           if(pastEvtInd >= NUM_PAST_HIT){

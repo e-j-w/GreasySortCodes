@@ -297,7 +297,7 @@ double_t TigGetDoppler(double beta, double eTig, uint8_t core, uint8_t seg, TVec
 }
 
 //implementation of getEDoppFusEvap for the SMOL data format
-double_t getEDoppFusEvapDirect(tigab_hit *add_hit, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates){
+double_t getEDoppFusEvapDirect(tig_hit *add_hit, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates){
   double_t resM = compoundM_AMU*AMU; //residual mass prior to particle evaporation
   TVector3 p_compound(0,0,resM*betaCompound/(1.0-betaCompound*betaCompound));
   //cout << "p_compound: " << p_compound.X() << " " << p_compound.Y() << " " << p_compound.Z() << endl;

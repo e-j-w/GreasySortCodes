@@ -40,8 +40,8 @@ void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
     memset(&sortedEvt,0,sizeof(sorted_evt));
     footerVal = 0;
     fread(&sortedEvt.header,sizeof(evt_header),1,inp);
-    for(int i = 0; i<sortedEvt.header.numTigABHits;i++){
-      fread(&sortedEvt.tigHit[i],sizeof(tigab_hit),1,inp);
+    for(int i = 0; i<sortedEvt.header.numTigHits;i++){
+      fread(&sortedEvt.tigHit[i],sizeof(tig_hit),1,inp);
     }
     for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
       fread(&sortedEvt.csiHit[i],sizeof(csi_hit),1,inp);
@@ -56,12 +56,12 @@ void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
       cout << "Ignoring entry " << jentry << " as it has too many TIP hits (" << sortedEvt.header.numCsIHits << ")!" << endl;
       continue;
     }
-    if(sortedEvt.header.numTigABHits>MAXNUMTIGHIT){
-      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << sortedEvt.header.numTigABHits << ")!" << endl;
+    if(sortedEvt.header.numTigHits>MAXNUMTIGHIT){
+      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << sortedEvt.header.numTigHits << ")!" << endl;
       continue;
     }
 
-    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigABHits; tigHitIndAB++){
+    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
 
       if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
         int eGamma = (int)(sortedEvt.tigHit[tigHitIndAB].energy/keVPerBin);
@@ -96,7 +96,7 @@ int main(int argc, char **argv){
   printf("Starting EGamma_mca_SMOL\n");
 
   if((argc != 3)&&(argc != 4)){
-    cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
+    cout << "Generates TIGRESS mca spectra." << endl;
     cout << "Arguments: EGamma_mca_SMOL smol_file output_file keV_per_bin" << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     return 0;

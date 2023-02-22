@@ -9,7 +9,6 @@
 
 using namespace std;
 
-uint64_t *mapping;
 FILE *out;
 
 uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA, const int noAddback, const char *calfile, PIDGates *gates){
@@ -23,7 +22,6 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
   printf("File %s opened\n", afile);
   TTree *AnalysisTree = (TTree *)analysisfile->Get("AnalysisTree");
   long int analentries = AnalysisTree->GetEntries();
-  mapping = (uint64_t*)malloc(analentries*sizeof(uint64_t));
 
   TTigress *tigress = 0;
   if(AnalysisTree->FindBranch("TTigress")){
@@ -108,7 +106,6 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
 
           if(((evtNumProtons == nP)||(nP < 0))&&((evtNumAlphas == nA)||(nA < 0))){
             
-            mapping[numSeparatedEvents] = jentry;
             memset(&sortedEvt,0,sizeof(sorted_evt));
             
             uint8_t numTigHits = 0;
@@ -117,8 +114,11 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
                 add_hit = tigress->GetAddbackHit(i);
                 if(passedtimeGate&(1ULL<<(i+MAXNUMTIPHIT))){
                   if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
+                    if(sortedEvt.header.evtTimeNs == 0){
+                      sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
+                    }
                     sortedEvt.tigHit[numTigHits].energy = (float)add_hit->GetEnergy();
-                    sortedEvt.tigHit[numTigHits].timeNs = (double)add_hit->GetTime();
+                    sortedEvt.tigHit[numTigHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
                     sortedEvt.tigHit[numTigHits].core = (uint8_t)add_hit->GetArrayNumber();
                     sortedEvt.tigHit[numTigHits].seg = (uint8_t)add_hit->GetFirstSeg();
                     numTigHits++;
@@ -130,8 +130,11 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
                 add_hit = tigress->GetTigressHit(i);
                 if(passedtimeGate&(1ULL<<(i+MAXNUMTIPHIT))){
                   if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
+                    if(sortedEvt.header.evtTimeNs == 0){
+                      sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
+                    }
                     sortedEvt.tigHit[numTigHits].energy = (float)add_hit->GetEnergy();
-                    sortedEvt.tigHit[numTigHits].timeNs = (double)add_hit->GetTime();
+                    sortedEvt.tigHit[numTigHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
                     sortedEvt.tigHit[numTigHits].core = (uint8_t)add_hit->GetArrayNumber();
                     sortedEvt.tigHit[numTigHits].seg = (uint8_t)add_hit->GetFirstSeg();
                     numTigHits++;
@@ -144,21 +147,25 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
             for(int i = 0; i<tip->GetMultiplicity();i++){
               tip_hit = tip->GetTipHit(i);
               if(passedtimeGate&(1ULL<<i)){
+                if(sortedEvt.header.evtTimeNs == 0){
+                  sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
+                }
                 sortedEvt.csiHit[numCsIHits].energy = (float)tip_hit->GetEnergy();
-                sortedEvt.csiHit[numCsIHits].timeNs = (double)getTipFitTime(tip_hit,tip_waveform_pretrigger);
+                sortedEvt.csiHit[numCsIHits].timeOffsetNs = (float)(getTipFitTime(tip_hit,tip_waveform_pretrigger) - sortedEvt.header.evtTimeNs);
                 sortedEvt.csiHit[numCsIHits].PID = (float)tip_hit->GetPID();
                 sortedEvt.csiHit[numCsIHits].detNum = (uint8_t)tip_hit->GetTipChannel();
+                sortedEvt.csiHit[numCsIHits].metadata |= ((uint8_t)(tip_hit->GetFitType()) & 7U); //store fit type
                 numCsIHits++;
               }
             }
 
-            sortedEvt.header.numTigABHits = numTigHits;
+            sortedEvt.header.numTigHits = numTigHits;
             sortedEvt.header.numCsIHits = numCsIHits;
             sortedEvt.header.numRFHits = (uint8_t)0;
             fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
 
             for(int i = 0; i<numTigHits;i++){
-              fwrite(&sortedEvt.tigHit[i],sizeof(tigab_hit),1,out);
+              fwrite(&sortedEvt.tigHit[i],sizeof(tig_hit),1,out);
             }
 
             for(int i = 0; i<numCsIHits;i++){

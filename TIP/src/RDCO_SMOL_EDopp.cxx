@@ -29,8 +29,8 @@ void RDCO_SMOL_EDopp::SortData(char const *sfile)
     memset(&sortedEvt,0,sizeof(sorted_evt));
     footerVal = 0;
     fread(&sortedEvt.header,sizeof(evt_header),1,inp);
-    for(int i = 0; i<sortedEvt.header.numTigABHits;i++){
-      fread(&sortedEvt.tigHit[i],sizeof(tigab_hit),1,inp);
+    for(int i = 0; i<sortedEvt.header.numTigHits;i++){
+      fread(&sortedEvt.tigHit[i],sizeof(tig_hit),1,inp);
     }
     for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
       fread(&sortedEvt.csiHit[i],sizeof(csi_hit),1,inp);
@@ -45,19 +45,19 @@ void RDCO_SMOL_EDopp::SortData(char const *sfile)
       cout << "Ignoring entry " << jentry << " as it has too many TIP hits (" << sortedEvt.header.numCsIHits << ")!" << endl;
       continue;
     }
-    if(sortedEvt.header.numTigABHits>MAXNUMTIGHIT){
-      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << sortedEvt.header.numTigABHits << ")!" << endl;
+    if(sortedEvt.header.numTigHits>MAXNUMTIGHIT){
+      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << sortedEvt.header.numTigHits << ")!" << endl;
       continue;
     }
 
-    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numTigABHits; tigHitInd++){
+    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numTigHits; tigHitInd++){
       double eDopp = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitInd],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
 
       if(eDopp > MIN_TIG_EAB){
         if((eDopp >= eGate[0])&&(eDopp <= eGate[1])){
           TVector3 vecGate = getTigVector(sortedEvt.tigHit[tigHitInd].core,sortedEvt.tigHit[tigHitInd].seg);
           Int_t ringGate = getTIGRESSSegmentRing(vecGate.Theta()*180.0/PI);
-          for(int tigHitInd2 = 0; tigHitInd2 < sortedEvt.header.numTigABHits; tigHitInd2++){
+          for(int tigHitInd2 = 0; tigHitInd2 < sortedEvt.header.numTigHits; tigHitInd2++){
             if(tigHitInd2 != tigHitInd){
               double eDopp2 = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
               if(eDopp2 > MIN_TIG_EAB){

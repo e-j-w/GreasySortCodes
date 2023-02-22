@@ -2,13 +2,13 @@
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define EDopp_mca_SMOL_cxx
+#define ETIP_mca_SMOL_cxx
 #include "common.h"
-#include "EDopp_mca_SMOL.h"
+#include "ETIP_mca_SMOL.h"
 
 using namespace std;
 
-void EDopp_mca_SMOL::WriteData(const char* outName){
+void ETIP_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -23,7 +23,7 @@ void EDopp_mca_SMOL::WriteData(const char* outName){
 
 }
 
-void EDopp_mca_SMOL::SortData(char const *sfile, double keVPerBin){
+void ETIP_mca_SMOL::SortData(char const *sfile, double MeVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -61,15 +61,13 @@ void EDopp_mca_SMOL::SortData(char const *sfile, double keVPerBin){
       continue;
     }
 
-    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
+    for(int tipHitInd = 0; tipHitInd < sortedEvt.header.numTigHits; tipHitInd++){
 
-      if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
-        int eDopp = (int)(getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates)/keVPerBin);
-        if(eDopp>=0 && eDopp<S32K){
-          double theta = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg).Theta()*180./PI;
-          mcaOut[getTIGRESSRing(theta)+1][eDopp]++;
-          mcaOut[getTIGRESSSegmentRing(theta)+7][eDopp]++;
-          mcaOut[0][eDopp]++;
+      if(sortedEvt.csiHit[tipHitInd].energy > 0.0){
+        int eTIP = (int)(sortedEvt.csiHit[tipHitInd].energy/MeVPerBin);
+        if(eTIP>=0 && eTIP<S32K){
+          mcaOut[getTIPRing(sortedEvt.csiHit[tipHitInd].detNum)][eTIP]++;
+          mcaOut[NTIPRING][eTIP]++;
         }
       }
       
@@ -88,40 +86,39 @@ void EDopp_mca_SMOL::SortData(char const *sfile, double keVPerBin){
 
 int main(int argc, char **argv){
 
-  EDopp_mca_SMOL *mysort = new EDopp_mca_SMOL();
+  ETIP_mca_SMOL *mysort = new ETIP_mca_SMOL();
 
   const char *sfile;
   const char *outfile;
-  double keVPerBin = 1.0;
-  printf("Starting EDopp_mca_SMOL\n");
+  double MeVPerBin = 1.0;
+  printf("Starting ETIP_mca_SMOL\n");
 
   if((argc != 3)&&(argc != 4)){
-    cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
-    cout << "Arguments: EDopp_mca_SMOL smol_file output_file keV_per_bin" << endl;
-    cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
+    cout << "Generates CsI ball mca spectra." << endl;
+    cout << "Arguments: ETIP_mca_SMOL smol_file output_file MeV_per_bin" << endl;
+    cout << "  *MeV_per_bin* defaults to 1 if not specified." << endl;
     return 0;
   }else{
     sfile = argv[1];
     outfile = argv[2];
     if(argc > 3){
-      keVPerBin = atof(argv[3]);
+      MeVPerBin = atof(argv[3]);
     }
   }
 
-  if(keVPerBin <= 0.0){
-    cout << "ERROR: Invalid keV/bin factor (" << keVPerBin << ")!" << endl;
+  if(MeVPerBin <= 0.0){
+    cout << "ERROR: Invalid keV/bin factor (" << MeVPerBin << ")!" << endl;
     return 0;
   }
 
   memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
-  gates = new PIDGates;
 
   //single analysis tree
   cout << "SMOL tree: " << sfile << endl;
   cout << "Output file: " << outfile << endl;
-  cout << "Written spectra will have " << keVPerBin << " keV per bin." << endl;
+  cout << "Written spectra will have " << MeVPerBin << " MeV per bin." << endl;
 
-  mysort->SortData(sfile, keVPerBin);
+  mysort->SortData(sfile, MeVPerBin);
   
   mysort->WriteData(outfile);
 
