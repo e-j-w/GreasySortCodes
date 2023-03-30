@@ -11,7 +11,7 @@ using namespace std;
 
 FILE *out;
 
-uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA, const int noAddback, const char *calfile, PIDGates *gates){
+uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA, const char *calfile, PIDGates *gates){
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
   if (!analysisfile->IsOpen()){
@@ -73,15 +73,12 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
       if((tip->GetMultiplicity()>MAXNUMTIPHIT)||(tip->GetMultiplicity()>MAX_EVT_HIT)){
         cout << "WARNING: event " << jentry << " has too many TIP hits (" << tip->GetMultiplicity() << ")!" << endl;
         continue;
-      }else if((noAddback==0)&&((tigress->GetAddbackMultiplicity()>MAXNUMTIGHIT)||(tigress->GetAddbackMultiplicity()>MAX_EVT_HIT))){
+      }else if((tigress->GetAddbackMultiplicity()>MAXNUMTIGHIT)||(tigress->GetAddbackMultiplicity()>MAX_EVT_HIT)){
         cout << "WARNING: event " << jentry << " has too many TIGRESS hits (" << tigress->GetAddbackMultiplicity() << ")!" << endl;
-        continue;
-      }else if((noAddback==1)&&((tigress->GetMultiplicity()>MAXNUMTIGHIT)||(tigress->GetMultiplicity()>MAX_EVT_HIT))){
-        cout << "WARNING: event " << jentry << " has too many TIGRESS hits (" << tigress->GetMultiplicity() << ")!" << endl;
         continue;
       }else{
 
-        uint64_t passedtimeGate = passesTimeGateAB(tigress,tip,1,nPTimingCondition+nATimingCondition,noAddback); //also rejects pileup
+        uint64_t passedtimeGate = passesTimeGateAB(tigress,tip,1,nPTimingCondition+nATimingCondition); //also rejects pileup
         if(passedtimeGate&(1ULL<<TIPTIGFLAG)){
 
           uint8_t evtNumAlphas = 0;
@@ -109,36 +106,34 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
             memset(&sortedEvt,0,sizeof(sorted_evt));
             
             uint8_t numTigHits = 0;
-            if(noAddback==0){
-              for(int i = 0; i<tigress->GetAddbackMultiplicity();i++){
-                add_hit = tigress->GetAddbackHit(i);
-                if(passedtimeGate&(1ULL<<(i+MAXNUMTIPHIT))){
-                  if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
-                    if(sortedEvt.header.evtTimeNs == 0){
-                      sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
-                    }
-                    sortedEvt.tigHit[numTigHits].energy = (float)add_hit->GetEnergy();
-                    sortedEvt.tigHit[numTigHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
-                    sortedEvt.tigHit[numTigHits].core = (uint8_t)add_hit->GetArrayNumber();
-                    sortedEvt.tigHit[numTigHits].seg = (uint8_t)add_hit->GetFirstSeg();
-                    numTigHits++;
+            uint8_t numNoABHits = 0;
+            for(int i = 0; i<tigress->GetAddbackMultiplicity();i++){
+              add_hit = tigress->GetAddbackHit(i);
+              if(passedtimeGate&(1ULL<<(i+MAXNUMTIPHIT))){
+                if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
+                  if(sortedEvt.header.evtTimeNs == 0){
+                    sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
                   }
+                  sortedEvt.tigHit[numTigHits].energy = (float)add_hit->GetEnergy();
+                  sortedEvt.tigHit[numTigHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
+                  sortedEvt.tigHit[numTigHits].core = (uint8_t)add_hit->GetArrayNumber();
+                  sortedEvt.tigHit[numTigHits].seg = (uint8_t)add_hit->GetFirstSeg();
+                  numTigHits++;
                 }
               }
-            }else{
-              for(int i = 0; i<tigress->GetMultiplicity();i++){
-                add_hit = tigress->GetTigressHit(i);
-                if(passedtimeGate&(1ULL<<(i+MAXNUMTIPHIT))){
-                  if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
-                    if(sortedEvt.header.evtTimeNs == 0){
-                      sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
-                    }
-                    sortedEvt.tigHit[numTigHits].energy = (float)add_hit->GetEnergy();
-                    sortedEvt.tigHit[numTigHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
-                    sortedEvt.tigHit[numTigHits].core = (uint8_t)add_hit->GetArrayNumber();
-                    sortedEvt.tigHit[numTigHits].seg = (uint8_t)add_hit->GetFirstSeg();
-                    numTigHits++;
+            }
+            for(int i = 0; i<tigress->GetMultiplicity();i++){
+              add_hit = tigress->GetTigressHit(i);
+              if(passedtimeGate&(1ULL<<(i+MAXNUMTIPHIT))){
+                if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
+                  if(sortedEvt.header.evtTimeNs == 0){
+                    sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
                   }
+                  sortedEvt.noABHit[numNoABHits].energy = (float)add_hit->GetEnergy();
+                  sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
+                  sortedEvt.noABHit[numNoABHits].core = (uint8_t)add_hit->GetArrayNumber();
+                  sortedEvt.noABHit[numNoABHits].seg = (uint8_t)add_hit->GetFirstSeg();
+                  numNoABHits++;
                 }
               }
             }
@@ -160,12 +155,17 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
             }
 
             sortedEvt.header.numTigHits = numTigHits;
+            sortedEvt.header.numNoABHits = numNoABHits;
             sortedEvt.header.numCsIHits = numCsIHits;
             sortedEvt.header.numRFHits = (uint8_t)0;
             fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
 
             for(int i = 0; i<numTigHits;i++){
               fwrite(&sortedEvt.tigHit[i],sizeof(tig_hit),1,out);
+            }
+
+            for(int i = 0; i<numNoABHits;i++){
+              fwrite(&sortedEvt.noABHit[i],sizeof(tig_hit),1,out);
             }
 
             for(int i = 0; i<numCsIHits;i++){
@@ -206,7 +206,44 @@ int main(int argc, char **argv){
   char const *calfile;
   int nP = 0;
   int nA = 0;
-  int noAddback = 0;
+
+  // Input-chain-file, output-histogram-file
+  if (argc == 1){
+    cout << "Arguments: SeparatorTimingPID analysis_tree numP numA calibration_file output_file" << endl;
+    cout << "*analysis_tree* can be a single analysis tree (extension .root), or a list of analysis trees (extension .list, one filepath per line)." << endl;
+    cout << "nP = num protons required, nA = num alphas required.  Values of -1 indicate no condition on that particle type" << endl;
+    cout << "if no_addback = 1, will sort non-addback energies for TIGRESS" << endl;
+    cout << "Default values will be used if arguments (other than analysis tree, nP, nA) are omitted." << endl;
+    return 0;
+  }else if (argc == 3){
+    afile = argv[1];
+    nP = atoi(argv[2]);
+    nA = atoi(argv[3]);
+    calfile = "CalibrationFile.cal";
+    outfile = "Separated.smol";
+  }else if (argc == 4){
+    afile = argv[1];
+    nP = atoi(argv[2]);
+    nA = atoi(argv[3]);
+    calfile = argv[4];
+    outfile = "Separated.smol";
+  }else if (argc == 5){
+    afile = argv[1];
+    nP = atoi(argv[2]);
+    nA = atoi(argv[3]);
+    calfile = argv[4];
+    outfile = argv[5];
+  }else if (argc == 6){
+    afile = argv[1];
+    nP = atoi(argv[2]);
+    nA = atoi(argv[3]);
+    calfile = argv[4];
+    outfile = argv[5];
+  }else{
+    printf("Incorrect arguments\nArguments: SeparatorTimingPID analysis_tree numP numA calibration_file output_file\n");
+    return 0;
+  }
+
   printf("Starting SeparatorTimingPID code\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
@@ -217,54 +254,6 @@ int main(int argc, char **argv){
   grsi_path += ".grsirc";
   gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
   TParserLibrary::Get()->Load();
-
-  // Input-chain-file, output-histogram-file
-  if (argc == 1){
-    cout << "Arguments: SeparatorTimingPID analysis_tree numP numA calibration_file output_file no_addback" << endl;
-    cout << "*analysis_tree* can be a single analysis tree (extension .root), or a list of analysis trees (extension .list, one filepath per line)." << endl;
-    cout << "nP = num protons required, nA = num alphas required.  Values of -1 indicate no condition on that particle type" << endl;
-    cout << "if no_addback = 1, will sort non-addback energies for TIGRESS" << endl;
-    cout << "Default values will be used if arguments (other than analysis tree, nP, nA) are omitted." << endl;
-    return 0;
-  }else if (argc == 4){
-    afile = argv[1];
-    nP = atoi(argv[2]);
-    nA = atoi(argv[3]);
-    calfile = "CalibrationFile.cal";
-    outfile = "Separated.smol";
-    noAddback = 0;
-  }else if (argc == 5){
-    afile = argv[1];
-    nP = atoi(argv[2]);
-    nA = atoi(argv[3]);
-    calfile = argv[4];
-    outfile = "Separated.smol";
-    noAddback = 0;
-  }else if (argc == 6){
-    afile = argv[1];
-    nP = atoi(argv[2]);
-    nA = atoi(argv[3]);
-    calfile = argv[4];
-    outfile = argv[5];
-    noAddback = 0;
-  }else if (argc == 7){
-    afile = argv[1];
-    nP = atoi(argv[2]);
-    nA = atoi(argv[3]);
-    calfile = argv[4];
-    outfile = argv[5];
-    noAddback = atoi(argv[6]);
-  }else{
-    printf("Incorrect arguments\nArguments: SeparatorTimingPID analysis_tree numP numA calibration_file output_file no_addback\n");
-    return 0;
-  }
-
-  if(noAddback == 0){
-    cout << "Will sort TIGRESS addback energy." << endl;
-  }else{
-    noAddback = 1;
-    cout << "Will sort TIGRESS non-addback energy" << endl;
-  }
 
   theApp=new TApplication("App", &argc, argv);
 
@@ -284,7 +273,7 @@ int main(int argc, char **argv){
 
   if(strcmp(dot + 1, "root") == 0){
     printf("Analysis tree file: %s\nNumber of protons: %i\nNumber of alphas: %i\nCalibration file: %s\nOutput file: %s\n", afile, nP, nA, calfile, outfile);
-    numSepEvts += mysort->SortData(afile, nP, nA, noAddback, calfile, gates);
+    numSepEvts += mysort->SortData(afile, nP, nA, calfile, gates);
   }else if(strcmp(dot + 1, "list") == 0){
     printf("Analysis tree list: %s\nNumber of protons: %i\nNumber of alphas: %i\nCalibration file: %s\nOutput file: %s\n", afile, nP, nA, calfile, outfile);
     
@@ -298,7 +287,7 @@ int main(int argc, char **argv){
       while(!(feof(listfile))){//go until the end of file is reached
         if(fgets(str,256,listfile)!=NULL){ //get an entire line
           str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          numSepEvts += mysort->SortData(str, nP, nA, noAddback, calfile, gates);
+          numSepEvts += mysort->SortData(str, nP, nA, calfile, gates);
         }
       }
     }

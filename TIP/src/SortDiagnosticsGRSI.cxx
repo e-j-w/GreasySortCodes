@@ -242,13 +242,13 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
     }else if(tip && !tigress){
       if(tip->GetMultiplicity()>=0){
         tiptig_mult->Fill(tip->GetMultiplicity(),0);
-	tiptig_Amult->Fill(tip->GetMultiplicity(),0);
+        tiptig_Amult->Fill(tip->GetMultiplicity(),0);
       }
     }else if(tip && tigress) {
 
       //check whether event passes all timing gates (TIG-TIG, TIP-TIP, TIP-TIG)
       //also rejects pileup
-      uint64_t passedtimeGate = passesTimeGate(tigress,tip,1,2);
+      uint64_t passedtimeGate = passesTimeGateAB(tigress,tip,1,2);
 
       //ensure full TIP-TIGRESS timing condition is met
       //ie. do not accept hits with partial timing condition match

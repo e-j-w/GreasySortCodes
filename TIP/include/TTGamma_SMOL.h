@@ -1,5 +1,5 @@
-#ifndef ComptonAngle_S_h
-#define ComptonAngle_S_h
+#ifndef TTGamma_SMOL_h
+#define TTGamma_SMOL_h
 
 #include <iostream>
 #include <iomanip>
@@ -7,16 +7,14 @@
 #include "evt_fmt.h"
 #include <stdint.h> //allows uint8_t and similiar types
 
-#include "TGraphErrors.h"
-
 using namespace std;
 
-class ComptonAngle_S {
+class TTGamma_SMOL {
 
 	public :
 
-		ComptonAngle_S(){;} 
-		void SortData(const char*);
+		TTGamma_SMOL(){;} 
+		void SortData(const char*,const char*);
 
 };
 #endif

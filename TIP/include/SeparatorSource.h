@@ -25,6 +25,6 @@ class SeparatorSource{
 	public :
 
 		SeparatorSource(){;} 
-		uint64_t SortData(const char*, const char*, const int);
+		uint64_t SortData(const char*, const char*);
 };
 #endif

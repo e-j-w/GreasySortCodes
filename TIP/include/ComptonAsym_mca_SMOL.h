@@ -11,14 +11,13 @@
 
 using namespace std;
 
-PIDGates *gates;
-
 class ComptonAngle_S {
 
 	public :
 
 		ComptonAngle_S(){;} 
 		void SortData(const char*);
+    void WriteData(const char*);
 
 };
 #endif

@@ -9,7 +9,7 @@ using namespace std;
 
 FILE *out;
 
-uint64_t SeparatorSource::SortData(const char *afile, const char *calfile, const int noAddback){
+uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
 
   TFile *analysisfile = new TFile(afile, "READ"); //Opens Analysis Trees
   if (!analysisfile->IsOpen()){
@@ -60,54 +60,53 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile, const
 
     if(tigress){
 
-      if((noAddback==0)&&((tigress->GetAddbackMultiplicity()>MAXNUMTIGHIT)||(tigress->GetAddbackMultiplicity()>MAX_EVT_HIT))){
+      if((tigress->GetAddbackMultiplicity()>MAXNUMTIGHIT)||(tigress->GetAddbackMultiplicity()>MAX_EVT_HIT)){
         cout << "WARNING: event " << jentry << " has too many TIGRESS hits (" << tigress->GetAddbackMultiplicity() << ")!" << endl;
-        continue;
-      }else if((noAddback==1)&&((tigress->GetMultiplicity()>MAXNUMTIGHIT)||(tigress->GetMultiplicity()>MAX_EVT_HIT))){
-        cout << "WARNING: event " << jentry << " has too many TIGRESS hits (" << tigress->GetMultiplicity() << ")!" << endl;
         continue;
       }else{
 
         memset(&sortedEvt,0,sizeof(sorted_evt));
         
         uint8_t numTigHits = 0;
-        if(noAddback==0){
-          for(int i = 0; i<tigress->GetAddbackMultiplicity();i++){
-            add_hit = tigress->GetAddbackHit(i);
-            if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
-              if(sortedEvt.header.evtTimeNs == 0){
-                sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
-              }
-              sortedEvt.tigHit[numTigHits].energy = (float)add_hit->GetEnergy();
-              sortedEvt.tigHit[numTigHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
-              sortedEvt.tigHit[numTigHits].core = (uint8_t)add_hit->GetArrayNumber();
-              sortedEvt.tigHit[numTigHits].seg = (uint8_t)add_hit->GetFirstSeg();
-              numTigHits++;
+        uint8_t numNoABHits = 0;
+        for(int i = 0; i<tigress->GetAddbackMultiplicity();i++){
+          add_hit = tigress->GetAddbackHit(i);
+          if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
+            if(sortedEvt.header.evtTimeNs == 0){
+              sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
             }
+            sortedEvt.tigHit[numTigHits].energy = (float)add_hit->GetEnergy();
+            sortedEvt.tigHit[numTigHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
+            sortedEvt.tigHit[numTigHits].core = (uint8_t)add_hit->GetArrayNumber();
+            sortedEvt.tigHit[numTigHits].seg = (uint8_t)add_hit->GetFirstSeg();
+            numTigHits++;
           }
-        }else{
-          for(int i = 0; i<tigress->GetMultiplicity();i++){
-            add_hit = tigress->GetTigressHit(i);
-            if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
-              if(sortedEvt.header.evtTimeNs == 0){
-                sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
-              }
-              sortedEvt.tigHit[numTigHits].energy = (float)add_hit->GetEnergy();
-              sortedEvt.tigHit[numTigHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
-              sortedEvt.tigHit[numTigHits].core = (uint8_t)add_hit->GetArrayNumber();
-              sortedEvt.tigHit[numTigHits].seg = (uint8_t)add_hit->GetFirstSeg();
-              numTigHits++;
+        }
+        for(int i = 0; i<tigress->GetMultiplicity();i++){
+          add_hit = tigress->GetTigressHit(i);
+          if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
+            if(sortedEvt.header.evtTimeNs == 0){
+              sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
             }
+            sortedEvt.tigHit[numNoABHits].energy = (float)add_hit->GetEnergy();
+            sortedEvt.tigHit[numNoABHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
+            sortedEvt.tigHit[numNoABHits].core = (uint8_t)add_hit->GetArrayNumber();
+            sortedEvt.tigHit[numNoABHits].seg = (uint8_t)add_hit->GetFirstSeg();
+            numNoABHits++;
           }
         }
 
         sortedEvt.header.numTigHits = numTigHits;
+        sortedEvt.header.numNoABHits = numNoABHits;
         sortedEvt.header.numCsIHits = (uint8_t)0;
         sortedEvt.header.numRFHits = (uint8_t)0;
         fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
 
         for(int i = 0; i<numTigHits;i++){
           fwrite(&sortedEvt.tigHit[i],sizeof(tig_hit),1,out);
+        }
+        for(int i = 0; i<numNoABHits;i++){
+          fwrite(&sortedEvt.noABHit[i],sizeof(tig_hit),1,out);
         }
         //write footer value
         fwrite(&footerVal,sizeof(uint8_t),1,out);
@@ -139,7 +138,34 @@ int main(int argc, char **argv){
   char const *afile;
   char const *outfile;
   char const *calfile;
-  int noAddback;
+
+  // Input-chain-file, output-histogram-file
+  if (argc == 1){
+    cout << "Arguments: SeparatorSource analysis_tree calibration_file output_file" << endl;
+    cout << "*analysis_tree* can be a single analysis tree (extension .root), or a list of analysis trees (extension .list, one filepath per line)." << endl;
+    cout << "Default values will be used if arguments (other than analysis_tree) are omitted." << endl;
+    return 0;
+  }else if (argc == 1){
+    afile = argv[1];
+    calfile = "CalibrationFile.cal";
+    outfile = "Separated.smol";
+  }else if (argc == 2){
+    afile = argv[1];
+    calfile = argv[2];
+    outfile = "Separated.smol";
+  }else if (argc == 3){
+    afile = argv[1];
+    calfile = argv[2];
+    outfile = argv[3];
+  }else if (argc == 4){
+    afile = argv[1];
+    calfile = argv[2];
+    outfile = argv[3];
+  }else{
+    printf("Incorrect arguments\nArguments: SeparatorSource analysis_tree calibration_file output_file\n");
+    return 0;
+  }
+
   printf("Starting SeparatorSource code\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
@@ -151,44 +177,7 @@ int main(int argc, char **argv){
   gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
   TParserLibrary::Get()->Load();
 
-  // Input-chain-file, output-histogram-file
-  if (argc == 1){
-    cout << "Arguments: SeparatorSource analysis_tree calibration_file output_file noAddback" << endl;
-    cout << "*analysis_tree* can be a single analysis tree (extension .root), or a list of analysis trees (extension .list, one filepath per line)." << endl;
-    cout << "Default values will be used if arguments (other than analysis_tree) are omitted." << endl;
-    return 0;
-  }else if (argc == 2){
-    afile = argv[1];
-    calfile = "CalibrationFile.cal";
-    outfile = "Separated.smol";
-    noAddback = 0;
-  }else if (argc == 3){
-    afile = argv[1];
-    calfile = argv[2];
-    outfile = "Separated.smol";
-    noAddback = 0;
-  }else if (argc == 4){
-    afile = argv[1];
-    calfile = argv[2];
-    outfile = argv[3];
-    noAddback = 0;
-  }else if (argc == 5){
-    afile = argv[1];
-    calfile = argv[2];
-    outfile = argv[3];
-    noAddback = atoi(argv[4]);
-  }else{
-    printf("Incorrect arguments\nArguments: SeparatorSource analysis_tree calibration_file output_file noAddback\n");
-    return 0;
-  }
-
   theApp=new TApplication("App", &argc, argv);
-
-  if(noAddback){
-    cout << "Will not sort addback energies." << endl;
-  }else{
-    cout << "Will sort addback energies." << endl;
-  }
 
   const char *dot = strrchr(afile, '.'); //get the file extension
   if(dot==NULL){
@@ -203,7 +192,7 @@ int main(int argc, char **argv){
 
   if(strcmp(dot + 1, "root") == 0){
     printf("Analysis tree file: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
-    numSepEvts += mysort->SortData(afile, calfile, noAddback);
+    numSepEvts += mysort->SortData(afile, calfile);
   }else if(strcmp(dot + 1, "list") == 0){
     printf("Analysis tree list: %s\nCalibration file: %s\nOutput file: %s\n", afile, calfile, outfile);
     
@@ -217,7 +206,7 @@ int main(int argc, char **argv){
       while(!(feof(listfile))){//go until the end of file is reached
         if(fgets(str,256,listfile)!=NULL){ //get an entire line
           str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          numSepEvts += mysort->SortData(str, calfile, noAddback);
+          numSepEvts += mysort->SortData(str, calfile);
         }
       }
     }

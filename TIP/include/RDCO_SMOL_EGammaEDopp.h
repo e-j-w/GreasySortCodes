@@ -1,5 +1,5 @@
-#ifndef ComptonAngle_S_h
-#define ComptonAngle_S_h
+#ifndef RDCO_S_h
+#define RDCO_S_h
 
 #include <iostream>
 #include <iomanip>
@@ -7,17 +7,15 @@
 #include "evt_fmt.h"
 #include <stdint.h> //allows uint8_t and similiar types
 
-#include "TGraphErrors.h"
-
 using namespace std;
 
 PIDGates *gates;
 
-class ComptonAngle_S {
+class RDCO_SMOL_EGammaEDopp {
 
 	public :
 
-		ComptonAngle_S(){;} 
+		RDCO_SMOL_EGammaEDopp(){;} 
 		void SortData(const char*);
 
 };

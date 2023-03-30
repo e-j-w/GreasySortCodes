@@ -2,7 +2,7 @@
 
 #define RDCO_S_cxx
 #include "common.h"
-#include "RDCO_SMOL.h"
+#include "RDCO_SMOL_EGammaEDopp.h"
 
 using namespace std;
 
@@ -11,7 +11,7 @@ int eGate[2], eGamma[2];
 
 Int_t ctsRingGateRing[NTIGSEGRING-1][NTIGSEGRING-1];
 
-void RDCO_::SortData(char const *sfile)
+void RDCO_SMOL_EGammaEDopp::SortData(char const *sfile)
 {
 
   FILE *inp = fopen(sfile, "rb");
@@ -40,9 +40,9 @@ void RDCO_::SortData(char const *sfile)
           Int_t ringGate = getTIGRESSSegmentRing(vecGate.Theta()*180.0/PI);
           for(int tigHitInd2 = 0; tigHitInd2 < sortedEvt.header.numTigHits; tigHitInd2++){
             if(tigHitInd2 != tigHitInd){
-              float addE2 = sortedEvt.tigHit[tigHitInd2].energy;
-              if(addE2 > MIN_TIG_EAB){
-                if((addE2 >= eGamma[0])&&(addE2 <= eGamma[1])){
+              double eDopp2 = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+              if(eDopp2 > MIN_TIG_EAB){
+                if((eDopp2 >= eGamma[0])&&(eDopp2 <= eGamma[1])){
                   //cascade identified
                   TVector3 vecGamma = getTigVector(sortedEvt.tigHit[tigHitInd2].core,sortedEvt.tigHit[tigHitInd2].seg);
                   Int_t ringGamma = getTIGRESSSegmentRing(vecGamma.Theta()*180.0/PI);
@@ -54,6 +54,7 @@ void RDCO_::SortData(char const *sfile)
             }
           }
         }
+
       }
       
     }
@@ -88,18 +89,19 @@ void RDCO_::SortData(char const *sfile)
 
   fclose(inp);
 }
+
 int main(int argc, char **argv)
 {
 
-  RDCO_ *mysort = new RDCO_();
+  RDCO_SMOL_EGammaEDopp *mysort = new RDCO_SMOL_EGammaEDopp();
 
   const char *sfile;
-  printf("Starting RDCO_SMOL\n");
+  printf("Starting RDCO_SMOL_EGammaEDopp\n");
 
   // Input-chain-file, output-histogram-file
   if (argc == 1){
     cout << "Code sorts DCO ratios." << endl;
-    cout << "Arguments: RDCO_SMOL smol_file eGateLow eGateHigh eGammaLow eGammaHigh" << endl;
+    cout << "Arguments: RDCO_SMOL_EGammaEDopp smol_file eGateGammaLow eGateGammaHigh eDoppLow eDoppHigh" << endl;
     return 0;
   }else if(argc == 6){
     sfile = argv[1];
@@ -109,7 +111,7 @@ int main(int argc, char **argv)
     eGamma[1] = atoi(argv[5]);
     printf("SMOL file: %s\n", sfile); 
   }else{
-    printf("ERROR: Improper number of arguments!\nArguments: RDCO_SMOL smol_file eGateLow eGateHigh eGammaLow eGammaHigh\n");
+    printf("ERROR: Improper number of arguments!\nArguments: RDCO_SMOL_EGammaEDopp smol_file eGateLow eGateHigh eGammaLow eGammaHigh\n");
     return 0;
   }
 
@@ -126,9 +128,10 @@ int main(int argc, char **argv)
     eGamma[0] = swapVal;
   }
 
-  cout << "Gate:  [" << eGate[0] << " " << eGate[1] << "] keV" << endl;
-  cout << "Gamma: [" << eGamma[0] << " " << eGamma[1] << "] keV" << endl;
+  cout << "Gate:  [" << eGate[0] << " " << eGate[1] << "] keV, not Doppler corrected" << endl;
+  cout << "Gamma: [" << eGamma[0] << " " << eGamma[1] << "] keV, Doppler corrected" << endl;
 
+  gates = new PIDGates;
   mysort->SortData(sfile);
 
   return 0;

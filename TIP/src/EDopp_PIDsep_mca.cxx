@@ -88,7 +88,7 @@ void EDopp_PIDsep_mca::SortData(char const *afile, char const *calfile, const un
         continue;
       }
 
-      uint64_t passedtimeGate = passesTimeGate(tigress,tip,1,numP+numA); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGateAB(tigress,tip,1,numP+numA); //also rejects pileup
 
       //count the number of protons or alphas
       if((numP+numA)>0){

@@ -2,15 +2,30 @@
 
 #define ComptonAngle_S_cxx
 #include "common.h"
-#include "ComptonAngle_SMOL.h"
+#include "ComptonAsym_mca_SMOL_EDopp.h"
 
 using namespace std;
 
-#define NUM_HIST_BINS 180
-
-int eGate[2];
 Int_t coreFoldPos[NTIGPOS]; //number of core hits per position
 Double_t eABPos[NTIGPOS]; //addback energy per position
+Double_t eABCorr[NTIGPOS];
+Int_t maxECore[NTIGPOS], maxESeg[NTIGPOS];
+float mcaOut[3][S32K];
+
+void ComptonAngle_S::WriteData(const char* outName){
+
+  cout << "Writing histogram to: " << outName << endl;
+
+  FILE *out;
+  if((out = fopen(outName, "w")) == NULL){ //open the file
+    cout << "ERROR: Cannot open the output file: " << outName << endl;
+    return;
+  }else{
+    fwrite(&mcaOut,sizeof(mcaOut),1,out);
+    fclose(out);
+  }
+
+}
 
 void ComptonAngle_S::SortData(const char *sfile){
 
@@ -27,6 +42,8 @@ void ComptonAngle_S::SortData(const char *sfile){
   uint32_t ctsParallel = 0;
   uint32_t ctsPerp = 0;
 
+  memset(&mcaOut,0,sizeof(mcaOut));
+
   printf("\nSorting events...\n");
   for(Long64_t jentry = 0; jentry < sentries; jentry++){
 
@@ -37,15 +54,30 @@ void ComptonAngle_S::SortData(const char *sfile){
     }
 
     memset(&eABPos,0,sizeof(eABPos));
+    memset(&eABCorr,0,sizeof(eABCorr));
     memset(&coreFoldPos,0,sizeof(coreFoldPos));
+    memset(&maxECore,0,sizeof(maxECore));
+    memset(&maxESeg,0,sizeof(maxESeg));
 
+    Double_t maxHitE = 0.;
     for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numTigHits; tigHitInd++){
       if(sortedEvt.noABHit[tigHitInd].core/4 >= NTIGPOS){
         cout << "ERROR: entry " << jentry << ", hit has invalid core: " << sortedEvt.noABHit[tigHitInd].core << endl;
         exit(-1);
       }
       coreFoldPos[sortedEvt.noABHit[tigHitInd].core/4]++;
+      if(sortedEvt.noABHit[tigHitInd].energy > maxHitE){
+        maxECore[sortedEvt.noABHit[tigHitInd].core/4]=sortedEvt.noABHit[tigHitInd].core;
+        maxESeg[sortedEvt.noABHit[tigHitInd].core/4]=sortedEvt.noABHit[tigHitInd].seg;
+        maxHitE = sortedEvt.noABHit[tigHitInd].energy;
+      }
       eABPos[sortedEvt.noABHit[tigHitInd].core/4] += sortedEvt.noABHit[tigHitInd].energy;
+    }
+
+    for(int i=0; i<NTIGPOS; i++){
+      if(eABPos[i] > MIN_TIG_EAB){
+        eABCorr[i] = getEDoppFusEvapManual(eABPos[i],maxECore[i],maxESeg[i],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+      }
     }
 
     uint32_t hitPattern = 0;
@@ -53,11 +85,12 @@ void ComptonAngle_S::SortData(const char *sfile){
 
       Int_t tigPos = sortedEvt.noABHit[tigHitInd].core/4;
       if(!(hitPattern&(1 << tigPos))){
-        float eAB = eABPos[tigPos];
+        float eAB = eABCorr[tigPos];
 
-        if(coreFoldPos[tigPos] == 2){
-          //if((tigPos > 3)&&(tigPos < 12)){ //90 deg only
-            if((eAB >= eGate[0])&&(eAB <= eGate[1])){
+        if((eAB > 0)&&(eAB < S32K)){
+          if(coreFoldPos[tigPos] == 2){
+            //if(!((tigPos > 3)&&(tigPos < 12))){ //non-90 deg only
+            if((tigPos > 3)&&(tigPos < 12)){ //90 deg only
 
               if(sortedEvt.noABHit[tigHitInd].energy > MIN_TIG_EAB){
                 TVector3 vecG1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
@@ -73,15 +106,18 @@ void ComptonAngle_S::SortData(const char *sfile){
                         if(sortedEvt.noABHit[tigHitInd2].energy > MIN_TIG_EAB){
                           TVector3 vecG2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,0);
                           TVector3 norm2 = vecG2.Cross(vecG1); //norm of Compton scattering plane
-                          Double_t angle = norm2.Angle(norm)*180.0/PI;
+                          Double_t angle = norm2.Angle(norm)*180/PI;
                           if((angle > 75)&&(angle < 105)){
-                            ctsPerp++;
+                            //perpendicular
+                            mcaOut[0][(int)eAB]++;
+                            mcaOut[1][(int)eAB]++;
                           }else if((angle >= -1 && angle < 20)||(angle > 160 && angle <= 181)){
                             //cout << angle << endl;
-                            ctsParallel++;
+                            mcaOut[0][(int)eAB]--;
+                            mcaOut[2][(int)eAB]++;
                           }
                           //if((angle > 20)&&(angle < 60)){
-                            /*printf("\nPosition %i, tDiff %f\n",tigPos,tDiff);
+                            /*printf("\nEvt %i Position %i, tDiff %f\n",jentry,tigPos,tDiff);
                             printf("Hit 1: core %2u, seg %u, vec: %.2f %.2f %.2f\n",sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg,vecG1.X(),vecG1.Y(),vecG1.Z());
                             printf("Hit 2: core %2u, seg %u, vec: %.2f %.2f %.2f\n",sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg,vecG2.X(),vecG2.Y(),vecG2.Z());
                             printf("Angle: %f\n",angle);*/
@@ -96,9 +132,10 @@ void ComptonAngle_S::SortData(const char *sfile){
               
               hitPattern |= (1U << tigPos); //flag this position as having been processed already
             }
-          //}
+          }
         }
       }
+      
       
     }
 
@@ -109,43 +146,34 @@ void ComptonAngle_S::SortData(const char *sfile){
   cout << "Entry " << sentries << " of " << sentries << ", 100% complete" << endl;
   cout << endl << "Event sorting complete." << endl;
 
-  cout << "Perpendicular: " << ctsPerp << endl;
-  cout << "Parallel:      " << ctsParallel << endl;
-
   fclose(inp);
 }
-int main(int argc, char **argv)
-{
+
+int main(int argc, char **argv){
 
   ComptonAngle_S *mysort = new ComptonAngle_S();
 
-  const char *sfile;
-  printf("Starting ComptonAngle_SMOL\n");
+  const char *sfile, *outfile;
+  printf("Starting ComptonAsym_mca_SMOL_EDopp\n");
 
   // Input-chain-file, output-histogram-file
   if (argc == 1){
-    cout << "Code sorts Compton polarization asymmetry." << endl;
-    cout << "Arguments: ComptonAngle_SMOL smol_file eGateLow eGateHigh" << endl;
+    cout << "Code sorts Compton polarization asymmetry as a function of energy." << endl;
+    cout << "Arguments: ComptonAsym_mca_SMOL_EDopp smol_file output_fmca_file" << endl;
     return 0;
-  }else if(argc == 4){
+  }else if(argc == 3){
     
     sfile = argv[1];
-    eGate[0] = atoi(argv[2]);
-    eGate[1] = atoi(argv[3]);
-
-    if(eGate[0] > eGate[1]){
-      //swap values
-      int swapVal = eGate[1];
-      eGate[1] = eGate[0];
-      eGate[0] = swapVal;
-    }
+    outfile = argv[2];
 
     printf("SMOL file: %s\n", sfile);
-    cout << "Gate:  [" << eGate[0] << " " << eGate[1] << "] keV" << endl;
+    printf("Output FMCA file: %s\n", outfile);
+    gates = new PIDGates;
     mysort->SortData(sfile);
+    mysort->WriteData(outfile);
 
   }else{
-    printf("ERROR: Improper number of arguments!\nArguments: ComptonAngle_SMOL smol_file eGateLow eGateHigh\n");
+    printf("ERROR: Improper number of arguments!\nArguments: ComptonAsym_mca_SMOL_EDopp smol_file output_fmca_file\n");
     return 0;
   }
 

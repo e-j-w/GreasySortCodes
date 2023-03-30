@@ -19,6 +19,7 @@ class ComptonAngle_S {
 
 		ComptonAngle_S(){;} 
 		void SortData(const char*);
+    void WriteData(const char*);
 
 };
 #endif

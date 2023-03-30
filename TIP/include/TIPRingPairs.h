@@ -1,30 +1,33 @@
-#ifndef SeparatorTiming_h
-#define SeparatorTiming_h
+#ifndef TIPRingPairs_h
+#define TIPRingPairs_h
 
 #include <iostream>
 #include <iomanip>
+#include "TH1.h"
+#include "TH2.h"
 #include "TTree.h"
 #include "TChain.h"
 #include "TFile.h"
+#include "TDirectory.h"
 #include "TList.h"
-#include "TRandom.h"
 #include "TTigress.h"
 #include "TTip.h"
-#include "TChannel.h"
 #include "TParserLibrary.h"
 #include "TEnv.h"
 
 #include "TCanvas.h"
 #include "TApplication.h"
 
+#include "evt_fmt.h"
+#include <stdint.h> //allows uint8_t and similiar types
+
 using namespace std;
 
-TApplication *theApp;
+class TIPRingPairs {
 
-class SeparatorTiming{
 	public :
 
-		SeparatorTiming(){;} 
-		uint64_t SortData(const char*, const int, const int, const char*, PIDGates*);
+		TIPRingPairs(){;} 
+		void SortData(const char*);
 };
 #endif

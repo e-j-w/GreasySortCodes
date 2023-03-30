@@ -2,13 +2,13 @@
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define EGamma_mca_SMOL_cxx
+#define EGammaEDopp_mca_SMOL_cxx
 #include "common.h"
-#include "EGamma_mca_SMOL.h"
+#include "EGammaEDopp_mca_SMOL.h"
 
 using namespace std;
 
-void EGamma_mca_SMOL::WriteData(const char* outName){
+void EGammaEDopp_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -23,7 +23,7 @@ void EGamma_mca_SMOL::WriteData(const char* outName){
 
 }
 
-void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
+void EGammaEDopp_mca_SMOL::SortData(char const *sfile, const double eLow, const double eHigh, const double keVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -43,17 +43,24 @@ void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
     }
 
     for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
-
-      if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
-        int eGamma = (int)(sortedEvt.tigHit[tigHitIndAB].energy/keVPerBin);
-        if(eGamma>=0 && eGamma<S32K){
-          double theta = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg).Theta()*180./PI;
-          mcaOut[getTIGRESSRing(theta)+1][eGamma]++;
-          mcaOut[getTIGRESSSegmentRing(theta)+7][eGamma]++;
-          mcaOut[0][eGamma]++;
-        }
-      }
+      int eGamma = (int)(sortedEvt.tigHit[tigHitIndAB].energy/keVPerBin);
       
+      if((eGamma >= eLow)&&(eGamma <= eHigh)){
+        for(int tigHitIndAB2 = 0; tigHitIndAB2 < sortedEvt.header.numTigHits; tigHitIndAB2++){
+          if(tigHitIndAB2 != tigHitIndAB){
+            int eDopp = (int)(getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates));
+            if(eDopp>=0 && eDopp<S32K){
+              double theta = getTigVector(sortedEvt.tigHit[tigHitIndAB2].core,sortedEvt.tigHit[tigHitIndAB2].seg).Theta()*180./PI;
+              mcaOut[getTIGRESSRing(theta)+1][eDopp]++;
+              mcaOut[getTIGRESSSegmentRing(theta)+7][eDopp]++;
+              mcaOut[0][eDopp]++;
+            }
+          }
+          
+        }
+        break;
+      }
+
     }
 
     if (jentry % 1000 == 0)
@@ -69,23 +76,26 @@ void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
 
 int main(int argc, char **argv){
 
-  EGamma_mca_SMOL *mysort = new EGamma_mca_SMOL();
+  EGammaEDopp_mca_SMOL *mysort = new EGammaEDopp_mca_SMOL();
 
   const char *sfile;
   const char *outfile;
   double keVPerBin = 1.0;
-  printf("Starting EGamma_mca_SMOL\n");
+  double eLow, eHigh;
+  printf("Starting EGammaEDopp_mca_SMOL\n");
 
-  if((argc != 3)&&(argc != 4)){
-    cout << "Generates TIGRESS mca spectra." << endl;
-    cout << "Arguments: EGamma_mca_SMOL smol_file output_file keV_per_bin" << endl;
+  if((argc != 5)&&(argc != 6)){
+    cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
+    cout << "Arguments: EGammaEDopp_mca_SMOL smol_file EGammaGateLow EGammaGateHigh output_file keV_per_bin" << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     return 0;
   }else{
     sfile = argv[1];
-    outfile = argv[2];
-    if(argc > 3){
-      keVPerBin = atof(argv[3]);
+    eLow = atof(argv[2]);
+    eHigh = atof(argv[3]);
+    outfile = argv[4];
+    if(argc > 5){
+      keVPerBin = atof(argv[5]);
     }
   }
 
@@ -94,14 +104,23 @@ int main(int argc, char **argv){
     return 0;
   }
 
+  if(eLow > eHigh){
+    //swap energy gate bounds
+    double tmp = eHigh;
+    eHigh = eLow;
+    eLow = tmp;
+  }
+
   memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
+  gates = new PIDGates;
 
   //single analysis tree
   cout << "SMOL tree: " << sfile << endl;
+  cout << "Energy gate: [" << eLow << " " << eHigh << "]" << endl;
   cout << "Output file: " << outfile << endl;
   cout << "Written spectra will have " << keVPerBin << " keV per bin." << endl;
 
-  mysort->SortData(sfile, keVPerBin);
+  mysort->SortData(sfile, eLow, eHigh, keVPerBin);
   
   mysort->WriteData(outfile);
 

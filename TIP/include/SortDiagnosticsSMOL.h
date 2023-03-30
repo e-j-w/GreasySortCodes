@@ -29,7 +29,7 @@ TList *tigList, *tipList, *timingList, *tipPIDList, *tipPIDGateList, *tiptipList
 TList *tiptigList, *tigPIDSepList, *tigtigPIDSepList; 
 
 //Raw TIGRESS
-TH1F *addE, *addE_ring[NTIGRING], *tigRate;
+TH1F *tigE, *addE, *addE_ring[NTIGRING], *tigRate;
 TH2F *addE_ANum, *addE_theta, *tigNum_time;
 
 //TIP
@@ -47,7 +47,7 @@ TH2F *tipTtigT_addE, *tipTtigT_EDopp, *tipTtigT_EDopp_no90, *tigTtigT_addE;
 TH2F *tip_E_PID_Sum, *tip_E_PID_Ring[NTIPRING], *tip_E_PID[NTIP];
 
 //TIP-TIP
-TH2I *tipPos_tipPos;
+TH2I *tipPos_tipPos, *tipRing_tipRing;
 
 //TIGRESS-TIGRESS
 TH2I *tigPos_tigPos;
@@ -100,6 +100,8 @@ void SortDiagnostics::Initialise() {
   tigNum_time = new TH2F("Tigress_Array_Number_vs_Time","Tigress Array Number vs Time;Time (s);Array Number",3600,0,3600,64,0,64);
   tigNum_time->GetXaxis()->SetTitle("Run Time (s)");
   tigList->Add(tigNum_time);
+  tigE = new TH1F("Tigress_Energy", "Tigress Energy (non-addback)", 16384, 0, 8192);
+  tigList->Add(tigE);
   addE = new TH1F("Addback_Energy", "Addback Energy", 16384, 0, 8192);
   tigList->Add(addE);
   addE_ANum = new TH2F("Addback_Energy_vs_Array_Number", "Addback Energy vs. Array Number", 64, 0, 64, 8192, 0, 8192);
@@ -190,6 +192,10 @@ void SortDiagnostics::Initialise() {
   tipPos_tipPos->GetXaxis()->SetTitle("TIP position 1");
   tipPos_tipPos->GetYaxis()->SetTitle("TIP position 2");
   tiptipList->Add(tipPos_tipPos);
+  tipRing_tipRing = new TH2I("TIP_TIP_Ring", "TIP-TIP ring", 11, 0, 11, 11, 0, 11);
+  tipRing_tipRing->GetXaxis()->SetTitle("TIP ring, hit 1");
+  tipRing_tipRing->GetYaxis()->SetTitle("TIP ring, hit 2");
+  tiptipList->Add(tipRing_tipRing);
 
   //TIGRESS-TIGRESS
   tigPos_tigPos = new TH2I("TIGRESS_TIGRESS_position", "TIGRESS-TIGRESS position", 64, 0, 64, 64, 0, 64);

@@ -1,5 +1,5 @@
-#ifndef ComptonAngle_S_h
-#define ComptonAngle_S_h
+#ifndef TDoppTGamma_SMOL_h
+#define TDoppTGamma_SMOL_h
 
 #include <iostream>
 #include <iomanip>
@@ -7,18 +7,16 @@
 #include "evt_fmt.h"
 #include <stdint.h> //allows uint8_t and similiar types
 
-#include "TGraphErrors.h"
-
 using namespace std;
 
 PIDGates *gates;
 
-class ComptonAngle_S {
+class TDoppTGamma_SMOL {
 
 	public :
 
-		ComptonAngle_S(){;} 
-		void SortData(const char*);
+		TDoppTGamma_SMOL(){;} 
+		void SortData(const char*,const char*);
 
 };
 #endif

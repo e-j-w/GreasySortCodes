@@ -23,24 +23,17 @@ uint64_t Sum::SortData(const char *sfile, FILE *out)
   for(Long64_t jentry = 0; jentry < sentries; jentry++){
 
     //read event
-    memset(&sortedEvt,0,sizeof(sorted_evt));
-    footerVal = 0;
-    fread(&sortedEvt.header,sizeof(evt_header),1,inp);
-    for(int i = 0; i<sortedEvt.header.numTigHits;i++){
-      fread(&sortedEvt.tigHit[i],sizeof(tig_hit),1,inp);
-    }
-    for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
-      fread(&sortedEvt.csiHit[i],sizeof(csi_hit),1,inp);
-    }
-    fread(&footerVal,sizeof(uint8_t),1,inp);
-    if(footerVal != 227U){
-      printf("ERROR: invalid footer value in event %lu (%u)!\n", jentry, footerVal);
+    if(readSMOLEvent(inp,&sortedEvt)==0){
+      cout << "ERROR: bad event data in entry " << jentry << "." << endl;
       exit(-1);
     }
 
     fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
     for(int i = 0; i<sortedEvt.header.numTigHits;i++){
       fwrite(&sortedEvt.tigHit[i],sizeof(tig_hit),1,out);
+    }
+    for(int i = 0; i<sortedEvt.header.numNoABHits;i++){
+      fwrite(&sortedEvt.noABHit[i],sizeof(tig_hit),1,out);
     }
     for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
       fwrite(&sortedEvt.csiHit[i],sizeof(csi_hit),1,out);

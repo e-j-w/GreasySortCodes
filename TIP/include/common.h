@@ -29,7 +29,7 @@ using namespace std;
 
 #define AMU 931.4941 //atomic mass unit, MeV/c^2
 
-#define S32K      32768 //maximum number of channels per spectrum in .mca and .fmca (changing breaks file compatibility)
+#define S32K 32768 //maximum number of channels per spectrum in .mca and .fmca (changing breaks file compatibility)
 
 #define TIPTIPFLAG 61
 #define TIGTIGFLAG 62
@@ -64,6 +64,8 @@ static Int_t tip_waveform_pretrigger = 250;
 //static Double_t betaCompound = 0.02953; //compound nucleus recoil beta (26Mg)
 //static Double_t betaCompound = 0.04143; //compound nucleus recoil beta (31Si)
 static Double_t betaCompound = 0.04093; //compound nucleus recoil beta (32Si)
+//static Double_t betaCompound = 0.04243; //compound nucleus recoil beta (32Si, high E)
+//static Double_t betaCompound = 0.04343; //compound nucleus recoil beta (32Si, 2362 keV line)
 static Int_t compoundM_AMU = 33.96786701; //compound mass in atomic mass units (34Si)
 
 static Int_t noPileupKValue = 700; //should be 0 for TIG-10s, 700 for GRIF-16s
@@ -73,6 +75,7 @@ static Int_t noPileupKValue = 700; //should be 0 for TIG-10s, 700 for GRIF-16s
 Int_t getParticleTypePID(double_t tipPID, double_t energy, Int_t detNum, PIDGates *gates);
 Int_t getParticleType(TTipHit *tip_hit, PIDGates *gates);
 TVector3 getTigVector(uint8_t core, uint8_t seg);
+double_t getEDoppFusEvapManual(double eTig, uint8_t core, uint8_t seg, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates);
 double_t getEDoppFusEvapDirect(tig_hit *add_hit, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates);
 double_t getEDoppFusEvap(TTigressHit *add_hit, TTip *tip, const uint64_t passedtimeGate, PIDGates *gates);
 double_t getTipFitTime(TTipHit *tip_hit, const Int_t pretrigger_samples);
@@ -81,7 +84,6 @@ bool gate1D(const Double_t value, const Double_t min, const Double_t max);
 Int_t getTIPRing(const Int_t tipPosition);
 Int_t getTIGRESSRing(const float theta);
 Int_t getTIGRESSSegmentRing(const float theta);
-uint64_t passesTimeGateAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit, const int noAddback);
-uint64_t passesTimeGate(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit);
+uint64_t passesTimeGateAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit);
 
 #endif

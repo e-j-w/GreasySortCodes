@@ -119,7 +119,7 @@ void TTipTGamma_PIDsep::SortData(char const *afile, char const *calfile, const i
         continue;
       }
 
-      uint64_t passedtimeGate = passesTimeGate(tigress,tip,1,(uint8_t)(nP+nA)); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGateAB(tigress,tip,1,(uint8_t)(nP+nA)); //also rejects pileup
 
       if(passedtimeGate&(1ULL<<TIPTIGFLAG)){
         numSeparatedEvents++;

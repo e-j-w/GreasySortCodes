@@ -8,7 +8,7 @@ using namespace std;
 
 Int_t numTipRingHits[NTIPRING];
 
-void SortDiagnostics::SortData(char const *sfile, char const *outfile)
+void SortDiagnostics::SortData(const char *sfile, const char *outfile)
 {
   Initialise();
 
@@ -43,28 +43,9 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
   for(Long64_t jentry = 0; jentry < sentries; jentry++){
 
     //read event
-    memset(&sortedEvt,0,sizeof(sorted_evt));
-    footerVal = 0;
-    fread(&sortedEvt.header,sizeof(evt_header),1,inp);
-    for(int i = 0; i<sortedEvt.header.numTigHits;i++){
-      fread(&sortedEvt.tigHit[i],sizeof(tig_hit),1,inp);
-    }
-    for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
-      fread(&sortedEvt.csiHit[i],sizeof(csi_hit),1,inp);
-    }
-    fread(&footerVal,sizeof(uint8_t),1,inp);
-    if(footerVal != 227U){
-      printf("ERROR: invalid footer value in event %lu (%u)!\n", jentry, footerVal);
+    if(readSMOLEvent(inp,&sortedEvt)==0){
+      cout << "ERROR: bad event data in entry " << jentry << "." << endl;
       exit(-1);
-    }
-
-    if(sortedEvt.header.numCsIHits>MAXNUMTIPHIT){
-      cout << "Ignoring entry " << jentry << " as it has too many TIP hits (" << sortedEvt.header.numCsIHits << ")!" << endl;
-      continue;
-    }
-    if(sortedEvt.header.numTigHits>MAXNUMTIGHIT){
-      cout << "Ignoring entry " << jentry << " as it has too many TIGRESS hits (" << sortedEvt.header.numTigHits << ")!" << endl;
-      continue;
     }
     
     evtNumProtons=0;
@@ -72,7 +53,6 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
     evtNumProtonsDetSumGate=0;
     evtNumAlphasDetSumGate=0;
     evtNumHorDetSumGate=0;
-    
       
     if(sortedEvt.header.numCsIHits>=0){
       tip_mult->Fill(sortedEvt.header.numCsIHits);
@@ -106,6 +86,12 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
       
     }
     tip_Etot->Fill(tipEEvt);
+
+    for (int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
+      if(sortedEvt.noABHit[tigHitInd].energy > MIN_TIG_EAB){
+        tigE->Fill(sortedEvt.noABHit[tigHitInd].energy);
+      }
+    }
 
     for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
 
@@ -168,6 +154,9 @@ void SortDiagnostics::SortData(char const *sfile, char const *outfile)
         Double_t tDiff = tipFitTimes[tipHitInd] - tipFitTimes[tipHitInd2];
         tiptipFitT->Fill(tDiff);
         tipPos_tipPos->Fill(sortedEvt.csiHit[tipHitInd].detNum,sortedEvt.csiHit[tipHitInd2].detNum);
+        tipPos_tipPos->Fill(sortedEvt.csiHit[tipHitInd2].detNum,sortedEvt.csiHit[tipHitInd].detNum);
+        tipRing_tipRing->Fill(getTIPRing(sortedEvt.csiHit[tipHitInd].detNum),getTIPRing(sortedEvt.csiHit[tipHitInd2].detNum));
+        tipRing_tipRing->Fill(getTIPRing(sortedEvt.csiHit[tipHitInd2].detNum),getTIPRing(sortedEvt.csiHit[tipHitInd].detNum));
       }
     }
     
@@ -332,8 +321,8 @@ int main(int argc, char **argv)
 
   SortDiagnostics *mysort = new SortDiagnostics();
 
-  char const *sfile;
-  char const *outfile;
+  const char *sfile;
+  const char *outfile;
   printf("Starting SortDiagnosticsSMOL\n");
 
   // Input-chain-file, output-histogram-file
