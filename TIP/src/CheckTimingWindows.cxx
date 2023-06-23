@@ -76,7 +76,7 @@ void CheckTimingWindows::SortData(char const *afile, char const *calfile, char c
 
       numTipTigHits++;
 
-      uint64_t passedtimeGate = passesTimeGateAB(tigress,tip,2,2); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip,2,2); //also rejects pileup
       if(passedtimeGate&(1ULL<<TIPTIPFLAG)){
         numPassTipTip++;
       }

@@ -14,6 +14,8 @@ Int_t ctsRingGateRing[NTIGSEGRING-1][NTIGSEGRING-1];
 void RDCO_SMOL_EGammaEDopp::SortData(char const *sfile)
 {
 
+  memset(ctsRingGateRing,0,sizeof(ctsRingGateRing));
+
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
   

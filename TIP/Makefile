@@ -1,7 +1,7 @@
 CXXFLAGS = -std=c++0x -O2
 GRSISORT = -I$(GRSISYS)/include -L$(GRSISYS)/lib `grsi-config --cflags --all-libs --GRSIData-libs` -I$(GRSISYS)/GRSIData/include -L$(GRSISYS)/GRSIData/lib `root-config --cflags --libs` -lTreePlayer -lMathMore
 
-all: common.o SortDiagnosticsGRSI SortDiagnosticsSMOL DrawTIPWaveforms PrintRFData ComptonAsym_mca_SMOL ComptonAsym_mca_SMOL_EDopp ComptonAngle_SMOL ComptonAngle_SMOL_EDopp ComptonAngle_SMOL_EGammaEDopp RDCO_SMOL RDCO_SMOL_EDopp RDCO_SMOL_EGammaEDopp AngCorrSMOL AngDistSMOL SumSMOL CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EGamma_PIDsep_mca EDopp_PIDsep_mca TigEE_PIDsep_mca EGamma_mca_SMOL EGamma_mca_SMOL_nopos15 EEGamma_mca_SMOL EDopp_mca_SMOL EEDopp_mca_SMOL EEDopp_no90deg_mca_SMOL EDoppEGamma_mca_SMOL EGammaEDopp_mca_SMOL ETIP_mca_SMOL TTGamma_SMOL TDoppTGamma_SMOL TTGamma_PIDsep TTipTGamma_PIDsep TIPRingPairs SeparatorTimingPID SeparatorSource
+all: common.o SortDiagnosticsGRSI SortDiagnosticsSMOL DrawTIPWaveforms PrintRFData ComptonAsym_mca_SMOL ComptonAsym_mca_SMOL_EDopp ComptonAngle_SMOL ComptonAngle_SMOL_EDopp ComptonAngle_SMOL_EGammaEDopp RDCO_SMOL RDCO_SMOL_EDopp RDCO_SMOL_EGammaEDopp AngCorrSMOL AngDistSMOL SumSMOL CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EGamma_PIDsep_mca EDopp_PIDsep_mca TigEE_PIDsep_mca EGamma_mca_SMOL EGamma_noAB_mca_SMOL EGamma_no90deg_mca_SMOL EGamma_mca_SMOL_nopos15 EEGamma_mca_SMOL EEGamma_no90deg_mca_SMOL EEGamma_only180degcoinc_mca_SMOL EEGamma_only180degcoincnoAB_mca_SMOL EDopp_mca_SMOL EEDopp_mca_SMOL EEDopp_no90deg_mca_SMOL EDoppEGamma_mca_SMOL EGammaEDopp_mca_SMOL ETIP_mca_SMOL TTGamma_SMOL TDoppTGamma_SMOL TTGamma_PIDsep TTipTGamma_PIDsep TIPRingPairs SeparatorTimingPID SeparatorSource
 
 common.o: src/common.cxx src/position_arrays.cxx include/common.h include/evt_fmt.h
 	g++ src/common.cxx -I./include $(CXXFLAGS) $(GRSISORT) -c -o common.o
@@ -57,10 +57,20 @@ TigEE_PIDsep_mca: src/TigEE_PIDsep_mca.cxx include/TigEE_PIDsep_mca.h common.o
 	g++ src/TigEE_PIDsep_mca.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o TigEE_PIDsep_mca
 EGamma_mca_SMOL: src/EGamma_mca_SMOL.cxx include/EGamma_mca_SMOL.h common.o
 	g++ src/EGamma_mca_SMOL.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EGamma_mca_SMOL
+EGamma_noAB_mca_SMOL: src/EGamma_noAB_mca_SMOL.cxx include/EGamma_noAB_mca_SMOL.h common.o
+	g++ src/EGamma_noAB_mca_SMOL.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EGamma_noAB_mca_SMOL
+EGamma_no90deg_mca_SMOL: src/EGamma_no90deg_mca_SMOL.cxx include/EGamma_no90deg_mca_SMOL.h common.o
+	g++ src/EGamma_no90deg_mca_SMOL.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EGamma_no90deg_mca_SMOL
 EGamma_mca_SMOL_nopos15: src/EGamma_mca_SMOL_nopos15.cxx include/EGamma_mca_SMOL_nopos15.h common.o
 	g++ src/EGamma_mca_SMOL_nopos15.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EGamma_mca_SMOL_nopos15
 EEGamma_mca_SMOL: src/EEGamma_mca_SMOL.cxx include/EEGamma_mca_SMOL.h common.o
 	g++ src/EEGamma_mca_SMOL.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EEGamma_mca_SMOL
+EEGamma_no90deg_mca_SMOL: src/EEGamma_no90deg_mca_SMOL.cxx include/EEGamma_no90deg_mca_SMOL.h common.o
+	g++ src/EEGamma_no90deg_mca_SMOL.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EEGamma_no90deg_mca_SMOL
+EEGamma_only180degcoinc_mca_SMOL: src/EEGamma_only180degcoinc_mca_SMOL.cxx include/EEGamma_only180degcoinc_mca_SMOL.h common.o
+	g++ src/EEGamma_only180degcoinc_mca_SMOL.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EEGamma_only180degcoinc_mca_SMOL
+EEGamma_only180degcoincnoAB_mca_SMOL: src/EEGamma_only180degcoincnoAB_mca_SMOL.cxx include/EEGamma_only180degcoincnoAB_mca_SMOL.h common.o
+	g++ src/EEGamma_only180degcoincnoAB_mca_SMOL.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EEGamma_only180degcoincnoAB_mca_SMOL
 EDopp_mca_SMOL: src/EDopp_mca_SMOL.cxx include/EDopp_mca_SMOL.h common.o
 	g++ src/EDopp_mca_SMOL.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o EDopp_mca_SMOL
 EEDopp_mca_SMOL: src/EEDopp_mca_SMOL.cxx include/EEDopp_mca_SMOL.h common.o
@@ -88,4 +98,4 @@ SeparatorTimingPID: src/SeparatorTimingPID.cxx include/SeparatorTimingPID.h incl
 SeparatorSource: src/SeparatorSource.cxx include/SeparatorSource.h include/evt_fmt.h common.o
 	g++ src/SeparatorSource.cxx -I./include $(CXXFLAGS) $(GRSISORT) common.o -o SeparatorSource
 clean:
-	rm -rf *~ SortDiagnosticsGRSI SortDiagnosticsSMOL DrawTIPWaveforms PrintRFData ComptonAsym_mca_SMOL ComptonAsym_mca_SMOL_EDopp ComptonAngle_SMOL ComptonAngle_SMOL_EDopp ComptonAngle_SMOL_EGammaEDopp RDCO_SMOL RDCO_SMOL_EDopp RDCO_SMOL_EGammaEDopp AngCorrSMOL AngDistSMOL SumSMOL CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EGamma_PIDsep_mca EDopp_PIDsep_mca TigEE_PIDsep_mca EGamma_mca_SMOL EEGamma_mca_SMOL EDopp_mca_SMOL EGamma_mca_SMOL_nopos15 EEDopp_mca_SMOL EEDopp_no90deg_mca_SMOL EDoppEGamma_mca_SMOL EGammaEDopp_mca_SMOL ETIP_mca_SMOL TTGamma_SMOL TDoppTGamma_SMOL TTGamma_PIDsep TTipTGamma_PIDsep TIPRingPairs SeparatorTimingPID SeparatorSource common.o
+	rm -rf *~ SortDiagnosticsGRSI SortDiagnosticsSMOL DrawTIPWaveforms PrintRFData ComptonAsym_mca_SMOL ComptonAsym_mca_SMOL_EDopp ComptonAngle_SMOL ComptonAngle_SMOL_EDopp ComptonAngle_SMOL_EGammaEDopp RDCO_SMOL RDCO_SMOL_EDopp RDCO_SMOL_EGammaEDopp AngCorrSMOL AngDistSMOL SumSMOL CheckTimingWindows PlotTimeSepPID EGamma_PIDsep EEGamma_PIDsep EDopp_PIDsep EEDopp_PIDsep EDopp_ETIPtot_PIDsep EGamma_PIDsep_mca EDopp_PIDsep_mca TigEE_PIDsep_mca EGamma_mca_SMOL EGamma_noAB_mca_SMOL EGamma_no90deg_mca_SMOL EEGamma_mca_SMOL EEGamma_no90deg_mca_SMOL EEGamma_only180degcoinc_mca_SMOL EEGamma_only180degcoincnoAB_mca_SMOL EDopp_mca_SMOL EGamma_mca_SMOL_nopos15 EEDopp_mca_SMOL EEDopp_no90deg_mca_SMOL EDoppEGamma_mca_SMOL EGammaEDopp_mca_SMOL ETIP_mca_SMOL TTGamma_SMOL TDoppTGamma_SMOL TTGamma_PIDsep TTipTGamma_PIDsep TIPRingPairs SeparatorTimingPID SeparatorSource common.o

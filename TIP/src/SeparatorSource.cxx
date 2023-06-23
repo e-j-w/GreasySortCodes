@@ -83,16 +83,18 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
           }
         }
         for(int i = 0; i<tigress->GetMultiplicity();i++){
-          add_hit = tigress->GetTigressHit(i);
-          if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
-            if(sortedEvt.header.evtTimeNs == 0){
-              sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
+          if(i<MAX_EVT_HIT){
+            add_hit = tigress->GetTigressHit(i);
+            if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
+              if(sortedEvt.header.evtTimeNs == 0){
+                sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
+              }
+              sortedEvt.noABHit[numNoABHits].energy = (float)add_hit->GetEnergy();
+              sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
+              sortedEvt.noABHit[numNoABHits].core = (uint8_t)add_hit->GetArrayNumber();
+              sortedEvt.noABHit[numNoABHits].seg = (uint8_t)add_hit->GetFirstSeg();
+              numNoABHits++;
             }
-            sortedEvt.tigHit[numNoABHits].energy = (float)add_hit->GetEnergy();
-            sortedEvt.tigHit[numNoABHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
-            sortedEvt.tigHit[numNoABHits].core = (uint8_t)add_hit->GetArrayNumber();
-            sortedEvt.tigHit[numNoABHits].seg = (uint8_t)add_hit->GetFirstSeg();
-            numNoABHits++;
           }
         }
 

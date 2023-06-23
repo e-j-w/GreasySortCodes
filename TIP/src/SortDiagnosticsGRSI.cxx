@@ -248,7 +248,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
 
       //check whether event passes all timing gates (TIG-TIG, TIP-TIP, TIP-TIG)
       //also rejects pileup
-      uint64_t passedtimeGate = passesTimeGateAB(tigress,tip,1,2);
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip,1,2);
 
       //ensure full TIP-TIGRESS timing condition is met
       //ie. do not accept hits with partial timing condition match

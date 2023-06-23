@@ -71,7 +71,7 @@ void EEDopp_PIDsep::SortData(char const *afile, char const *calfile, char const 
         continue;
       }
 
-      uint64_t passedtimeGate = passesTimeGateAB(tigress,tip,2,2); //also rejects pileup
+      uint64_t passedtimeGate = passesTimeGate(tigress,tip,2,2); //also rejects pileup
 
       //count the number of protons or alphas
       for(int tipHitInd=0;tipHitInd<tip->GetMultiplicity();tipHitInd++){

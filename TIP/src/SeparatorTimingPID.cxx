@@ -78,7 +78,8 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
         continue;
       }else{
 
-        uint64_t passedtimeGate = passesTimeGateAB(tigress,tip,1,nPTimingCondition+nATimingCondition); //also rejects pileup
+        uint64_t passedtimeGate = passesTimeGateAB(tigress,tip,1,nPTimingCondition+nATimingCondition,0); //also rejects pileup
+        uint64_t passedtimeGateNoAB = passesTimeGateAB(tigress,tip,1,nPTimingCondition+nATimingCondition,1); //also rejects pileup
         if(passedtimeGate&(1ULL<<TIPTIGFLAG)){
 
           uint8_t evtNumAlphas = 0;
@@ -123,17 +124,19 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
               }
             }
             for(int i = 0; i<tigress->GetMultiplicity();i++){
-              add_hit = tigress->GetTigressHit(i);
-              if(passedtimeGate&(1ULL<<(i+MAXNUMTIPHIT))){
-                if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
-                  if(sortedEvt.header.evtTimeNs == 0){
-                    sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
+              if(i<MAX_EVT_HIT){
+                add_hit = tigress->GetTigressHit(i);
+                if(passedtimeGateNoAB&(1ULL<<(i+MAXNUMTIPHIT))){
+                  if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
+                    if(sortedEvt.header.evtTimeNs == 0){
+                      sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
+                    }
+                    sortedEvt.noABHit[numNoABHits].energy = (float)add_hit->GetEnergy();
+                    sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
+                    sortedEvt.noABHit[numNoABHits].core = (uint8_t)add_hit->GetArrayNumber();
+                    sortedEvt.noABHit[numNoABHits].seg = (uint8_t)add_hit->GetFirstSeg();
+                    numNoABHits++;
                   }
-                  sortedEvt.noABHit[numNoABHits].energy = (float)add_hit->GetEnergy();
-                  sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
-                  sortedEvt.noABHit[numNoABHits].core = (uint8_t)add_hit->GetArrayNumber();
-                  sortedEvt.noABHit[numNoABHits].seg = (uint8_t)add_hit->GetFirstSeg();
-                  numNoABHits++;
                 }
               }
             }
