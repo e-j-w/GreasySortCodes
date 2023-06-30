@@ -496,17 +496,10 @@ Int_t getTIGRESSSegmentRing(const float theta){
 }
 
 
-//returns a bit-pattern specifying which TIP and TIGRESS events
-//passed the timing gates specified in common.h
-//bits 0 to (MAXNUMTIPHIT-1): TIP hit indices
-//bits MAXNUMTIPHIT to MAXNUMTIPHIT+MAXNUMTIGHIT: TIGRESS hit indices
-//minTigHit: minimum number of TIGRESS hits in the event (<=1 means no TIG-TIG gate)
-//minTipHit: minimum number of TIP hits in the event (<=1 means no TIP-TIP gate)
-//noAddback: whether to use addback or non-addback hits
-uint64_t passesTimeGateAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit, const int noAddback){
+uint64_t passesTimeGateNoAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit){
 
   //Defining Pointers
-  TTigressHit *add_hit, *add_hit2;
+  TTigressHit *tig_hit, *tig_hit2;
 
   bool goodTipTipTime = false;
   bool goodTigTigTime = false;
@@ -522,10 +515,7 @@ uint64_t passesTimeGateAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit,
     if(tip && (tip->GetMultiplicity()>MAXNUMTIPHIT || tip->GetMultiplicity()<minTipHit)){
       return 0;
     }
-    if((noAddback==0)&&(tigress->GetAddbackMultiplicity()>MAXNUMTIGHIT || tigress->GetAddbackMultiplicity()<minTigHit)){
-      return 0;
-    }
-    if((noAddback==1)&&(tigress->GetMultiplicity()>MAXNUMTIGHIT || tigress->GetMultiplicity()<minTigHit)){
+    if(tigress->GetMultiplicity()>MAXNUMTIGHIT || tigress->GetMultiplicity()<minTigHit){
       return 0;
     }
     if((minTigHit==0) && (minTipHit==0)){
@@ -544,32 +534,17 @@ uint64_t passesTimeGateAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit,
           goodTipTipTime = true;
         }
       }
-      if(noAddback==0){
-        for(int i=0;i<tigress->GetAddbackMultiplicity();i++){
-          add_hit = tigress->GetAddbackHit(i);
-          if(add_hit->GetKValue() != noPileupKValue){
-            //pileup
-            continue;
-          }
-          if(add_hit->BGOFired() || add_hit->GetEnergy() <= 15){
-            continue;
-          }
-          pass |= (1ULL<<(MAXNUMTIPHIT+i));
-          goodTigTigTime = true;
+      for(int i=0;i<tigress->GetMultiplicity();i++){
+        tig_hit = tigress->GetTigressHit(i);
+        if(tig_hit->GetKValue() != noPileupKValue){
+          //pileup
+          continue;
         }
-      }else{
-        for(int i=0;i<tigress->GetMultiplicity();i++){
-          add_hit = tigress->GetTigressHit(i);
-          if(add_hit->GetKValue() != noPileupKValue){
-            //pileup
-            continue;
-          }
-          if(add_hit->BGOFired() || add_hit->GetEnergy() <= 15){
-            continue;
-          }
-          pass |= (1ULL<<(MAXNUMTIPHIT+i));
-          goodTigTigTime = true;
+        if(tig_hit->BGOFired() || tig_hit->GetEnergy() <= 15){
+          continue;
         }
+        pass |= (1ULL<<(MAXNUMTIPHIT+i));
+        goodTigTigTime = true;
       }
       if(goodTipTipTime && goodTigTigTime){
         goodTipTigTime = true;
@@ -632,65 +607,31 @@ uint64_t passesTimeGateAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit,
       }
 
       //evaluate TIGRESS timing
-      int mult=0;
-      if(noAddback==0){
-        mult = tigress->GetAddbackMultiplicity();
-      }else{
-        mult = tigress->GetMultiplicity();
-      }
+      int mult = tigress->GetMultiplicity();
       if(goodTipTipTime || (minTipHit == 0)){
         if(mult>=minTigHit){
           if(minTigHit>=2 && mult>=2){
-            if(noAddback==0){
-              for(int i=0;i<tigress->GetAddbackMultiplicity();i++){
-                //TIGRESS-TIGRESS addback timing
-                add_hit = tigress->GetAddbackHit(i);
-                /*if(add_hit->GetKValue() != noPileupKValue){
-                  //pileup
-                  continue;
-                }*/
-                //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
-                  for(int j=i+1;j<tigress->GetAddbackMultiplicity();j++){
-                    add_hit2 = tigress->GetAddbackHit(j);
-                    /*if(add_hit2->GetKValue() != noPileupKValue){
-                      //pileup
-                      continue;
-                    }*/
-                    if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
-                      double tigtigTDiff = add_hit->GetTime() - add_hit2->GetTime();
-                      if(gate1D(tigtigTDiff,tigtigTGate[0],tigtigTGate[1])){
-                        goodTigTigTime = true;
-                        pass |= (1ULL<<(MAXNUMTIPHIT+i));
-                        pass |= (1ULL<<(MAXNUMTIPHIT+j));
-                      }
-                    }
-                  }
-                }
-              }
-            }else{
-              for(int i=0;i<tigress->GetMultiplicity();i++){
-                //TIGRESS-TIGRESS non-addback timing
-                add_hit = tigress->GetTigressHit(i);
-                /*if(add_hit->GetKValue() != noPileupKValue){
-                  //pileup
-                  continue;
-                }*/
-                //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
-                if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
-                  for(int j=i+1;j<tigress->GetMultiplicity();j++){
-                    add_hit2 = tigress->GetTigressHit(j);
-                    /*if(add_hit2->GetKValue() != noPileupKValue){
-                      //pileup
-                      continue;
-                    }*/
-                    if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
-                      double tigtigTDiff = add_hit->GetTime() - add_hit2->GetTime();
-                      if(gate1D(tigtigTDiff,tigtigTGate[0],tigtigTGate[1])){
-                        goodTigTigTime = true;
-                        pass |= (1ULL<<(MAXNUMTIPHIT+i));
-                        pass |= (1ULL<<(MAXNUMTIPHIT+j));
-                      }
+            for(int i=0;i<tigress->GetMultiplicity();i++){
+              //TIGRESS-TIGRESS non-addback timing
+              tig_hit = tigress->GetTigressHit(i);
+              /*if(tig_hit->GetKValue() != noPileupKValue){
+                //pileup
+                continue;
+              }*/
+              //cout << "energy: " << tig_hit->GetEnergy() << ", array num: " << tig_hit->GetArrayNumber() << ", address: " << tig_hit->GetAddress() << endl;
+              if(!tig_hit->BGOFired() && tig_hit->GetEnergy() > 15){
+                for(int j=i+1;j<tigress->GetMultiplicity();j++){
+                  tig_hit2 = tigress->GetTigressHit(j);
+                  /*if(tig_hit2->GetKValue() != noPileupKValue){
+                    //pileup
+                    continue;
+                  }*/
+                  if(!tig_hit2->BGOFired() && tig_hit2->GetEnergy() > 15){
+                    double tigtigTDiff = tig_hit->GetTime() - tig_hit2->GetTime();
+                    if(gate1D(tigtigTDiff,tigtigTGate[0],tigtigTGate[1])){
+                      goodTigTigTime = true;
+                      pass |= (1ULL<<(MAXNUMTIPHIT+i));
+                      pass |= (1ULL<<(MAXNUMTIPHIT+j));
                     }
                   }
                 }
@@ -698,32 +639,17 @@ uint64_t passesTimeGateAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit,
             }
           }else{
             //pass all valid TIGRESS hits
-            if(noAddback==0){
-              for(int i=0;i<tigress->GetAddbackMultiplicity();i++){
-                add_hit = tigress->GetAddbackHit(i);
-                if(add_hit->GetKValue() != noPileupKValue){
-                  //pileup
-                  continue;
-                }
-                if(add_hit->BGOFired() || add_hit->GetEnergy() <= 15){
-                  continue;
-                }
-                pass |= (1ULL<<(MAXNUMTIPHIT+i));
-                goodTigTigTime = true;
+            for(int i=0;i<tigress->GetMultiplicity();i++){
+              tig_hit = tigress->GetTigressHit(i);
+              if(tig_hit->GetKValue() != noPileupKValue){
+                //pileup
+                continue;
               }
-            }else{
-              for(int i=0;i<tigress->GetMultiplicity();i++){
-                add_hit = tigress->GetTigressHit(i);
-                if(add_hit->GetKValue() != noPileupKValue){
-                  //pileup
-                  continue;
-                }
-                if(add_hit->BGOFired() || add_hit->GetEnergy() <= 15){
-                  continue;
-                }
-                pass |= (1ULL<<(MAXNUMTIPHIT+i));
-                goodTigTigTime = true;
+              if(tig_hit->BGOFired() || tig_hit->GetEnergy() <= 15){
+                continue;
               }
+              pass |= (1ULL<<(MAXNUMTIPHIT+i));
+              goodTigTigTime = true;
             }
           }
         }
@@ -740,26 +666,267 @@ uint64_t passesTimeGateAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit,
         for(int i=0;i<tip->GetMultiplicity();i++){
           if(pass&(1ULL<<i)){
             bool tipHitTigCoinc = false;
-            if(noAddback==0){
-              for(int j=0;j<tigress->GetAddbackMultiplicity();j++){
-                if(pass&(1ULL<<(MAXNUMTIPHIT+j))){
-                  //K, BGO and energy conditions previously evaluated
-                  double_t tiptigTDiff = getTipFitTime(tip->GetTipHit(i),tip_waveform_pretrigger) - tigress->GetAddbackHit(j)->GetTime();
-                  if(gate1D(tiptigTDiff,tiptigTGate[0],tiptigTGate[1])){
-                    tipHitTigCoinc = true;
-                    tigHitTipCoinc[j] = true;
+            for(int j=0;j<tigress->GetMultiplicity();j++){
+              if(pass&(1ULL<<(MAXNUMTIPHIT+j))){
+                //K, BGO and energy conditions previously evaluated
+                double_t tiptigTDiff = getTipFitTime(tip->GetTipHit(i),tip_waveform_pretrigger) - tigress->GetTigressHit(j)->GetTime();
+                if(gate1D(tiptigTDiff,tiptigTGate[0],tiptigTGate[1])){
+                  tipHitTigCoinc = true;
+                  tigHitTipCoinc[j] = true;
+                }
+              }
+            }
+            if(tipHitTigCoinc == false){
+              pass &= ~(1ULL<<i); //unset
+            }
+          }
+        }
+
+        for(int i=0;i<MAXNUMTIGHIT;i++){
+          if(tigHitTipCoinc[i] == false){
+            pass &= ~(1ULL<<(MAXNUMTIPHIT+i)); //unset
+          }
+        }
+
+        //count the number of passed hits
+        uint8_t numPassedTip = 0;
+        uint8_t numPassedTig = 0;
+        for(int i=0;i<MAXNUMTIPHIT;i++){
+          if(pass & (1ULL<<i)){
+            numPassedTip++;
+          }
+        }
+        for(int i=0;i<MAXNUMTIGHIT;i++){
+          if(pass & (1ULL<<(MAXNUMTIPHIT+i))){
+            numPassedTig++;
+          }
+        }
+        if((numPassedTip>=minTipHit)&&(numPassedTig>=minTigHit)){
+          goodTipTigTime = true;
+        }
+      }
+
+      if(goodTipTigTime){
+        pass |= (1ULL<<TIPTIGFLAG);
+      }
+      if(goodTigTigTime){
+        pass |= (1ULL<<TIGTIGFLAG);
+      }
+      if(goodTipTipTime){
+        pass |= (1ULL<<TIPTIPFLAG);
+      }
+    }
+
+  }
+  
+  /*if(goodTipTipTime)
+  if(goodTigTigTime)
+  if(!goodTipTigTime){
+    //report failed events
+    cout << "Event failed timing:" << endl;
+    for(int i=0;i<tip->GetMultiplicity();i++){
+      cout << " TIP hit " << i << ", t:" << tip->GetTipHit(i)->GetTime() << ", K: " << tip->GetTipHit(i)->GetKValue() << ", PID: " << tip->GetTipHit(i)->GetPID() << endl;
+    }
+    for(int tigHitIndAB = 0; tigHitIndAB < tigress->GetMultiplicity(); tigHitIndAB++){
+      cout << " TIGRESS hit " << tigHitIndAB << ", t: " << tigress->GetTigressHit(tigHitIndAB)->GetTime() << ", K: " 
+      << tigress->GetTigressHit(tigHitIndAB)->GetKValue() << ", BGO: " << tigress->GetTigressHit(tigHitIndAB)->BGOFired() << ", E: " << tigress->GetTigressHit(tigHitIndAB)->GetEnergy() << endl;
+    }
+    if(goodTipTipTime)
+      cout << "TIP-TIP timing passed" << endl;
+    if(goodTigTigTime)
+      cout << "TIG-TIG timing passed" << endl;
+  }*/
+  
+
+  return pass;
+  
+}
+
+
+//returns a bit-pattern specifying which TIP and TIGRESS events
+//passed the timing gates specified in common.h
+//bits 0 to (MAXNUMTIPHIT-1): TIP hit indices
+//bits MAXNUMTIPHIT to MAXNUMTIPHIT+MAXNUMTIGHIT: TIGRESS hit indices
+//minTigHit: minimum number of TIGRESS hits in the event (<=1 means no TIG-TIG gate)
+//minTipHit: minimum number of TIP hits in the event (<=1 means no TIP-TIP gate)
+//noAddback: whether to use addback or non-addback hits
+uint64_t passesTimeGateAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit){
+
+  //Defining Pointers
+  TTigressHit *add_hit, *add_hit2;
+
+  bool goodTipTipTime = false;
+  bool goodTigTigTime = false;
+  bool goodTipTigTime = false;
+  uint64_t pass = 0;
+
+  //evaluate timing conditions
+  if(tigress){
+
+    if(!tip && (minTipHit>0)){
+      return 0;
+    }
+    if(tip && (tip->GetMultiplicity()>MAXNUMTIPHIT || tip->GetMultiplicity()<minTipHit)){
+      return 0;
+    }
+    if(tigress->GetAddbackMultiplicity()>MAXNUMTIGHIT || tigress->GetAddbackMultiplicity()<minTigHit){
+      return 0;
+    }
+    if((minTigHit==0) && (minTipHit==0)){
+      //no timing condition, pass all valid TIP and TIGRESS hits
+      if(tip){
+        for(int i=0;i<tip->GetMultiplicity();i++){
+          if(tip->GetTipHit(i)->GetKValue() != noPileupKValue){
+            //pileup
+            continue;
+          }
+          if(tip->GetTipHit(i)->GetPID()<=0){
+            //failed fit
+            continue;
+          }
+          pass |= (1ULL<<i);
+          goodTipTipTime = true;
+        }
+      }
+      for(int i=0;i<tigress->GetAddbackMultiplicity();i++){
+        add_hit = tigress->GetAddbackHit(i);
+        if(add_hit->GetKValue() != noPileupKValue){
+          //pileup
+          continue;
+        }
+        if(add_hit->BGOFired() || add_hit->GetEnergy() <= 15){
+          continue;
+        }
+        pass |= (1ULL<<(MAXNUMTIPHIT+i));
+        goodTigTigTime = true;
+      }
+      if(goodTipTipTime && goodTigTigTime){
+        goodTipTigTime = true;
+      }
+    }else{
+      //evaluate timing conditions
+
+      //evaluate TIP timing
+      if(tip){
+        if(tip->GetMultiplicity()>=minTipHit){
+          if(minTipHit>= 2 && tip->GetMultiplicity()>=2){
+            
+            //TIP-TIP timing
+            for(int i=0;i<tip->GetMultiplicity();i++){
+              if(tip->GetTipHit(i)->GetKValue() != noPileupKValue){
+                //pileup
+                continue;
+              }
+              if(tip->GetTipHit(i)->GetPID()<=0){
+                //failed fit
+                continue;
+              }
+              for(int j=i+1;j<tip->GetMultiplicity();j++){
+                if(tip->GetTipHit(j)->GetKValue() != noPileupKValue){
+                  //pileup
+                  continue;
+                }
+                if(tip->GetTipHit(j)->GetPID()<=0){
+                  //failed fit
+                  continue;
+                }
+                double_t fitT1 = getTipFitTime(tip->GetTipHit(i),tip_waveform_pretrigger);
+                double_t fitT2 = getTipFitTime(tip->GetTipHit(j),tip_waveform_pretrigger);
+                if((fitT1 != 0.)&&(fitT2 != 0.)){
+                  double_t fitTDiff = fitT1 - fitT2;
+                  if(gate1D(fitTDiff,tiptipTGate[0],tiptipTGate[1])){
+                    goodTipTipTime = true;
+                    pass |= (1ULL<<i);
+                    pass |= (1ULL<<j);
                   }
                 }
               }
-            }else{
-              for(int j=0;j<tigress->GetMultiplicity();j++){
-                if(pass&(1ULL<<(MAXNUMTIPHIT+j))){
-                  //K, BGO and energy conditions previously evaluated
-                  double_t tiptigTDiff = getTipFitTime(tip->GetTipHit(i),tip_waveform_pretrigger) - tigress->GetTigressHit(j)->GetTime();
-                  if(gate1D(tiptigTDiff,tiptigTGate[0],tiptigTGate[1])){
-                    tipHitTigCoinc = true;
-                    tigHitTipCoinc[j] = true;
+            }
+          }else{
+            //pass all valid TIP hits
+            for(int i=0;i<tip->GetMultiplicity();i++){
+              if(tip->GetTipHit(i)->GetKValue() != noPileupKValue){
+                //pileup
+                continue;
+              }
+              if(tip->GetTipHit(i)->GetPID()<=0){
+                //failed fit
+                continue;
+              }
+              pass |= (1ULL<<i);
+              goodTipTipTime = true;
+            }
+          }
+        }
+      }
+
+      //evaluate TIGRESS timing
+      int mult = tigress->GetAddbackMultiplicity();
+      if(goodTipTipTime || (minTipHit == 0)){
+        if(mult>=minTigHit){
+          if(minTigHit>=2 && mult>=2){
+            for(int i=0;i<tigress->GetAddbackMultiplicity();i++){
+              //TIGRESS-TIGRESS addback timing
+              add_hit = tigress->GetAddbackHit(i);
+              /*if(add_hit->GetKValue() != noPileupKValue){
+                //pileup
+                continue;
+              }*/
+              //cout << "energy: " << add_hit->GetEnergy() << ", array num: " << add_hit->GetArrayNumber() << ", address: " << add_hit->GetAddress() << endl;
+              if(!add_hit->BGOFired() && add_hit->GetEnergy() > 15){
+                for(int j=i+1;j<tigress->GetAddbackMultiplicity();j++){
+                  add_hit2 = tigress->GetAddbackHit(j);
+                  /*if(add_hit2->GetKValue() != noPileupKValue){
+                    //pileup
+                    continue;
+                  }*/
+                  if(!add_hit2->BGOFired() && add_hit2->GetEnergy() > 15){
+                    double tigtigTDiff = add_hit->GetTime() - add_hit2->GetTime();
+                    if(gate1D(tigtigTDiff,tigtigTGate[0],tigtigTGate[1])){
+                      goodTigTigTime = true;
+                      pass |= (1ULL<<(MAXNUMTIPHIT+i));
+                      pass |= (1ULL<<(MAXNUMTIPHIT+j));
+                    }
                   }
+                }
+              }
+            }
+          }else{
+            //pass all valid TIGRESS hits
+            for(int i=0;i<tigress->GetAddbackMultiplicity();i++){
+              add_hit = tigress->GetAddbackHit(i);
+              if(add_hit->GetKValue() != noPileupKValue){
+                //pileup
+                continue;
+              }
+              if(add_hit->BGOFired() || add_hit->GetEnergy() <= 15){
+                continue;
+              }
+              pass |= (1ULL<<(MAXNUMTIPHIT+i));
+              goodTigTigTime = true;
+            }
+          }
+        }
+      }
+
+      //evaluate TIP-TIGRESS timing
+      if(goodTigTigTime && (minTipHit > 0) && tip){
+
+        bool tigHitTipCoinc[MAXNUMTIGHIT];
+        for(int i=0;i<MAXNUMTIGHIT;i++){
+          tigHitTipCoinc[i] = false;
+        }
+        
+        for(int i=0;i<tip->GetMultiplicity();i++){
+          if(pass&(1ULL<<i)){
+            bool tipHitTigCoinc = false;
+            for(int j=0;j<tigress->GetAddbackMultiplicity();j++){
+              if(pass&(1ULL<<(MAXNUMTIPHIT+j))){
+                //K, BGO and energy conditions previously evaluated
+                double_t tiptigTDiff = getTipFitTime(tip->GetTipHit(i),tip_waveform_pretrigger) - tigress->GetAddbackHit(j)->GetTime();
+                if(gate1D(tiptigTDiff,tiptigTGate[0],tiptigTGate[1])){
+                  tipHitTigCoinc = true;
+                  tigHitTipCoinc[j] = true;
                 }
               }
             }
@@ -830,5 +997,5 @@ uint64_t passesTimeGateAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit,
 }
 
 uint64_t passesTimeGate(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit){
-  return passesTimeGateAB(tigress,tip,minTigHit,minTipHit,0);
+  return passesTimeGateAB(tigress,tip,minTigHit,minTipHit);
 }

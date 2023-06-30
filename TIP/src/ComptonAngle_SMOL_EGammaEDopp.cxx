@@ -46,7 +46,7 @@ void ComptonAngle_S::SortData(const char *sfile)
     memset(&maxESeg,0,sizeof(maxESeg));
 
     Double_t maxHitE = 0.;
-    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numTigHits; tigHitInd++){
+    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
       if(sortedEvt.noABHit[tigHitInd].core/4 >= NTIGPOS){
         cout << "ERROR: entry " << jentry << ", hit has invalid core: " << sortedEvt.noABHit[tigHitInd].core << endl;
         exit(-1);
@@ -76,7 +76,7 @@ void ComptonAngle_S::SortData(const char *sfile)
     }
 
     if(passGGate == 1){
-      for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numTigHits; tigHitInd++){
+      for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
 
         Int_t tigPos = sortedEvt.noABHit[tigHitInd].core/4;
         float eAB = eABPos[tigPos];
@@ -90,7 +90,7 @@ void ComptonAngle_S::SortData(const char *sfile)
                 TVector3 vecG1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
                 TVector3 norm = vecG1.Cross(vecBeam); //norm of reaction plane
                 
-                for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numTigHits; tigHitInd2++){
+                for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numNoABHits; tigHitInd2++){
                   Double_t tDiff = tigHitTime(&sortedEvt,tigHitInd) - tigHitTime(&sortedEvt,tigHitInd2);
                   if((tDiff >= tigtigTGate[0])&&(tDiff <= tigtigTGate[1])){
                     //make sure both hits aren't in the same location

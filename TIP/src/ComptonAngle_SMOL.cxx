@@ -11,6 +11,11 @@ using namespace std;
 int eGate[2];
 Int_t coreFoldPos[NTIGPOS]; //number of core hits per position
 Double_t eABPos[NTIGPOS]; //addback energy per position
+Int_t maxECore[NTIGPOS]; //core containing the maximum energy hit, for each position
+Int_t secondECore[NTIGPOS]; //core containing the 2nd highest energy hit, for each position
+float maxE[NTIGPOS]; //maximum energgy deposit in keV, for each position
+
+Int_t ctsAngle[19];
 
 void ComptonAngle_S::SortData(const char *sfile){
 
@@ -26,6 +31,7 @@ void ComptonAngle_S::SortData(const char *sfile){
 
   uint32_t ctsParallel = 0;
   uint32_t ctsPerp = 0;
+  memset(&ctsAngle,0,sizeof(ctsAngle));
 
   printf("\nSorting events...\n");
   for(Long64_t jentry = 0; jentry < sentries; jentry++){
@@ -38,66 +44,98 @@ void ComptonAngle_S::SortData(const char *sfile){
 
     memset(&eABPos,0,sizeof(eABPos));
     memset(&coreFoldPos,0,sizeof(coreFoldPos));
+    for(int i=0; i<NTIGPOS; i++){
+      maxECore[i]=-1; //0 is a valid core number
+      secondECore[i]=-1; //0 is a valid core number
+      maxE[i]=0.;
+    }
 
-    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numTigHits; tigHitInd++){
+    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
       if(sortedEvt.noABHit[tigHitInd].core/4 >= NTIGPOS){
         cout << "ERROR: entry " << jentry << ", hit has invalid core: " << sortedEvt.noABHit[tigHitInd].core << endl;
         exit(-1);
       }
       coreFoldPos[sortedEvt.noABHit[tigHitInd].core/4]++;
+      if(sortedEvt.noABHit[tigHitInd].energy > maxE[sortedEvt.noABHit[tigHitInd].core/4]){
+        if(maxECore[sortedEvt.noABHit[tigHitInd].core/4] >= 0){
+          secondECore[sortedEvt.noABHit[tigHitInd].core/4]=maxECore[sortedEvt.noABHit[tigHitInd].core/4];
+        }
+        maxECore[sortedEvt.noABHit[tigHitInd].core/4]=sortedEvt.noABHit[tigHitInd].core;
+        maxE[sortedEvt.noABHit[tigHitInd].core/4]=sortedEvt.noABHit[tigHitInd].energy;
+      }else if((sortedEvt.noABHit[tigHitInd].energy > 0)&&(secondECore[sortedEvt.noABHit[tigHitInd].core/4] < 0)){
+        //case where the second highest energy comes later than the highest energy
+        secondECore[sortedEvt.noABHit[tigHitInd].core/4]=sortedEvt.noABHit[tigHitInd].core;
+      }
       eABPos[sortedEvt.noABHit[tigHitInd].core/4] += sortedEvt.noABHit[tigHitInd].energy;
     }
 
     uint32_t hitPattern = 0;
-    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numTigHits; tigHitInd++){
+    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
 
       Int_t tigPos = sortedEvt.noABHit[tigHitInd].core/4;
       if(!(hitPattern&(1 << tigPos))){
         float eAB = eABPos[tigPos];
 
-        if(coreFoldPos[tigPos] == 2){
+        if(coreFoldPos[tigPos] >= 2){
           //if((tigPos > 3)&&(tigPos < 12)){ //90 deg only
             if((eAB >= eGate[0])&&(eAB <= eGate[1])){
+              if(maxECore[tigPos] == sortedEvt.noABHit[tigHitInd].core){
+                if(sortedEvt.noABHit[tigHitInd].energy > MIN_TIG_EAB){
+                  TVector3 vecG1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
+                  TVector3 norm = vecG1.Cross(vecBeam); //norm of reaction plane
+                  
+                  for(int tigHitInd2 = 0; tigHitInd2 < sortedEvt.header.numNoABHits; tigHitInd2++){
+                    if(secondECore[tigPos] == sortedEvt.noABHit[tigHitInd2].core){
 
-              if(sortedEvt.noABHit[tigHitInd].energy > MIN_TIG_EAB){
-                TVector3 vecG1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
-                TVector3 norm = vecG1.Cross(vecBeam); //norm of reaction plane
-                
-                for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numTigHits; tigHitInd2++){
-                  Double_t tDiff = tigHitTime(&sortedEvt,tigHitInd) - tigHitTime(&sortedEvt,tigHitInd2);
-                  if((tDiff >= tigtigTGate[0])&&(tDiff <= tigtigTGate[1])){
-                    //make sure both hits aren't in the same location
-                    if(!(sortedEvt.noABHit[tigHitInd].core == sortedEvt.noABHit[tigHitInd2].core)){
-                      //make sure both hits are in the same clover
-                      if((sortedEvt.noABHit[tigHitInd2].core/4)==tigPos){
-                        if(sortedEvt.noABHit[tigHitInd2].energy > MIN_TIG_EAB){
-                          TVector3 vecG2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,0);
-                          TVector3 norm2 = vecG2.Cross(vecG1); //norm of Compton scattering plane
-                          Double_t angle = norm2.Angle(norm)*180.0/PI;
-                          if((angle > 75)&&(angle < 105)){
-                            ctsPerp++;
-                          }else if((angle >= -1 && angle < 20)||(angle > 160 && angle <= 181)){
-                            //cout << angle << endl;
-                            ctsParallel++;
+                      /*//check segments
+                      uint8_t pass = 0;
+                      if((sortedEvt.noABHit[tigHitInd].seg < 5)&&(sortedEvt.noABHit[tigHitInd2].seg < 5)){
+                        pass = 1;
+                      }else if((sortedEvt.noABHit[tigHitInd].seg > 4)&&(sortedEvt.noABHit[tigHitInd2].seg > 4)){
+                        pass = 1;
+                      }
+                      if(pass == 0){
+                        continue;
+                      }*/
+
+                      Double_t tDiff = noABHitTime(&sortedEvt,tigHitInd) - noABHitTime(&sortedEvt,tigHitInd2);
+                      if((tDiff >= tigtigTGate[0])&&(tDiff <= tigtigTGate[1])){
+                        //make sure both hits aren't in the same location
+                        if(!(sortedEvt.noABHit[tigHitInd].core == sortedEvt.noABHit[tigHitInd2].core)){
+                          //make sure both hits are in the same clover
+                          if((sortedEvt.noABHit[tigHitInd2].core/4)==tigPos){
+                            if(sortedEvt.noABHit[tigHitInd2].energy > MIN_TIG_EAB){
+                              TVector3 vecG2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg);
+                              TVector3 norm2 = vecG2.Cross(vecG1); //norm of Compton scattering plane
+                              Double_t angle = norm2.Angle(norm)*180.0/PI;
+                              if((angle > 75)&&(angle < 105)){
+                                ctsPerp++;
+                              }else if((angle >= -1 && angle < 15)||(angle > 165 && angle <= 181)){
+                                //cout << angle << endl;
+                                ctsParallel++;
+                              }
+                              if(angle <= 185){
+                                ctsAngle[(int)(angle/10.0)]++;
+                              }
+                              //if((angle > 20)&&(angle < 60)){
+                                /*printf("\nPosition %i, tDiff %f\n",tigPos,tDiff);
+                                printf("Hit 1: core %2u, seg %u, vec: %.2f %.2f %.2f\n",sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg,vecG1.X(),vecG1.Y(),vecG1.Z());
+                                printf("Hit 2: core %2u, seg %u, vec: %.2f %.2f %.2f\n",sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg,vecG2.X(),vecG2.Y(),vecG2.Z());
+                                printf("Angle: %f\n",angle);*/
+                              //}
+                            }
                           }
-                          //if((angle > 20)&&(angle < 60)){
-                            /*printf("\nPosition %i, tDiff %f\n",tigPos,tDiff);
-                            printf("Hit 1: core %2u, seg %u, vec: %.2f %.2f %.2f\n",sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg,vecG1.X(),vecG1.Y(),vecG1.Z());
-                            printf("Hit 2: core %2u, seg %u, vec: %.2f %.2f %.2f\n",sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg,vecG2.X(),vecG2.Y(),vecG2.Z());
-                            printf("Angle: %f\n",angle);*/
-                          //}
-                          break;
                         }
                       }
                     }
+                    
                   }
                 }
               }
-              
-              hitPattern |= (1U << tigPos); //flag this position as having been processed already
             }
           //}
         }
+        hitPattern |= (1U << tigPos); //flag this position as having been processed already
       }
       
     }
@@ -111,6 +149,11 @@ void ComptonAngle_S::SortData(const char *sfile){
 
   cout << "Perpendicular: " << ctsPerp << endl;
   cout << "Parallel:      " << ctsParallel << endl;
+
+  cout << "Counts per angle" << endl;
+  for(int i=0; i<19; i++){
+    cout << i*10 << " to " << (i+1)*10 << " degrees: " << ctsAngle[i] << endl;
+  }
 
   fclose(inp);
 }

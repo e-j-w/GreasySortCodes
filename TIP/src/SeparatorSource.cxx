@@ -36,7 +36,7 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
     cout << "No TIP data present." << endl;
   }
 
-  TTigressHit *add_hit;
+  TTigressHit *add_hit, *noAB_hit;
   TTipHit *tip_hit;
   sorted_evt sortedEvt;
   uint8_t footerVal = 227U;
@@ -60,8 +60,10 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
 
     if(tigress){
 
-      if((tigress->GetAddbackMultiplicity()>MAXNUMTIGHIT)||(tigress->GetAddbackMultiplicity()>MAX_EVT_HIT)){
-        cout << "WARNING: event " << jentry << " has too many TIGRESS hits (" << tigress->GetAddbackMultiplicity() << ")!" << endl;
+      tigress->ResetAddback();
+
+      if((tigress->GetMultiplicity()>MAXNUMTIGHIT)||(tigress->GetMultiplicity()>MAX_EVT_HIT)){
+        cout << "WARNING: event " << jentry << " has too many TIGRESS hits (" << tigress->GetMultiplicity() << ")!" << endl;
         continue;
       }else{
 
@@ -69,6 +71,21 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
         
         uint8_t numTigHits = 0;
         uint8_t numNoABHits = 0;
+        for(int i = 0; i<tigress->GetMultiplicity();i++){
+          if(i<MAX_EVT_HIT){
+            noAB_hit = tigress->GetTigressHit(i);
+            if(!(noAB_hit->BGOFired()) && (noAB_hit->GetEnergy() > 0)){
+              if(sortedEvt.header.evtTimeNs == 0){
+                sortedEvt.header.evtTimeNs = (double)noAB_hit->GetTime();
+              }
+              sortedEvt.noABHit[numNoABHits].energy = (float)noAB_hit->GetEnergy();
+              sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(noAB_hit->GetTime() - sortedEvt.header.evtTimeNs);
+              sortedEvt.noABHit[numNoABHits].core = (uint8_t)noAB_hit->GetArrayNumber();
+              sortedEvt.noABHit[numNoABHits].seg = (uint8_t)noAB_hit->GetFirstSeg();
+              numNoABHits++;
+            }
+          }
+        }
         for(int i = 0; i<tigress->GetAddbackMultiplicity();i++){
           add_hit = tigress->GetAddbackHit(i);
           if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
@@ -80,21 +97,6 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
             sortedEvt.tigHit[numTigHits].core = (uint8_t)add_hit->GetArrayNumber();
             sortedEvt.tigHit[numTigHits].seg = (uint8_t)add_hit->GetFirstSeg();
             numTigHits++;
-          }
-        }
-        for(int i = 0; i<tigress->GetMultiplicity();i++){
-          if(i<MAX_EVT_HIT){
-            add_hit = tigress->GetTigressHit(i);
-            if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
-              if(sortedEvt.header.evtTimeNs == 0){
-                sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
-              }
-              sortedEvt.noABHit[numNoABHits].energy = (float)add_hit->GetEnergy();
-              sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
-              sortedEvt.noABHit[numNoABHits].core = (uint8_t)add_hit->GetArrayNumber();
-              sortedEvt.noABHit[numNoABHits].seg = (uint8_t)add_hit->GetFirstSeg();
-              numNoABHits++;
-            }
           }
         }
 

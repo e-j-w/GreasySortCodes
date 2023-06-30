@@ -63,7 +63,6 @@ void EEGamma_only180degcoincnoAB_mca_SMOL::SortData(char const *sfile, const dou
               }
             }
           }
-          break;
         }
       }
     }
