@@ -55,7 +55,6 @@ void EEGamma_mca_SMOL::SortData(char const *sfile, const double eLow, const doub
                 mcaOut[0][eGamma]++;
               }
             }
-            
           }
           break;
         }

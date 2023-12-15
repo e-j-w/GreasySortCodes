@@ -62,10 +62,12 @@ class PIDGates{
 static Int_t tip_waveform_pretrigger = 250;
 
 //static Double_t betaCompound = 0.02953; //compound nucleus recoil beta (26Mg)
+static Double_t betaCompound = 0.03633; //compound nucleus recoil beta (29Al)
 //static Double_t betaCompound = 0.04143; //compound nucleus recoil beta (31Si)
 //static Double_t betaCompound = 0.04093; //compound nucleus recoil beta (32Si)
-static Double_t betaCompound = 0.04243; //compound nucleus recoil beta (32Si, high E)
+//static Double_t betaCompound = 0.04243; //compound nucleus recoil beta (32Si, high E)
 //static Double_t betaCompound = 0.04343; //compound nucleus recoil beta (32Si, 2362 keV line)
+//static Double_t betaCompound = 0.04600; //compound nucleus recoil beta (~2100 keV, 31Al?)
 static Int_t compoundM_AMU = 33.96786701; //compound mass in atomic mass units (34S)
 
 static Int_t noPileupKValue = 700; //should be 0 for TIG-10s, 700 for GRIF-16s
@@ -77,6 +79,7 @@ Int_t getParticleType(TTipHit *tip_hit, PIDGates *gates);
 TVector3 getTigVector(uint8_t core, uint8_t seg);
 double_t getEDoppFusEvapManual(double eTig, uint8_t core, uint8_t seg, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates);
 double_t getEDoppFusEvapDirect(tig_hit *add_hit, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates);
+double_t getEDoppFusEvapDirectBeta(tig_hit *add_hit, uint8_t numCsIHits, Double_t beta, csi_hit *tip_hits, PIDGates *gates);
 double_t getEDoppFusEvap(TTigressHit *add_hit, TTip *tip, const uint64_t passedtimeGate, PIDGates *gates);
 double_t getTipFitTime(TTipHit *tip_hit, const Int_t pretrigger_samples);
 bool ExptSuppression(TDetectorHit* tig, TBgoHit& bgo);

@@ -23,14 +23,16 @@
 
 using namespace std;
 
+#define PAST_EVT_BUFSIZE 100 //number of events to separate out when event mixing
+
 TApplication *theApp;
 
 TList *tigList, *tipList, *timingList, *tipPIDList, *tipPIDGateList, *tiptipList, *tigtigList;
 TList *tiptigList, *tigPIDSepList, *tigtigPIDSepList; 
 
 //Raw TIGRESS
-TH1F *tigE, *addE, *addE_ring[NTIGRING], *tigRate;
-TH2F *addE_ANum, *addE_theta, *tigNum_time;
+TH1F *tigE, *addE, *addE_ring[NTIGRING], *addDopp, *tigRate;
+TH2F *addE_ANum, *addE_theta, *addDopp_dopp, *tigNum_time;
 
 //TIP
 TH1F *tip_E, *tip_Etot, *tipRate;
@@ -55,7 +57,7 @@ TH2F *addE_addE;
 
 //TIGRESS-TIP
 TH2I *tiptig_Amult;
-TH2F *tigE_tipTtigTdiff, *tipE_tipTStigTdiff, *tipPos_tipTStigTdiff, *tigE_tipRing, *tigE_tipMult, *tigE_tipE;
+TH2F *tigE_tipTtigTdiff, *tigE_tipTtigTdiffNoAB, *tigE_tipRing, *tigE_tipMult, *tigE_tipE;
 
 //TIGRESS PID Separated plots
 TH2F *addE_xayp_ring[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
@@ -65,6 +67,7 @@ TH2F *addDopp_xayp_ring[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 TH2F *addEaddE_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 TH2F *addDoppaddDopp_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 TH2F *addEaddDopp_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
+TH2F *addEaddE_xayp_evtmix[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 
 PIDGates *gates;
 
@@ -115,6 +118,12 @@ void SortDiagnostics::Initialise() {
   addE_theta->GetXaxis()->SetTitle("#theta (deg)");
   addE_theta->GetYaxis()->SetTitle("Addback Energy");
   tigList->Add(addE_theta);
+  addDopp = new TH1F("Addback_Doppler", Form("Addback Doppler corrected energy (beta=%f)",betaCompound), 16384, 0, 8192);
+  tigList->Add(addDopp);
+  addDopp_dopp = new TH2F("Addback_Doppler_vs_beta", "Addback Doppler corrected energy vs. beta",200,0.03,0.05,8192,0,8192);
+  addDopp_dopp->GetXaxis()->SetTitle("#beta");
+  addDopp_dopp->GetYaxis()->SetTitle("Addback Doppler corrected energy");
+  tigList->Add(addDopp_dopp);
   tigRate = new TH1F("TIGRESS_Total_Rate", "TIGRESS Total Rate", 8192, 0, 8192);
   tigRate->GetXaxis()->SetTitle("Run Time (s)");
   tigRate->GetYaxis()->SetTitle("Count/s");
@@ -214,8 +223,12 @@ void SortDiagnostics::Initialise() {
   tiptigList->Add(tiptig_Amult);
   tigE_tipTtigTdiff = new TH2F("Tigress_addback_energy_vs_TIP_fit_Tigress_time", "Tigress addback energy vs TIP fit-Tigress time",4096,-4096,4096,8192,0,8192);
   tigE_tipTtigTdiff->GetYaxis()->SetTitle("TIGRESS addback energy (keV)");
-  tigE_tipTtigTdiff->GetXaxis()->SetTitle("t_{TIP, fit} - t_{TIGRESS} (ns)");
+  tigE_tipTtigTdiff->GetXaxis()->SetTitle("t_{TIGRESS} - t_{TIP, fit} (ns)");
   tiptigList->Add(tigE_tipTtigTdiff);
+  tigE_tipTtigTdiffNoAB = new TH2F("Tigress_energy_vs_TIP_fit_Tigress_time", "Tigress non-addback energy vs TIP fit-Tigress time",4096,-4096,4096,8192,0,8192);
+  tigE_tipTtigTdiffNoAB->GetYaxis()->SetTitle("TIGRESS non-addback energy (keV)");
+  tigE_tipTtigTdiffNoAB->GetXaxis()->SetTitle("t_{TIGRESS} - t_{TIP, fit} (ns)");
+  tiptigList->Add(tigE_tipTtigTdiffNoAB);
   tigE_tipRing = new TH2F("Tigress_addback_energy_vs_TIP_ring", "Tigress addback energy vs TIP ring", 8192, 0, 8192, 10, 0, 10);
   tigE_tipRing->GetYaxis()->SetTitle("TIP ring");
   tigE_tipRing->GetXaxis()->SetTitle("TIGRESS energy");
@@ -224,16 +237,8 @@ void SortDiagnostics::Initialise() {
   tigE_tipMult->GetYaxis()->SetTitle("TIP multiplicity");
   tigE_tipMult->GetXaxis()->SetTitle("TIGRESS energy");
   tiptigList->Add(tigE_tipMult);
-  tigE_tipE = new TH2F("Tigress_addback_energy_vs_TIP_energy", "Tigress addback energy vs TIP energy;TIP Energy;Tigress addback Energy",2000,0,4000,4000,0,4000);
+  tigE_tipE = new TH2F("Tigress_addback_energy_vs_TIP_energy", "Tigress addback energy vs TIP energy;TIP Energy;Tigress addback Energy",2048,0,64,4192,0,8192);
   tiptigList->Add(tigE_tipE);
-  tipE_tipTStigTdiff = new TH2F("TIP_TS_Tigress_time_vs_TIP_energy","TIP TS-Tigress time vs TIP energy",4096,-4096,4096,2048,0,8192);
-  tipE_tipTStigTdiff->GetYaxis()->SetTitle("TIP E (arb.)");
-  tipE_tipTStigTdiff->GetXaxis()->SetTitle("t_{TIP, TS} - t_{TIGRESS} (ns)");
-  tiptigList->Add(tipE_tipTStigTdiff);
-  tipPos_tipTStigTdiff = new TH2F("TIP_TS_Tigress_time_vs_TIP_position","TIP TS-Tigress time vs TIP position",4096,-4096,4096,129,0,129);
-  tipPos_tipTStigTdiff->GetYaxis()->SetTitle("TIP position");
-  tipPos_tipTStigTdiff->GetXaxis()->SetTitle("t_{TIP, TS} - t_{TIGRESS} (ns)");
-  tiptigList->Add(tipPos_tipTStigTdiff);
 
   //TIGRESS PID separated
   for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
@@ -290,6 +295,17 @@ void SortDiagnostics::Initialise() {
         addEaddDopp_xayp[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
         addEaddDopp_xayp[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV, Doppler corrected)");
         tigtigPIDSepList->Add(addEaddDopp_xayp[i][j]);
+      }
+    }
+  }
+  for(int i=0; i<MAX_NUM_PARTICLE+1; i++){
+    for(int j=0; j<MAX_NUM_PARTICLE+1; j++){
+      if((i+j)<=MAX_NUM_PARTICLE){
+        //TIGRESS ring spectra
+        addEaddE_xayp_evtmix[i][j] = new TH2F(Form("Event_Mixed_Addback_Gamma_Gamma_%ip%ia_gate",i,j),Form("Event Mixed Addback Gamma-Gamma (%ip%ia gate, %i event separation)",i,j,PAST_EVT_BUFSIZE),8192,0,8192,8192,0,8192);
+        addEaddE_xayp_evtmix[i][j]->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
+        addEaddE_xayp_evtmix[i][j]->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");
+        tigtigPIDSepList->Add(addEaddE_xayp_evtmix[i][j]);
       }
     }
   }

@@ -2,13 +2,13 @@
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define EEGamma_only180degcoinc_mca_SMOL_cxx
+#define EEDopp_only180degcoinc_mca_SMOL_cxx
 #include "common.h"
-#include "EEGamma_only180degcoinc_mca_SMOL.h"
+#include "EEDopp_only180degcoinc_mca_SMOL.h"
 
 using namespace std;
 
-void EEGamma_only180degcoinc_mca_SMOL::WriteData(const char* outName){
+void EEDopp_only180degcoinc_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -23,7 +23,7 @@ void EEGamma_only180degcoinc_mca_SMOL::WriteData(const char* outName){
 
 }
 
-void EEGamma_only180degcoinc_mca_SMOL::SortData(char const *sfile, const double eLow, const double eHigh, const double keVPerBin){
+void EEDopp_only180degcoinc_mca_SMOL::SortData(char const *sfile, const double eLow, const double eHigh, const double keVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -43,28 +43,28 @@ void EEGamma_only180degcoinc_mca_SMOL::SortData(char const *sfile, const double 
     }
 
     for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
-      if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
-        if((sortedEvt.tigHit[tigHitIndAB].energy >= eLow)&&(sortedEvt.tigHit[tigHitIndAB].energy <= eHigh)){
-          TVector3 vec1 = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,0);
-          for(int tigHitIndAB2 = 0; tigHitIndAB2 < sortedEvt.header.numTigHits; tigHitIndAB2++){
-            if(tigHitIndAB2 != tigHitIndAB){
-              TVector3 vec2 = getTigVector(sortedEvt.tigHit[tigHitIndAB2].core,0);
-              Double_t angle = vec1.Angle(vec2)*180./PI; //angle between hits
-              if((angle >= 170)&&(angle <= 190)){
-                //printf("Angle: %f\n",angle);
-                //coincidence at 180 degrees
-                int eGamma = (int)(sortedEvt.tigHit[tigHitIndAB2].energy/keVPerBin);
-                if(eGamma>=0 && eGamma<S32K){
-                  double theta = getTigVector(sortedEvt.tigHit[tigHitIndAB2].core,sortedEvt.tigHit[tigHitIndAB2].seg).Theta()*180./PI;
-                  mcaOut[getTIGRESSRing(theta)+1][eGamma]++;
-                  mcaOut[getTIGRESSSegmentRing(theta)+7][eGamma]++;
-                  mcaOut[0][eGamma]++;
-                }
+
+      int eDopp = (int)(getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates));
+      if((eDopp >= eLow)&&(eDopp <= eHigh)){
+        TVector3 vec1 = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,0);
+        for(int tigHitIndAB2 = 0; tigHitIndAB2 < sortedEvt.header.numTigHits; tigHitIndAB2++){
+          if(tigHitIndAB2 != tigHitIndAB){
+            TVector3 vec2 = getTigVector(sortedEvt.tigHit[tigHitIndAB2].core,0);
+            Double_t angle = vec1.Angle(vec2)*180./PI; //angle between hits
+            if((angle >= 170)&&(angle <= 190)){
+              //printf("Angle: %f\n",angle);
+              //coincidence at 180 degrees
+              int eDopp2 = (int)(getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates)/keVPerBin);
+              if(eDopp2>=0 && eDopp2<S32K){
+                double theta = getTigVector(sortedEvt.tigHit[tigHitIndAB2].core,sortedEvt.tigHit[tigHitIndAB2].seg).Theta()*180./PI;
+                mcaOut[getTIGRESSRing(theta)+1][eDopp2]++;
+                mcaOut[getTIGRESSSegmentRing(theta)+7][eDopp2]++;
+                mcaOut[0][eDopp2]++;
               }
             }
           }
-          break;
         }
+        break;
       }
     }
 
@@ -81,17 +81,17 @@ void EEGamma_only180degcoinc_mca_SMOL::SortData(char const *sfile, const double 
 
 int main(int argc, char **argv){
 
-  EEGamma_only180degcoinc_mca_SMOL *mysort = new EEGamma_only180degcoinc_mca_SMOL();
+  EEDopp_only180degcoinc_mca_SMOL *mysort = new EEDopp_only180degcoinc_mca_SMOL();
 
   const char *sfile;
   const char *outfile;
   double keVPerBin = 1.0;
   double eLow, eHigh;
-  printf("Starting EEGamma_only180degcoinc_mca_SMOL\n");
+  printf("Starting EEDopp_only180degcoinc_mca_SMOL\n");
 
   if((argc != 5)&&(argc != 6)){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
-    cout << "Arguments: EEGamma_only180degcoinc_mca_SMOL smol_file EGateLow EGateHigh output_file keV_per_bin" << endl;
+    cout << "Arguments: EEDopp_only180degcoinc_mca_SMOL smol_file EGateLow EGateHigh output_file keV_per_bin" << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     return 0;
   }else{
@@ -117,6 +117,7 @@ int main(int argc, char **argv){
   }
 
   memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
+  gates = new PIDGates;
 
   //single analysis tree
   cout << "SMOL tree: " << sfile << endl;

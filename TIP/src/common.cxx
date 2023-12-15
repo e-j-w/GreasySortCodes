@@ -297,9 +297,9 @@ double_t TigGetDoppler(double beta, double eTig, uint8_t core, uint8_t seg, TVec
 }
 
 //for when we want to manually specify hit properties (eg. when summing non-addback data)
-double_t getEDoppFusEvapManual(double eTig, uint8_t core, uint8_t seg, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates){
+double_t getEDoppFusEvapManualBeta(double eTig, uint8_t core, uint8_t seg, uint8_t numCsIHits, Double_t beta, csi_hit *tip_hits, PIDGates *gates){
   double_t resM = compoundM_AMU*AMU; //residual mass prior to particle evaporation
-  TVector3 p_compound(0,0,resM*betaCompound/(1.0-betaCompound*betaCompound));
+  TVector3 p_compound(0,0,resM*beta/(1.0-beta*beta));
   //cout << "p_compound: " << p_compound.X() << " " << p_compound.Y() << " " << p_compound.Z() << endl;
   TVector3 p_part;
   double_t resBeta = 0.;
@@ -334,10 +334,19 @@ double_t getEDoppFusEvapManual(double eTig, uint8_t core, uint8_t seg, uint8_t n
   return TigGetDoppler(resBeta,eTig,core,seg,&p_compound);
 }
 
+//for when we want to manually specify hit properties (eg. when summing non-addback data)
+double_t getEDoppFusEvapManual(double eTig, uint8_t core, uint8_t seg, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates){
+  return getEDoppFusEvapManualBeta(eTig,core,seg,numCsIHits,betaCompound,tip_hits,gates);
+}
 
 //implementation of getEDoppFusEvap for the SMOL data format
 double_t getEDoppFusEvapDirect(tig_hit *add_hit, uint8_t numCsIHits, csi_hit *tip_hits, PIDGates *gates){
   return getEDoppFusEvapManual(add_hit->energy,add_hit->core,add_hit->seg,numCsIHits,tip_hits,gates);
+}
+
+//implementation of getEDoppFusEvap for the SMOL data format
+double_t getEDoppFusEvapDirectBeta(tig_hit *add_hit, uint8_t numCsIHits, Double_t beta, csi_hit *tip_hits, PIDGates *gates){
+  return getEDoppFusEvapManualBeta(add_hit->energy,add_hit->core,add_hit->seg,numCsIHits,beta,tip_hits,gates);
 }
 
 

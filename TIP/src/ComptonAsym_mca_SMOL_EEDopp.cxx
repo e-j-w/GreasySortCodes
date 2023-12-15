@@ -1,8 +1,8 @@
 //use the Makefile!
 
-#define ComptonAngle_S_cxx
+#define ComptonAngle_SEE_cxx
 #include "common.h"
-#include "ComptonAsym_mca_SMOL_EDopp.h"
+#include "ComptonAsym_mca_SMOL_EEDopp.h"
 
 using namespace std;
 
@@ -15,7 +15,7 @@ Int_t secondECore[NTIGPOS]; //core containing the 2nd highest energy hit, for ea
 float maxE[NTIGPOS]; //maximum energgy deposit in keV, for each position
 float mcaOut[3][S32K];
 
-void ComptonAngle_S::WriteData(const char* outName){
+void ComptonAngle_SEE::WriteData(const char* outName){
 
   cout << "Writing histogram to: " << outName << endl;
 
@@ -30,7 +30,7 @@ void ComptonAngle_S::WriteData(const char* outName){
 
 }
 
-void ComptonAngle_S::SortData(const char *sfile){
+void ComptonAngle_SEE::SortData(const char *sfile, const double ELow, const double EHigh){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -42,6 +42,9 @@ void ComptonAngle_S::SortData(const char *sfile){
 
   TVector3 vecBeam{0.,0.,1.}; //beam direction
 
+  uint32_t ctsParallel = 0;
+  uint32_t ctsPerp = 0;
+
   memset(&mcaOut,0,sizeof(mcaOut));
 
   printf("\nSorting events...\n");
@@ -51,6 +54,22 @@ void ComptonAngle_S::SortData(const char *sfile){
     if(readSMOLEvent(inp,&sortedEvt)==0){
       cout << "ERROR: bad event data in entry " << jentry << "." << endl;
       exit(-1);
+    }
+
+    //check coincidence gate
+    uint8_t pass = 0;
+    uint8_t coincPos = 0;
+    for(int abHitInd = 0; abHitInd < sortedEvt.header.numTigHits; abHitInd++){
+      double eCorr = getEDoppFusEvapManual(sortedEvt.tigHit[abHitInd].energy,sortedEvt.tigHit[abHitInd].core,sortedEvt.tigHit[abHitInd].seg,sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+      if((eCorr >= ELow)&&(eCorr <= EHigh)){
+        pass = 1;
+        coincPos = sortedEvt.tigHit[abHitInd].core/4;
+        break;
+      }
+    }
+    if(pass == 0){
+      //no coincidence gate condition
+      continue;
     }
 
     memset(&eABPos,0,sizeof(eABPos));
@@ -94,60 +113,61 @@ void ComptonAngle_S::SortData(const char *sfile){
     for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
 
       Int_t tigPos = sortedEvt.noABHit[tigHitInd].core/4;
-      if(!(hitPattern&(1 << tigPos))){
-        float eAB = eABCorr[tigPos];
+      if(tigPos != coincPos){
+        if(!(hitPattern&(1 << tigPos))){
+          float eAB = eABCorr[tigPos];
 
-        if(coreFoldPos[tigPos] >= 2){
-          //if(!((tigPos > 3)&&(tigPos < 12))){ //non-90 deg only
-          //if((tigPos > 3)&&(tigPos < 12)){ //90 deg only
-            if((eAB >= 0)&&(eAB < S32K)){
-
-              //start with the maximum energy core
-              if(maxECore[tigPos] == sortedEvt.noABHit[tigHitInd].core){
-                if(sortedEvt.noABHit[tigHitInd].energy > MIN_TIG_EAB){
-                  TVector3 vecG1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
-                  TVector3 norm = vecG1.Cross(vecBeam); //norm of reaction plane
-                  for(int tigHitInd2 = 0; tigHitInd2 < sortedEvt.header.numNoABHits; tigHitInd2++){
-                    if(secondECore[tigPos] == sortedEvt.noABHit[tigHitInd2].core){
-                      Double_t tDiff = noABHitTime(&sortedEvt,tigHitInd) - noABHitTime(&sortedEvt,tigHitInd2);
-                      if((tDiff >= tigtigTGate[0])&&(tDiff <= tigtigTGate[1])){
-                        //make sure both hits aren't in the same location
-                        if(!(sortedEvt.noABHit[tigHitInd].core == sortedEvt.noABHit[tigHitInd2].core)){
-                          //make sure both hits are in the same clover
-                          if((sortedEvt.noABHit[tigHitInd2].core/4)==tigPos){
-                            if(sortedEvt.noABHit[tigHitInd2].energy > MIN_TIG_EAB){
-                              TVector3 vecG2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg);
-                              TVector3 norm2 = vecG2.Cross(vecG1); //norm of Compton scattering plane
-                              Double_t angle = norm2.Angle(norm)*180.0/PI;
-                              if((angle > 75)&&(angle < 105)){
-                                //perpendicular
-                                mcaOut[0][(int)eAB]++;
-                                mcaOut[1][(int)eAB]++;
-                              }else if((angle >= -1 && angle < 15)||(angle > 165 && angle <= 181)){
-                                //cout << angle << endl;
-                                mcaOut[0][(int)eAB]--;
-                                mcaOut[2][(int)eAB]++;
+          if(coreFoldPos[tigPos] >= 2){
+            //if((tigPos > 3)&&(tigPos < 12)){ //90 deg only
+              if((eAB >= 0)&&(eAB < S32K)){
+                if(maxECore[tigPos] == sortedEvt.noABHit[tigHitInd].core){
+                  if(sortedEvt.noABHit[tigHitInd].energy > MIN_TIG_EAB){
+                    TVector3 vecG1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
+                    TVector3 norm = vecG1.Cross(vecBeam); //norm of reaction plane
+                    
+                    for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numNoABHits; tigHitInd2++){
+                      if(secondECore[tigPos] == sortedEvt.noABHit[tigHitInd2].core){
+                        Double_t tDiff = tigHitTime(&sortedEvt,tigHitInd) - tigHitTime(&sortedEvt,tigHitInd2);
+                        if((tDiff >= tigtigTGate[0])&&(tDiff <= tigtigTGate[1])){
+                          //make sure both hits aren't in the same location
+                          if(!(sortedEvt.noABHit[tigHitInd].core == sortedEvt.noABHit[tigHitInd2].core)){
+                            //make sure both hits are in the same clover
+                            if((sortedEvt.noABHit[tigHitInd2].core/4)==tigPos){
+                              if(sortedEvt.noABHit[tigHitInd2].energy > MIN_TIG_EAB){
+                                TVector3 vecG2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg);
+                                TVector3 norm2 = vecG2.Cross(vecG1); //norm of Compton scattering plane
+                                Double_t angle = norm2.Angle(norm)*180.0/PI;
+                                if((angle > 75)&&(angle < 105)){
+                                  mcaOut[0][(int)eAB]++;
+                                  mcaOut[1][(int)eAB]++;
+                                }else if((angle >= -1 && angle < 15)||(angle > 165 && angle <= 181)){
+                                  //cout << angle << endl;
+                                  mcaOut[0][(int)eAB]--;
+                                  mcaOut[2][(int)eAB]++;
+                                }
+                                //if((angle > 20)&&(angle < 60)){
+                                  /*printf("\nPosition %i, tDiff %f\n",tigPos,tDiff);
+                                  printf("Hit 1: core %2u, seg %u, vec: %.2f %.2f %.2f\n",sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg,vecG1.X(),vecG1.Y(),vecG1.Z());
+                                  printf("Hit 2: core %2u, seg %u, vec: %.2f %.2f %.2f\n",sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg,vecG2.X(),vecG2.Y(),vecG2.Z());
+                                  printf("Angle: %f\n",angle);*/
+                                //}
                               }
-                              //if((angle > 20)&&(angle < 60)){
-                                /*printf("\nPosition %i, tDiff %f\n",tigPos,tDiff);
-                                printf("Hit 1: core %2u, seg %u, vec: %.2f %.2f %.2f\n",sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg,vecG1.X(),vecG1.Y(),vecG1.Z());
-                                printf("Hit 2: core %2u, seg %u, vec: %.2f %.2f %.2f\n",sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg,vecG2.X(),vecG2.Y(),vecG2.Z());
-                                printf("Angle: %f\n",angle);*/
-                              //}
-                              //break;
                             }
                           }
                         }
                       }
+                      
                     }
                   }
                 }
               }
             //}
           }
+          hitPattern |= (1U << tigPos); //flag this position as having been processed already
         }
-        hitPattern |= (1U << tigPos); //flag this position as having been processed already
       }
+      
+      
     }
 
     if (jentry % 10000 == 0)
@@ -162,29 +182,32 @@ void ComptonAngle_S::SortData(const char *sfile){
 
 int main(int argc, char **argv){
 
-  ComptonAngle_S *mysort = new ComptonAngle_S();
+  ComptonAngle_SEE *mysort = new ComptonAngle_SEE();
 
   const char *sfile, *outfile;
-  printf("Starting ComptonAsym_mca_SMOL_EDopp\n");
+  printf("Starting ComptonAsym_mca_SMOL_EEDopp\n");
 
   // Input-chain-file, output-histogram-file
   if (argc == 1){
     cout << "Code sorts Compton polarization asymmetry as a function of energy." << endl;
-    cout << "Arguments: ComptonAsym_mca_SMOL_EDopp smol_file output_fmca_file" << endl;
+    cout << "Arguments: ComptonAsym_mca_SMOL_EEDopp smol_file EDoppLow EDoppHigh output_fmca_file" << endl;
     return 0;
-  }else if(argc == 3){
+  }else if(argc == 5){
     
     sfile = argv[1];
-    outfile = argv[2];
+    double ELow = atof(argv[2]);
+    double EHigh = atof(argv[3]);
+    outfile = argv[4];
 
     printf("SMOL file: %s\n", sfile);
+    printf("Energy gate: [%f %f] keV\n",ELow,EHigh);
     printf("Output FMCA file: %s\n", outfile);
     gates = new PIDGates;
-    mysort->SortData(sfile);
+    mysort->SortData(sfile,ELow,EHigh);
     mysort->WriteData(outfile);
 
   }else{
-    printf("ERROR: Improper number of arguments!\nArguments: ComptonAsym_mca_SMOL_EDopp smol_file output_fmca_file\n");
+    printf("ERROR: Improper number of arguments!\nArguments: ComptonAsym_mca_SMOL_EEDopp smol_file EDoppLow EDoppHigh output_fmca_file\n");
     return 0;
   }
 

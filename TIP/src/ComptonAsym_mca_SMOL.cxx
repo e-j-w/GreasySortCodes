@@ -121,10 +121,10 @@ void ComptonAngle_S::SortData(const char *sfile){
                               TVector3 vecG2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg);
                               TVector3 norm2 = vecG2.Cross(vecG1); //norm of Compton scattering plane
                               Double_t angle = norm2.Angle(norm)*180.0/PI;
-                              if((angle > 85)&&(angle < 95)){
+                              if((angle > 75)&&(angle < 105)){
                                 mcaOut[0][(int)eAB]++;
                                 mcaOut[1][(int)eAB]++;
-                              }else if((angle >= -1 && angle < 5)||(angle > 175 && angle <= 181)){
+                              }else if((angle >= -1 && angle < 15)||(angle > 165 && angle <= 181)){
                                 //cout << angle << endl;
                                 mcaOut[0][(int)eAB]--;
                                 mcaOut[2][(int)eAB]++;

@@ -109,7 +109,7 @@ void ComptonAngle_SEE::SortData(const char *sfile, const double ELow, const doub
               if((eAB >= 0)&&(eAB < S32K)){
                 if(maxECore[tigPos] == sortedEvt.noABHit[tigHitInd].core){
                   if(sortedEvt.noABHit[tigHitInd].energy > MIN_TIG_EAB){
-                    TVector3 vecG1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
+                    TVector3 vecG1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
                     TVector3 norm = vecG1.Cross(vecBeam); //norm of reaction plane
                     
                     for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numNoABHits; tigHitInd2++){
@@ -121,13 +121,13 @@ void ComptonAngle_SEE::SortData(const char *sfile, const double ELow, const doub
                             //make sure both hits are in the same clover
                             if((sortedEvt.noABHit[tigHitInd2].core/4)==tigPos){
                               if(sortedEvt.noABHit[tigHitInd2].energy > MIN_TIG_EAB){
-                                TVector3 vecG2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,0);
+                                TVector3 vecG2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg);
                                 TVector3 norm2 = vecG2.Cross(vecG1); //norm of Compton scattering plane
                                 Double_t angle = norm2.Angle(norm)*180.0/PI;
                                 if((angle > 75)&&(angle < 105)){
                                   mcaOut[0][(int)eAB]++;
                                   mcaOut[1][(int)eAB]++;
-                                }else if((angle >= -1 && angle < 20)||(angle > 160 && angle <= 181)){
+                                }else if((angle >= -1 && angle < 15)||(angle > 165 && angle <= 181)){
                                   //cout << angle << endl;
                                   mcaOut[0][(int)eAB]--;
                                   mcaOut[2][(int)eAB]++;
@@ -193,7 +193,7 @@ int main(int argc, char **argv){
     mysort->WriteData(outfile);
 
   }else{
-    printf("ERROR: Improper number of arguments!\nArguments: ComptonAsym_mca_SMOL_EEGamma smol_file output_fmca_file\n");
+    printf("ERROR: Improper number of arguments!\nArguments: ComptonAsym_mca_SMOL_EEGamma smol_file EGammaLow EGammaHigh output_fmca_file\n");
     return 0;
   }
 

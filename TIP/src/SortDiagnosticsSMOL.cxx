@@ -7,6 +7,8 @@
 using namespace std;
 
 Int_t numTipRingHits[NTIPRING];
+sorted_evt sortedEvt;
+sorted_evt pastEvts[PAST_EVT_BUFSIZE];
 
 void SortDiagnostics::SortData(const char *sfile, const char *outfile)
 {
@@ -17,9 +19,10 @@ void SortDiagnostics::SortData(const char *sfile, const char *outfile)
   
   uint64_t sentries = 0U;
   fread(&sentries,sizeof(uint64_t),1,inp);
-  sorted_evt sortedEvt;
+  
+  uint8_t pastEvtPos = 0;
+  uint8_t evtMixAllowed = 0;
   uint8_t footerVal;
-
   unsigned long int numTigressABHits = 0;
   unsigned long int numTipHits = 0;
   unsigned long int numTipTigHits = 0;
@@ -101,6 +104,12 @@ void SortDiagnostics::SortData(const char *sfile, const char *outfile)
 
       if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
         addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy);
+        double eDopp = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+        addDopp->Fill(eDopp);
+        /*//The following kills performance, uncomment only if needed
+        for(Double_t beta=0.03;beta<0.05;beta+=0.0001){
+          addDopp_dopp->Fill(beta,getEDoppFusEvapDirectBeta(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,beta,sortedEvt.csiHit,gates));
+        }*/
         tigRate->Fill(tigHitTime(&sortedEvt,tigHitIndAB)/pow(10,9));
         tigNum_time->Fill(tigHitTime(&sortedEvt,tigHitIndAB)/pow(10,9),sortedEvt.tigHit[tigHitIndAB].core);
         //cout << "hit " << tigHitIndAB << ", Anum: " << sortedEvt.tigHit[tigHitIndAB].core << ", energy: " << sortedEvt.tigHit[tigHitIndAB].energy << endl;
@@ -166,7 +175,7 @@ void SortDiagnostics::SortData(const char *sfile, const char *outfile)
 
         //TIP-TIG timing and energy
         for(int tipHitInd = 0; tipHitInd < sortedEvt.header.numCsIHits; tipHitInd++){
-          Double_t tDiff = tipFitTimes[tipHitInd] - tigHitTime(&sortedEvt,tigHitIndAB);
+          Double_t tDiff = tigHitTime(&sortedEvt,tigHitIndAB) - tipFitTimes[tipHitInd];
           tipT_tigT_diff->Fill(tDiff);
           tipTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy,tigHitTime(&sortedEvt,tigHitIndAB)-avgTIPHitT);
           double eDopp = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
@@ -190,6 +199,16 @@ void SortDiagnostics::SortData(const char *sfile, const char *outfile)
             tigTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy,fabs(tigHitTime(&sortedEvt,tigHitIndAB)-tigHitTime(&sortedEvt,tigHitIndAB2)));
             tigTtigT_addE->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,fabs(tigHitTime(&sortedEvt,tigHitIndAB)-tigHitTime(&sortedEvt,tigHitIndAB2)));
           }
+        }
+      }
+    }
+
+    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
+      if(sortedEvt.noABHit[tigHitInd].energy > MIN_TIG_EAB){
+        //TIP-TIG timing and energy (no addback)
+        for(int tipHitInd = 0; tipHitInd < sortedEvt.header.numCsIHits; tipHitInd++){
+          Double_t tDiffNoAB = noABHitTime(&sortedEvt,tigHitInd) - tipFitTimes[tipHitInd];
+          tigE_tipTtigTdiffNoAB->Fill(tDiffNoAB,sortedEvt.tigHit[tigHitInd].energy);
         }
       }
     }
@@ -232,11 +251,30 @@ void SortDiagnostics::SortData(const char *sfile, const char *outfile)
                   addDoppaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(eDopp2,eDopp); //symmetrized
                   addEaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB].energy,eDopp2);
                   addEaddDopp_xayp[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,eDopp); //symmetrized
+                  
+                }
+              }
+              if(evtMixAllowed == 2){
+                uint8_t evtMixEvt = pastEvtPos+5;
+                if(evtMixEvt >= PAST_EVT_BUFSIZE){
+                  evtMixEvt = 0;
+                }
+                for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < pastEvts[evtMixEvt].header.numTigHits; tigHitIndAB2++){
+                  addEaddE_xayp_evtmix[evtNumProtons][evtNumAlphas]->Fill(sortedEvt.tigHit[tigHitIndAB].energy,pastEvts[evtMixEvt].tigHit[tigHitIndAB2].energy);
+                  addEaddE_xayp_evtmix[evtNumProtons][evtNumAlphas]->Fill(pastEvts[evtMixEvt].tigHit[tigHitIndAB2].energy,sortedEvt.tigHit[tigHitIndAB].energy); //symmetrized
                 }
               }
             }
           }
 
+          memcpy(&pastEvts[pastEvtPos],&sortedEvt,sizeof(sortedEvt));
+          pastEvtPos++;
+          if(pastEvtPos >= PAST_EVT_BUFSIZE){
+            if(evtMixAllowed < 2){
+              evtMixAllowed++;
+            }
+            pastEvtPos = 0;
+          }
 
         }/*else{
           cout << "Entry " << jentry << " has too many charged particles (" << evtNumProtons+evtNumAlphas << ")!" << endl;
@@ -247,6 +285,8 @@ void SortDiagnostics::SortData(const char *sfile, const char *outfile)
     }/*else{
       cout << "Entry " << jentry << " has too many protons (" << evtNumProtons << ")!" << endl;
     }*/
+
+    
 
     if (jentry % 10000 == 0)
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / sentries << "% complete" << "\r" << flush;
