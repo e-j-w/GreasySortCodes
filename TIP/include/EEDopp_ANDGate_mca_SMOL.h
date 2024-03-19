@@ -1,5 +1,5 @@
-#ifndef EEDopp_mca_SMOL_ANDGate_h
-#define EEDopp_mca_SMOL_ANDGate_h
+#ifndef EEDopp_ANDGate_mca_SMOL_h
+#define EEDopp_ANDGate_mca_SMOL_h
 
 #include <iostream>
 #include <iomanip>
@@ -11,10 +11,10 @@ float mcaOut[NTIGRING+NTIGSEGRING+1][S32K]; //output .fmca data, sp 0 is sum, sp
 
 PIDGates *gates;
 
-class EEDopp_mca_SMOL_ANDGate{
+class EEDopp_ANDGate_mca_SMOL{
 	public :
 
-		EEDopp_mca_SMOL_ANDGate(){;}
+		EEDopp_ANDGate_mca_SMOL(){;}
 		void WriteData(const char*);
 		void SortData(char const *sfile, const uint8_t numEGates, const double eLow[10], const double eHigh[10], const double keVPerBin);
 

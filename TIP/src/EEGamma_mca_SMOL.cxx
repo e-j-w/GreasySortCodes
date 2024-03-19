@@ -56,7 +56,8 @@ void EEGamma_mca_SMOL::SortData(char const *sfile, const double eLow, const doub
               }
             }
           }
-          break;
+          //shouldn't break, what if there are 2 gammas in the gate?
+          //break;
         }
       }
     }

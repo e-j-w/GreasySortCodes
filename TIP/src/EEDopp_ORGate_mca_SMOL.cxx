@@ -2,13 +2,13 @@
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define EEDopp_mca_SMOL_cxx
+#define EEDopp_ORGate_mca_SMOL_cxx
 #include "common.h"
-#include "EEDopp_mca_SMOL.h"
+#include "EEDopp_ORGate_mca_SMOL.h"
 
 using namespace std;
 
-void EEDopp_mca_SMOL::WriteData(const char* outName){
+void EEDopp_ORGate_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -23,7 +23,7 @@ void EEDopp_mca_SMOL::WriteData(const char* outName){
 
 }
 
-void EEDopp_mca_SMOL::SortData(char const *sfile, const double eLow, const double eHigh, const double keVPerBin){
+void EEDopp_ORGate_mca_SMOL::SortData(char const *sfile, const uint8_t numEGates, const double eLow[10], const double eHigh[10], const double keVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -45,7 +45,14 @@ void EEDopp_mca_SMOL::SortData(char const *sfile, const double eLow, const doubl
     for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
 
       int eDopp = (int)(getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates));
-      if((eDopp >= eLow)&&(eDopp <= eHigh)){
+      uint8_t gateCondMet=0;
+      for(uint8_t i=0; i<numEGates;i++){
+        if((eDopp >= eLow[i])&&(eDopp <= eHigh[i])){
+          gateCondMet=1;
+          break;
+        }
+      }
+      if(gateCondMet == 1){
         for(int tigHitIndAB2 = 0; tigHitIndAB2 < sortedEvt.header.numTigHits; tigHitIndAB2++){
           if(tigHitIndAB2 != tigHitIndAB){
             int eDopp2 = (int)(getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates)/keVPerBin);
@@ -56,6 +63,7 @@ void EEDopp_mca_SMOL::SortData(char const *sfile, const double eLow, const doubl
               mcaOut[0][eDopp2]++;
             }
           }
+          
         }
         //shouldn't break, what if there are 2 gammas in the gate?
         //break;
@@ -76,39 +84,42 @@ void EEDopp_mca_SMOL::SortData(char const *sfile, const double eLow, const doubl
 
 int main(int argc, char **argv){
 
-  EEDopp_mca_SMOL *mysort = new EEDopp_mca_SMOL();
+  EEDopp_ORGate_mca_SMOL *mysort = new EEDopp_ORGate_mca_SMOL();
 
   const char *sfile;
   const char *outfile;
-  double keVPerBin = 1.0;
-  double eLow, eHigh;
-  printf("Starting EEDopp_mca_SMOL\n");
+  double keVPerBin = 0.0;
+  double eLow[10], eHigh[10];
+  uint8_t numEGates = 0;
+  printf("Starting EEDopp_ORGate_mca_SMOL\n");
 
-  if((argc != 5)&&(argc != 6)){
+  if((argc < 6)||((argc % 2)!=0)){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
-    cout << "Arguments: EEDopp_mca_SMOL smol_file EGateLow EGateHigh output_file keV_per_bin" << endl;
-    cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
+    cout << "Arguments: EEDopp_ORGate_mca_SMOL smol_file output_file keV_per_bin EGateLow1 EGateHigh1 EGateLow2 EGateHigh2 ..." << endl;
+    return 0;
+  }else if(argc > 24){
+    cout << "ERROR: Too many parameters, maximum 10 energy gates allowed." << endl;
     return 0;
   }else{
+    numEGates = (argc - 4)/2;
     sfile = argv[1];
-    eLow = atof(argv[2]);
-    eHigh = atof(argv[3]);
-    outfile = argv[4];
-    if(argc > 5){
-      keVPerBin = atof(argv[5]);
+    outfile = argv[2];
+    keVPerBin = atof(argv[3]);
+    if(keVPerBin <= 0.0){
+      cout << "ERROR: Invalid keV/bin factor (" << keVPerBin << ")!" << endl;
+      return 0;
     }
-  }
-
-  if(keVPerBin <= 0.0){
-    cout << "ERROR: Invalid keV/bin factor (" << keVPerBin << ")!" << endl;
-    return 0;
-  }
-
-  if(eLow > eHigh){
-    //swap energy gate bounds
-    double tmp = eHigh;
-    eHigh = eLow;
-    eLow = tmp;
+    for(uint8_t i=0;i<numEGates;i++){
+      eLow[i] = atof(argv[4+2*i]);
+      eHigh[i] = atof(argv[5+2*i]);
+      if(eLow[i] > eHigh[i]){
+        //swap energy gate bounds
+        double tmp = eHigh[i];
+        eHigh[i] = eLow[i];
+        eLow[i] = tmp;
+      }
+      cout << "Energy gate " << (int)i << ": [" << eLow[i] << " " << eHigh[i] << "] keV." << endl;
+    }
   }
 
   memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
@@ -116,11 +127,10 @@ int main(int argc, char **argv){
 
   //single analysis tree
   cout << "SMOL tree: " << sfile << endl;
-  cout << "Energy gate: [" << eLow << " " << eHigh << "]" << endl;
   cout << "Output file: " << outfile << endl;
   cout << "Written spectra will have " << keVPerBin << " keV per bin." << endl;
 
-  mysort->SortData(sfile, eLow, eHigh, keVPerBin);
+  mysort->SortData(sfile, numEGates, eLow, eHigh, keVPerBin);
   
   mysort->WriteData(outfile);
 

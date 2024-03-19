@@ -2,13 +2,13 @@
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define EEDopp_mca_SMOL_ANDGate_cxx
+#define EEDopp_ANDGate_mca_SMOL_cxx
 #include "common.h"
-#include "EEDopp_mca_SMOL_ANDGate.h"
+#include "EEDopp_ANDGate_mca_SMOL.h"
 
 using namespace std;
 
-void EEDopp_mca_SMOL_ANDGate::WriteData(const char* outName){
+void EEDopp_ANDGate_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -23,7 +23,7 @@ void EEDopp_mca_SMOL_ANDGate::WriteData(const char* outName){
 
 }
 
-void EEDopp_mca_SMOL_ANDGate::SortData(char const *sfile, const uint8_t numEGates, const double eLow[10], const double eHigh[10], const double keVPerBin){
+void EEDopp_ANDGate_mca_SMOL::SortData(char const *sfile, const uint8_t numEGates, const double eLow[10], const double eHigh[10], const double keVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -48,10 +48,12 @@ void EEDopp_mca_SMOL_ANDGate::SortData(char const *sfile, const uint8_t numEGate
     for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
       int eDopp = (int)(getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitIndAB],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates));
       for(uint8_t i=0; i<numEGates;i++){
-        if((eDopp >= eLow[i])&&(eDopp <= eHigh[i])){
-          gatesHit |= (1 << i);
-          hitsInGates |= (1 << tigHitIndAB);
-          break;
+        if(!(gatesHit & (1 << i))){
+          if((eDopp >= eLow[i])&&(eDopp <= eHigh[i])){
+            gatesHit |= (1 << i);
+            hitsInGates |= (1 << tigHitIndAB);
+            break;
+          }
         }
       }
     }
@@ -90,18 +92,18 @@ void EEDopp_mca_SMOL_ANDGate::SortData(char const *sfile, const uint8_t numEGate
 
 int main(int argc, char **argv){
 
-  EEDopp_mca_SMOL_ANDGate *mysort = new EEDopp_mca_SMOL_ANDGate();
+  EEDopp_ANDGate_mca_SMOL *mysort = new EEDopp_ANDGate_mca_SMOL();
 
   const char *sfile;
   const char *outfile;
   double keVPerBin = 0.0;
   double eLow[10], eHigh[10];
   uint8_t numEGates = 0;
-  printf("Starting EEDopp_mca_SMOL_ANDGate\n");
+  printf("Starting EEDopp_ANDGate_mca_SMOL\n");
 
   if((argc < 6)||((argc % 2)!=0)){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
-    cout << "Arguments: EEDopp_mca_SMOL_ANDGate smol_file output_file keV_per_bin EGateLow1 EGateHigh1 EGateLow2 EGateHigh2 ..." << endl;
+    cout << "Arguments: EEDopp_ANDGate_mca_SMOL smol_file output_file keV_per_bin EGateLow1 EGateHigh1 EGateLow2 EGateHigh2 ..." << endl;
     return 0;
   }else if(argc > 24){
     cout << "ERROR: Too many parameters, maximum 10 energy gates allowed." << endl;
