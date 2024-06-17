@@ -110,6 +110,7 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
             
             uint8_t numTigHits = 0;
             uint8_t numNoABHits = 0;
+            uint8_t suppressorFired = 0;
             for(int i = 0; i<tigress->GetMultiplicity();i++){
               if(i<MAX_EVT_HIT){
                 noAB_hit = tigress->GetTigressHit(i);
@@ -124,6 +125,9 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
                     sortedEvt.noABHit[numNoABHits].seg = (uint8_t)noAB_hit->GetFirstSeg();
                     numNoABHits++;
                   }
+                }
+                if(noAB_hit->BGOFired()){
+                  suppressorFired = 1;
                 }
               }
             }
@@ -140,6 +144,9 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
                   sortedEvt.tigHit[numTigHits].core = (uint8_t)add_hit->GetArrayNumber();
                   sortedEvt.tigHit[numTigHits].seg = (uint8_t)add_hit->GetFirstSeg();
                   numTigHits++;
+                }
+                if(add_hit->BGOFired()){
+                  suppressorFired = 1;
                 }
               }
             }
@@ -162,7 +169,10 @@ uint64_t SeparatorTiming::SortData(const char *afile, const int nP, const int nA
             sortedEvt.header.numTigHits = numTigHits;
             sortedEvt.header.numNoABHits = numNoABHits;
             sortedEvt.header.numCsIHits = numCsIHits;
-            sortedEvt.header.numRFHits = (uint8_t)0;
+            sortedEvt.header.metadata = (uint8_t)0;
+            if(suppressorFired){
+              sortedEvt.header.metadata |= (uint8_t)(1U << 1);
+            }
             fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
 
             for(int i = 0; i<numTigHits;i++){

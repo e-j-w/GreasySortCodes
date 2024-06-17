@@ -23,7 +23,7 @@
 #include <stdint.h> //allows uint8_t and similiar types
 
 #define NUM_PAST_HIT 128
-#define NUM_HIST_BINS 4096
+#define NUM_HIST_BINS 256
 
 using namespace std;
 
@@ -32,18 +32,20 @@ TApplication *theApp;
 TList *acList;
 
 //Angular correlation plots
-TH1F *angCorrRaw, *angCorrBG, *angCorrEvtMix;
-TH1F *angCorrCoreRaw, *angCorrCoreBG, *angCorrCoreEvtMix;
+TH1F *angCorrRaw, *angCorrEvtMix;
+TH1F *angCorrCoreRaw, *angCorrCoreEvtMix;
 TH1F *evtMixDist;
 
-TF1 *corr420, *corr520;
+TF1 *corrfit, *corrfitzeroa4;
+
+PIDGates *gates;
 
 class AngCorr {
 
 	public :
 
 		AngCorr(){;} 
-		void SortData(const char*, const char*);
+		void SortData(const char*, const char*, const int);
 		void Initialise();
 };
 #endif
@@ -61,10 +63,6 @@ void AngCorr::Initialise() {
   angCorrRaw->GetXaxis()->SetTitle("cos(#theta)");
   angCorrRaw->GetYaxis()->SetTitle("Counts");
   acList->Add(angCorrRaw);
-  angCorrBG = new TH1F("Background angular correlation", "Background angular correlation", NUM_HIST_BINS, -1, 1);
-  angCorrBG->GetXaxis()->SetTitle("cos(#theta)");
-  angCorrBG->GetYaxis()->SetTitle("Counts");
-  acList->Add(angCorrBG);
   angCorrEvtMix = new TH1F("Event mixed angular correlation", "Event Mixed angular correlation", NUM_HIST_BINS, -1, 1);
   angCorrEvtMix->GetXaxis()->SetTitle("cos(#theta)");
   angCorrEvtMix->GetYaxis()->SetTitle("Counts");
@@ -73,10 +71,6 @@ void AngCorr::Initialise() {
   angCorrCoreRaw->GetXaxis()->SetTitle("cos(#theta)");
   angCorrCoreRaw->GetYaxis()->SetTitle("Counts");
   acList->Add(angCorrCoreRaw);
-  angCorrCoreBG = new TH1F("Background core angular correlation", "Background core angular correlation", NUM_HIST_BINS, -1, 1);
-  angCorrCoreBG->GetXaxis()->SetTitle("cos(#theta)");
-  angCorrCoreBG->GetYaxis()->SetTitle("Counts");
-  acList->Add(angCorrCoreBG);
   angCorrCoreEvtMix = new TH1F("Event mixed core angular correlation", "Event Mixed core angular correlation", NUM_HIST_BINS, -1, 1);
   angCorrCoreEvtMix->GetXaxis()->SetTitle("cos(#theta)");
   angCorrCoreEvtMix->GetYaxis()->SetTitle("Counts");
@@ -86,13 +80,16 @@ void AngCorr::Initialise() {
   evtMixDist->GetYaxis()->SetTitle("Counts");
   acList->Add(evtMixDist);
 
-  corr420 = new TF1("corr420","[0]*(1 + 0.1020408163265306*0.5*(3*x*x - 1) + 0.009070294784580489*(1/8.0)*(35*x*x*x*x - 30*x*x + 3))",-1,1);
-  corr420->SetParameter(0,1.00);
-  acList->Add(corr420);
+  corrfit = new TF1("corrfit","[0]*(1 + [1]*0.5*(3*x*x - 1) + [2]*(1/8.0)*(35*x*x*x*x - 30*x*x + 3))",-1,1);
+  corrfit->SetParameter(0,1.00);
+  corrfit->SetParameter(1,0.00);
+  corrfit->SetParameter(2,0.00);
+  acList->Add(corrfit);
 
-  corr520 = new TF1("corr520","[0]*(1 + 0.17857142857142844*0.5*(3*x*x - 1) - 0.0043290043290043255*(1/8.0)*(35*x*x*x*x - 30*x*x + 3))",-1,1);
-  corr520->SetParameter(0,1.00);
-  acList->Add(corr520);
+  corrfitzeroa4 = new TF1("corrfitzeroa4","[0]*(1 + [1]*0.5*(3*x*x - 1))",-1,1);
+  corrfitzeroa4->SetParameter(0,1.00);
+  corrfitzeroa4->SetParameter(1,0.00);
+  acList->Add(corrfitzeroa4);
   
 
 }

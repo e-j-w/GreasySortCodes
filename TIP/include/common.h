@@ -44,6 +44,7 @@ using namespace std;
 
 //timing windows
 static Double_t tigtigTGate[2] = {-60, 60}; // TIGRESS - TIGRESS timing window (ns)
+//static Double_t tigtigTGate[2] = {-20, 20}; // narrow TIGRESS - TIGRESS timing window (ns)
 static Double_t tiptipTGate[2] = {-200, 200}; // TIP - TIP fit timing window (ns)
 //static Double_t tiptipTGate[2] = {-60, 60}; // narrow TIP - TIP fit timing window (ns)
 static Double_t tiptigTGate[2] = {-1480, -1000}; // TIP - TIGRESS timing window (ns)
@@ -87,6 +88,7 @@ bool gate1D(const Double_t value, const Double_t min, const Double_t max);
 Int_t getTIPRing(const Int_t tipPosition);
 Int_t getTIGRESSRing(const float theta);
 Int_t getTIGRESSSegmentRing(const float theta);
+Int_t getTIGRESSPhiRing(const float theta, const float phi);
 uint64_t passesTimeGateNoAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit);
 uint64_t passesTimeGateAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit);
 uint64_t passesTimeGate(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit);

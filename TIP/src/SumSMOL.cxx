@@ -38,7 +38,7 @@ uint64_t Sum::SortData(const char *sfile, FILE *out)
     for(int i = 0; i<sortedEvt.header.numCsIHits;i++){
       fwrite(&sortedEvt.csiHit[i],sizeof(csi_hit),1,out);
     }
-    for(int i = 0; i<sortedEvt.header.numRFHits;i++){
+    for(int i = 0; i<numRFHits(&sortedEvt);i++){
       cout << "RF not implemented!!!" << endl;
     }
     //write footer value

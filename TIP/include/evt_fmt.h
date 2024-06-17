@@ -21,7 +21,7 @@ typedef struct
   uint8_t numTigHits;
 	uint8_t numNoABHits;
 	uint8_t numCsIHits;
-	uint8_t numRFHits;
+	uint8_t metadata; //bit 0: RF hit present, bit 1: any suppressor fired
 	double evtTimeNs; //time of the first hit, in ns - float doesn't have enough precision
 }evt_header;
 
@@ -64,6 +64,7 @@ inline static double tigHitTime(const sorted_evt *evt, const int hit){return (do
 inline static double noABHitTime(const sorted_evt *evt, const int hit){return (double)(evt->header.evtTimeNs + evt->noABHit[hit].timeOffsetNs);};
 inline static double csiHitTime(const sorted_evt *evt, const int hit){return (double)(evt->header.evtTimeNs + evt->csiHit[hit].timeOffsetNs);};
 inline static uint8_t csiFitType(const csi_hit *hit){return (uint8_t)(hit->metadata & 7U);};
+inline static uint8_t numRFHits(const sorted_evt *evt){return (evt->header.metadata & 1U)?1:0;};
 
 //reads an event into the sortedEvt struct,
 //returns the number of events read

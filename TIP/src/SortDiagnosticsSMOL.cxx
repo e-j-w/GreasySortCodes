@@ -117,7 +117,10 @@ void SortDiagnostics::SortData(const char *sfile, const char *outfile)
         TVector3 tigVec = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg);
         //tigVec.SetZ(tigVec.Z() - 5.0); //target position offset
         double theta = tigVec.Theta()*180./PI;
+        double phi = tigVec.Phi()*180./PI;
         addE_theta->Fill(theta, sortedEvt.tigHit[tigHitIndAB].energy);
+        addE_phi->Fill(phi, sortedEvt.tigHit[tigHitIndAB].energy);
+        theta_phi->Fill(theta, phi);
         //fill ring spectra
         addE_ring[getTIGRESSRing(theta)]->Fill(sortedEvt.tigHit[tigHitIndAB].energy);
 

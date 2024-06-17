@@ -504,6 +504,80 @@ Int_t getTIGRESSSegmentRing(const float theta){
   }
 }
 
+Int_t getTIGRESSPhiRing(const float theta, const float phi){
+  Int_t ring = getTIGRESSSegmentRing(theta);
+  if(ring < 12){
+    if((phi > -180)&&(phi < -167)){
+    return 0; 
+    }else if((phi > -165)&&(phi < -160)){
+      return 1; 
+    }else if((phi > -155)&&(phi < -148)){
+      return 2; 
+    }else if((phi > -148)&&(phi < -134)){
+      return 3;
+    }else if((phi > -127)&&(phi < -122)){
+      return 4;
+    }else if((phi > -118)&&(phi < -114)){
+      return 5;
+    }else if((phi > -110)&&(phi < -106)){
+      return 6;
+    }else if((phi > -103)&&(phi < -100)){
+      return 7;
+    }else if((phi > -91)&&(phi < -77)){
+      return 8;
+    }else if((phi > -77)&&(phi < -70)){
+      return 9;
+    }else if((phi > -65)&&(phi < -58)){
+      return 10;
+    }else if((phi > -58)&&(phi < -45)){
+      return 11;
+    }else if((phi > -36)&&(phi < -32)){
+      return 12;
+    }else if((phi > -28)&&(phi < -25)){
+      return 13;
+    }else if((phi > -20)&&(phi < -16)){
+      return 14;
+    }else if((phi > -13)&&(phi < -8)){
+      return 15;
+    }else if((phi > 0)&&(phi < 13)){
+      return 16;
+    }else if((phi > 13)&&(phi < 22)){
+      return 17;
+    }else if((phi > 22)&&(phi < 32)){
+      return 18;
+    }else if((phi > 32)&&(phi < 46)){
+      return 19;
+    }else if((phi > 53)&&(phi < 59)){
+      return 20;
+    }else if((phi > 61)&&(phi < 66)){
+      return 21;
+    }else if((phi > 69)&&(phi < 74)){
+      return 22;
+    }else if((phi > 77)&&(phi < 82)){
+      return 23;
+    }else if((phi > 89)&&(phi < 103)){
+      return 24;
+    }else if((phi > 103)&&(phi < 114)){
+      return 25;
+    }else if((phi > 114)&&(phi < 122)){
+      return 26;
+    }else if((phi > 122)&&(phi < 136)){
+      return 27;
+    }else if((phi > 143)&&(phi < 149)){ //estimated, no detector present here during S2182
+      return 28;
+    }else if((phi > 151)&&(phi < 156)){ //estimated, no detector present here during S2182
+      return 29;
+    }else if((phi > 159)&&(phi < 164)){ //estimated, no detector present here during S2182
+      return 30;
+    }else if((phi > 167)&&(phi < 172)){ //estimated, no detector present here during S2182
+      return 31;
+    }
+  }else{
+    //cout << "Invalid TIGRESS angle: " << theta << endl;
+    return 32; //no phi ring
+  }
+}
+
 
 uint64_t passesTimeGateNoAB(TTigress *tigress, TTip *tip, const uint8_t minTigHit, const uint8_t minTipHit){
 

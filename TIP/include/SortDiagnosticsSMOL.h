@@ -32,7 +32,7 @@ TList *tiptigList, *tigPIDSepList, *tigtigPIDSepList;
 
 //Raw TIGRESS
 TH1F *tigE, *addE, *addE_ring[NTIGRING], *addDopp, *tigRate;
-TH2F *addE_ANum, *addE_theta, *addDopp_dopp, *tigNum_time;
+TH2F *addE_ANum, *addE_theta, *addE_phi, *theta_phi, *addDopp_dopp, *tigNum_time;
 
 //TIP
 TH1F *tip_E, *tip_Etot, *tipRate;
@@ -114,10 +114,18 @@ void SortDiagnostics::Initialise() {
     addE_ring[i]->GetXaxis()->SetTitle("Addback Energy");
     tigList->Add(addE_ring[i]);
   }
-  addE_theta = new TH2F("Addback_Energy_vs_theta_segment", "Addback Energy vs. theta (segment)", 1800, 0, 180, 8192, 0, 8192);
+  addE_theta = new TH2F("Addback_Energy_vs_theta_segment", "Addback Energy vs. theta (segment)", 1800, 0, 180, 4096, 0, 8192);
   addE_theta->GetXaxis()->SetTitle("#theta (deg)");
   addE_theta->GetYaxis()->SetTitle("Addback Energy");
   tigList->Add(addE_theta);
+  addE_phi = new TH2F("Addback_Energy_vs_phi_segment", "Addback Energy vs. phi (segment)", 1800, -180, 180, 4096, 0, 8192);
+  addE_phi->GetXaxis()->SetTitle("#phi (deg)");
+  addE_phi->GetYaxis()->SetTitle("Addback Energy");
+  tigList->Add(addE_phi);
+  theta_phi = new TH2F("theta_vs_phi_segment", "theta vs. phi (segment, addback data)", 1800, 0, 180, 1800, -180, 180);
+  theta_phi->GetXaxis()->SetTitle("#theta (deg)");
+  theta_phi->GetYaxis()->SetTitle("#phi (deg)");
+  tigList->Add(theta_phi);
   addDopp = new TH1F("Addback_Doppler", Form("Addback Doppler corrected energy (beta=%f)",betaCompound), 16384, 0, 8192);
   tigList->Add(addDopp);
   addDopp_dopp = new TH2F("Addback_Doppler_vs_beta", "Addback Doppler corrected energy vs. beta",200,0.03,0.05,8192,0,8192);
