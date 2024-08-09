@@ -1,7 +1,7 @@
 //use the Makefile!
 
 #define SortDiagnosticsS_cxx
-#include "common.h"
+#include "common.cxx"
 #include "SortDiagnosticsSMOL.h"
 
 using namespace std;
@@ -10,7 +10,7 @@ Int_t numTipRingHits[NTIPRING];
 sorted_evt sortedEvt;
 sorted_evt pastEvts[PAST_EVT_BUFSIZE];
 
-void SortDiagnostics::SortData(const char *sfile, const char *outfile)
+void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
 {
   Initialise();
 
@@ -362,11 +362,20 @@ void SortDiagnostics::SortData(const char *sfile, const char *outfile)
 int main(int argc, char **argv)
 {
 
-  SortDiagnostics *mysort = new SortDiagnostics();
+  SortDiagnosticsS *mysort = new SortDiagnosticsS();
 
   const char *sfile;
   const char *outfile;
   printf("Starting SortDiagnosticsSMOL\n");
+
+  std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
+  if(grsi_path.length() > 0){
+    grsi_path += "/";
+  }
+  // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup
+  grsi_path += ".grsirc";
+  gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
+  TParserLibrary::Get()->Load();
 
   // Input-chain-file, output-histogram-file
   if (argc == 1){

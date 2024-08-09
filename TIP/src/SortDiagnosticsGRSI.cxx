@@ -11,7 +11,7 @@ Int_t numTipRingPileupHits[NTIPRING], numTipRingHits[NTIPRING];
 bool suppTig = false;
 bool suppAdd = false;
 
-void SortDiagnostics::SortData(char const *afile, char const *calfile, char const *outfile)
+void SortDiagnosticsG::SortData(char const *afile, char const *calfile, char const *outfile)
 {
   Initialise();
 
@@ -515,7 +515,7 @@ void SortDiagnostics::SortData(char const *afile, char const *calfile, char cons
 int main(int argc, char **argv)
 {
 
-  SortDiagnostics *mysort = new SortDiagnostics();
+  SortDiagnosticsG *mysort = new SortDiagnosticsG();
 
   char const *afile;
   char const *outfile;

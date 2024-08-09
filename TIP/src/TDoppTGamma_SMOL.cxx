@@ -84,6 +84,14 @@ int main(int argc, char **argv)
   const char *sfile;
   const char *outfile;
   printf("Starting TDoppTGamma_SMOL\n");
+  std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
+  if(grsi_path.length() > 0){
+    grsi_path += "/";
+  }
+  // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup
+  grsi_path += ".grsirc";
+  gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
+  TParserLibrary::Get()->Load();
 
   // Input-chain-file, output-histogram-file
   if (argc == 1){

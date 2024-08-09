@@ -92,6 +92,14 @@ int main(int argc, char **argv){
   double eLow[10], eHigh[10];
   uint8_t numEGates = 0;
   printf("Starting EEDopp_ORGate_mca_SMOL\n");
+  std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
+  if(grsi_path.length() > 0){
+    grsi_path += "/";
+  }
+  // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup
+  grsi_path += ".grsirc";
+  gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
+  TParserLibrary::Get()->Load();
 
   if((argc < 6)||((argc % 2)!=0)){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;

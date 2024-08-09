@@ -1,5 +1,5 @@
-#ifndef SortDiagnosticsG_h
-#define SortDiagnosticsG_h
+#ifndef SortDiagnosticsS_h
+#define SortDiagnosticsS_h
 
 #include <iostream>
 #include <iomanip>
@@ -71,17 +71,17 @@ TH2F *addEaddE_xayp_evtmix[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 
 PIDGates *gates;
 
-class SortDiagnostics {
+class SortDiagnosticsS {
 
 	public :
 
-		SortDiagnostics(){;} 
+		SortDiagnosticsS(){;} 
 		void SortData(const char*, const char*);
 		void Initialise();
 };
 #endif
 
-void SortDiagnostics::Initialise() {
+void SortDiagnosticsS::Initialise() {
 
   cout << "Creating lists" << endl;
 

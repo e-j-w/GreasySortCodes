@@ -9,11 +9,11 @@
 
 using namespace std;
 
-class RDCO_ {
+class RDCO_S {
 
 	public :
 
-		RDCO_(){;} 
+		RDCO_S(){;} 
 		void SortData(const char*);
 
 };

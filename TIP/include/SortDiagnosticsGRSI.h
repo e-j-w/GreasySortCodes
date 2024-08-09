@@ -69,17 +69,17 @@ TH2F *addEaddDopp_xayp[MAX_NUM_PARTICLE+1][MAX_NUM_PARTICLE+1];
 
 PIDGates *gates;
 
-class SortDiagnostics {
+class SortDiagnosticsG {
 
 	public :
 
-		SortDiagnostics(){;} 
+		SortDiagnosticsG(){;} 
 		void SortData(const char*, const char*, const char*);
 		void Initialise();
 };
 #endif
 
-void SortDiagnostics::Initialise() {
+void SortDiagnosticsG::Initialise() {
 
   cout << "Creating lists" << endl;
 

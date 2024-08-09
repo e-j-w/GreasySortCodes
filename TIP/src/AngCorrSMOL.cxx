@@ -55,121 +55,151 @@ void AngCorr::SortData(char const *sfile, char const *outfile, const int doppCor
     }
 
     for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
-      if(doppCorr == 0){
-        hit1E = sortedEvt.noABHit[tigHitInd].energy;
-      }else{
-        hit1E = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitInd],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
-      }
+      if((sortedEvt.noABHit[tigHitInd].core !=58)&&(sortedEvt.noABHit[tigHitInd].core !=56)){ //ignore bad cores that have clock sync issues
 
-      if((hit1E >= eGamma1[0])&&(hit1E <= eGamma1[1])){
-        for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numNoABHits; tigHitInd2++){
-          if(sortedEvt.noABHit[tigHitInd].core/4 != sortedEvt.noABHit[tigHitInd2].core/4){ //omit same clover events, to remove cross-talk effects
-            if(doppCorr == 0){
-              hit2E = sortedEvt.noABHit[tigHitInd2].energy;
-            }else{
-              hit2E = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
-            }
-            if((hit2E >= eGamma2[0])&&(hit2E <= eGamma2[1])){
-              //cascade identified
-              TVector3 vec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
-              TVector3 vec2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg);
-              Double_t angle = vec1.Angle(vec2);
-              angCorrRaw->Fill(cos(angle));
-              TVector3 corevec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
-              TVector3 corevec2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,0);
-              Double_t coreangle = corevec1.Angle(corevec2);
-              angCorrCoreRaw->Fill(cos(coreangle));
-            }
-          }
+        if(doppCorr == 0){
+          hit1E = sortedEvt.noABHit[tigHitInd].energy;
+        }else{
+          hit1E = getEDoppFusEvapDirect(&sortedEvt.noABHit[tigHitInd],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
         }
-        memcpy(&pastHit[pastEvtInd],&sortedEvt.noABHit[tigHitInd],sizeof(tig_hit));
-        pastHitEvt[pastEvtInd] = jentry;
-        pastEvtInd++;
-        if(pastEvtInd >= NUM_PAST_HIT){
-          pastEvtInd = 0; //roll over
-        }
-      }else if((hit1E >= eGamma2[0])&&(hit1E <= eGamma2[1])){
-        for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numNoABHits; tigHitInd2++){
-          if(sortedEvt.noABHit[tigHitInd].core/4 != sortedEvt.noABHit[tigHitInd2].core/4){ //omit same clover events, to remove cross-talk effects
-            if(doppCorr == 0){
-              hit2E = sortedEvt.noABHit[tigHitInd2].energy;
-            }else{
-              hit2E = getEDoppFusEvapDirect(&sortedEvt.tigHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
-            }
-            if((hit2E >= eGamma1[0])&&(hit2E <= eGamma1[1])){
-              //cascade identified
-              TVector3 vec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
-              TVector3 vec2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg);
-              Double_t angle = vec1.Angle(vec2);
-              angCorrRaw->Fill(cos(angle));
-              TVector3 corevec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
-              TVector3 corevec2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,0);
-              Double_t coreangle = corevec1.Angle(corevec2);
-              angCorrCoreRaw->Fill(cos(coreangle));
-            }
-          }
-        }
-        memcpy(&pastHit[pastEvtInd],&sortedEvt.noABHit[tigHitInd],sizeof(tig_hit));
-        pastHitEvt[pastEvtInd] = jentry;
-        pastEvtInd++;
-        if(pastEvtInd >= NUM_PAST_HIT){
-          pastEvtInd = 0; //roll over
-        }
-      }
 
-      //handle event mixing
-      if((hit1E >= eGamma1[0])&&(hit1E <= eGamma1[1])){
-        for(int tigHitInd2 = 0; tigHitInd2 < NUM_PAST_HIT; tigHitInd2++){
-          if((pastHitEvt[tigHitInd2] < jentry)&&(pastHitEvt[tigHitInd2] > (jentry-1000))){
-            if(sortedEvt.noABHit[tigHitInd].core/4 != pastHit[tigHitInd2].core/4){ //omit same clover events, to remove cross-talk effects
-              //hit is from a different event
+        if((hit1E >= eGamma1[0])&&(hit1E <= eGamma1[1])){
+          for(int tigHitInd2 = 0; tigHitInd2 < sortedEvt.header.numNoABHits; tigHitInd2++){
+            if(tigHitInd2 != tigHitInd){
+            //if((sortedEvt.noABHit[tigHitInd2].core !=58)&&(sortedEvt.noABHit[tigHitInd2].core !=56)){ //ignore bad cores that have clock sync issues
+            //if(sortedEvt.noABHit[tigHitInd].core/4 != sortedEvt.noABHit[tigHitInd2].core/4){ //omit same clover events, to remove cross-talk effects
               if(doppCorr == 0){
-                hit2E = pastHit[tigHitInd2].energy;
+                hit2E = sortedEvt.noABHit[tigHitInd2].energy;
               }else{
-                hit2E = getEDoppFusEvapDirect(&pastHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+                hit2E = getEDoppFusEvapDirect(&sortedEvt.noABHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
               }
               if((hit2E >= eGamma2[0])&&(hit2E <= eGamma2[1])){
-                //event mixed cascade identified
-                TVector3 vec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
-                TVector3 vec2 = getTigVector(pastHit[tigHitInd2].core,pastHit[tigHitInd2].seg);
-                Double_t angle = vec1.Angle(vec2);
-                angCorrEvtMix->Fill(cos(angle));
-                TVector3 corevec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
-                TVector3 corevec2 = getTigVector(pastHit[tigHitInd2].core,0);
-                Double_t coreangle = corevec1.Angle(corevec2);
-                angCorrCoreEvtMix->Fill(cos(coreangle));
-                evtMixDist->Fill(jentry - pastHitEvt[tigHitInd2]);
+                float tDiff = sortedEvt.noABHit[tigHitInd2].timeOffsetNs - sortedEvt.noABHit[tigHitInd].timeOffsetNs;
+                if((tDiff > tigtigTGate[0])&&(tDiff < tigtigTGate[1])){
+                  //cascade identified
+                  TVector3 vec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
+                  TVector3 vec2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg);
+                  Double_t angle = vec1.Angle(vec2);
+                  /*if((angle > 0.45)&&(angle < 0.72)){
+                    printf("\nind: %i %i, cores: %i %i\n",tigHitInd,tigHitInd2,sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd2].core);
+                  }*/
+                  angCorrRaw->Fill(cos(angle));
+                  TVector3 corevec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
+                  TVector3 corevec2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,0);
+                  Double_t coreangle = corevec1.Angle(corevec2);
+                  angCorrCoreRaw->Fill(cos(coreangle));
+                  corePosAngCorr->Fill(sortedEvt.noABHit[tigHitInd2].core);
+                  corePosVsAngCorr->Fill(cos(coreangle),sortedEvt.noABHit[tigHitInd2].core);
+                }
               }
+            //}
             }
           }
-        }
-      }else if((hit1E >= eGamma2[0])&&(hit1E <= eGamma2[1])){
-        for(int tigHitInd2 = 0; tigHitInd2 < NUM_PAST_HIT; tigHitInd2++){
-          if((pastHitEvt[tigHitInd2] < jentry)&&(pastHitEvt[tigHitInd2] > (jentry-1000))){
-            if(sortedEvt.noABHit[tigHitInd].core/4 != pastHit[tigHitInd2].core/4){ //omit same clover events, to remove cross-talk effects
-              //hit is from a different event
+          memcpy(&pastHit[pastEvtInd],&sortedEvt.noABHit[tigHitInd],sizeof(tig_hit));
+          pastHitEvt[pastEvtInd] = jentry;
+          pastEvtInd++;
+          if(pastEvtInd >= NUM_PAST_HIT){
+            pastEvtInd = 0; //roll over
+          }
+        }else if((hit1E >= eGamma2[0])&&(hit1E <= eGamma2[1])){
+          for(int tigHitInd2 = 0; tigHitInd2 < sortedEvt.header.numNoABHits; tigHitInd2++){
+            if(tigHitInd2 != tigHitInd){
+            //if((sortedEvt.noABHit[tigHitInd2].core !=58)&&(sortedEvt.noABHit[tigHitInd2].core !=56)){ //ignore bad cores that have clock sync issues
+            //if(sortedEvt.noABHit[tigHitInd].core/4 != sortedEvt.noABHit[tigHitInd2].core/4){ //omit same clover events, to remove cross-talk effects
               if(doppCorr == 0){
-                hit2E = pastHit[tigHitInd2].energy;
+                hit2E = sortedEvt.noABHit[tigHitInd2].energy;
               }else{
-                hit2E = getEDoppFusEvapDirect(&pastHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+                hit2E = getEDoppFusEvapDirect(&sortedEvt.noABHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
               }
               if((hit2E >= eGamma1[0])&&(hit2E <= eGamma1[1])){
-                //event mixed cascade identified
-                TVector3 vec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
-                TVector3 vec2 = getTigVector(pastHit[tigHitInd2].core,pastHit[tigHitInd2].seg);
-                Double_t angle = vec1.Angle(vec2);
-                angCorrEvtMix->Fill(cos(angle));
-                TVector3 corevec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
-                TVector3 corevec2 = getTigVector(pastHit[tigHitInd2].core,0);
-                Double_t coreangle = corevec1.Angle(corevec2);
-                angCorrCoreEvtMix->Fill(cos(coreangle));
-                evtMixDist->Fill(jentry - pastHitEvt[tigHitInd2]);
+                float tDiff = sortedEvt.noABHit[tigHitInd2].timeOffsetNs - sortedEvt.noABHit[tigHitInd].timeOffsetNs;
+                if((tDiff > tigtigTGate[0])&&(tDiff < tigtigTGate[1])){
+                  //cascade identified
+                  TVector3 vec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
+                  TVector3 vec2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg);
+                  Double_t angle = vec1.Angle(vec2);
+                  angCorrRaw->Fill(cos(angle));
+                  TVector3 corevec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
+                  TVector3 corevec2 = getTigVector(sortedEvt.noABHit[tigHitInd2].core,0);
+                  Double_t coreangle = corevec1.Angle(corevec2);
+                  angCorrCoreRaw->Fill(cos(coreangle));
+                  corePosAngCorr->Fill(sortedEvt.noABHit[tigHitInd2].core);
+                  corePosVsAngCorr->Fill(cos(coreangle),sortedEvt.noABHit[tigHitInd2].core);
+                }
               }
+            //}
+            }
+          }
+          memcpy(&pastHit[pastEvtInd],&sortedEvt.noABHit[tigHitInd],sizeof(tig_hit));
+          pastHitEvt[pastEvtInd] = jentry;
+          pastEvtInd++;
+          if(pastEvtInd >= NUM_PAST_HIT){
+            pastEvtInd = 0; //roll over
+          }
+        }
+
+        //handle event mixing
+        if((hit1E >= eGamma1[0])&&(hit1E <= eGamma1[1])){
+          for(int tigHitInd2 = 0; tigHitInd2 < NUM_PAST_HIT; tigHitInd2++){
+            if((pastHitEvt[tigHitInd2] < jentry)&&(pastHitEvt[tigHitInd2] > (jentry-1000))){
+              //if((pastHit[tigHitInd2].core !=58)&&(pastHit[tigHitInd2].core !=56)){ //ignore bad cores that have clock sync issues
+              //if(sortedEvt.noABHit[tigHitInd].core/4 != pastHit[tigHitInd2].core/4){ //omit same clover events, to remove cross-talk effects
+                //hit is from a different event
+                if(doppCorr == 0){
+                  hit2E = pastHit[tigHitInd2].energy;
+                }else{
+                  hit2E = getEDoppFusEvapDirect(&pastHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+                }
+                if((hit2E >= eGamma2[0])&&(hit2E <= eGamma2[1])){
+                  //event mixed cascade identified
+                  TVector3 vec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
+                  TVector3 vec2 = getTigVector(pastHit[tigHitInd2].core,pastHit[tigHitInd2].seg);
+                  Double_t angle = vec1.Angle(vec2);
+                  angCorrEvtMix->Fill(cos(angle));
+                  TVector3 corevec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
+                  TVector3 corevec2 = getTigVector(pastHit[tigHitInd2].core,0);
+                  Double_t coreangle = corevec1.Angle(corevec2);
+                  angCorrCoreEvtMix->Fill(cos(coreangle));
+                  evtMixDist->Fill(jentry - pastHitEvt[tigHitInd2]);
+                  corePosEvtMix->Fill(pastHit[tigHitInd2].core);
+                  corePosVsEvtMix->Fill(cos(coreangle),pastHit[tigHitInd2].core);
+                }
+              //}
+            }
+          }
+        }else if((hit1E >= eGamma2[0])&&(hit1E <= eGamma2[1])){
+          for(int tigHitInd2 = 0; tigHitInd2 < NUM_PAST_HIT; tigHitInd2++){
+            if((pastHitEvt[tigHitInd2] < jentry)&&(pastHitEvt[tigHitInd2] > (jentry-1000))){
+              //if((pastHit[tigHitInd2].core !=58)&&(pastHit[tigHitInd2].core !=56)){ //ignore bad cores that have clock sync issues
+              //if(sortedEvt.noABHit[tigHitInd].core/4 != pastHit[tigHitInd2].core/4){ //omit same clover events, to remove cross-talk effects
+                //hit is from a different event
+                if(doppCorr == 0){
+                  hit2E = pastHit[tigHitInd2].energy;
+                }else{
+                  hit2E = getEDoppFusEvapDirect(&pastHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates);
+                }
+                if((hit2E >= eGamma1[0])&&(hit2E <= eGamma1[1])){
+                  //event mixed cascade identified
+                  TVector3 vec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg);
+                  TVector3 vec2 = getTigVector(pastHit[tigHitInd2].core,pastHit[tigHitInd2].seg);
+                  Double_t angle = vec1.Angle(vec2);
+                  angCorrEvtMix->Fill(cos(angle));
+                  TVector3 corevec1 = getTigVector(sortedEvt.noABHit[tigHitInd].core,0);
+                  TVector3 corevec2 = getTigVector(pastHit[tigHitInd2].core,0);
+                  Double_t coreangle = corevec1.Angle(corevec2);
+                  angCorrCoreEvtMix->Fill(cos(coreangle));
+                  evtMixDist->Fill(jentry - pastHitEvt[tigHitInd2]);
+                  corePosEvtMix->Fill(pastHit[tigHitInd2].core);
+                  corePosVsEvtMix->Fill(cos(coreangle),pastHit[tigHitInd2].core);
+                }
+              //}
             }
           }
         }
       }
+
     }
+      
     
 
     if (jentry % 10000 == 0)
@@ -271,7 +301,7 @@ void AngCorr::SortData(char const *sfile, char const *outfile, const int doppCor
   acList->Add(grCoreNorm);
 
   //dump histograms to arrays (segments)
-  bin=0, numBins=0;
+  /*bin=0, numBins=0;
   xSeg[bin]=0.;
   ySegRaw[bin]=0.;
   eSegRaw[bin]=0.;
@@ -359,10 +389,7 @@ void AngCorr::SortData(char const *sfile, char const *outfile, const int doppCor
   grSegNorm->Fit("corrfitzeroa4");
   cout << "chisq/ndf (a4 = 0): " << corrfitzeroa4->GetChisquare()/(numBins-1) << endl;
 
-  acList->Add(grSegNorm);
-  
-  //FILE *out = fopen(outfile, "w");
-  //printf("File %s opened\n", outfile);
+  acList->Add(grSegNorm);*/
 
   cout << "Writing histograms to " << outfile << endl;
   TFile *myfile = new TFile(outfile, "RECREATE");
@@ -384,6 +411,14 @@ int main(int argc, char **argv)
   const char *outfile;
   int doppCorr = 0;
   printf("Starting AngCorrSMOL\n");
+  std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
+  if(grsi_path.length() > 0){
+    grsi_path += "/";
+  }
+  // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup
+  grsi_path += ".grsirc";
+  gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
+  TParserLibrary::Get()->Load();
 
   // Input-chain-file, output-histogram-file
   if (argc == 1){

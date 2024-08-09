@@ -78,6 +78,14 @@ int main(int argc, char **argv){
   const char *outfile;
   double keVPerBin = 1.0;
   printf("Starting EGamma_phi_mca_SMOL\n");
+  std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
+  if(grsi_path.length() > 0){
+    grsi_path += "/";
+  }
+  // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup
+  grsi_path += ".grsirc";
+  gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
+  TParserLibrary::Get()->Load();
 
   if((argc != 3)&&(argc != 4)){
     cout << "Generates TIGRESS mca spectra separated by phi bin." << endl;

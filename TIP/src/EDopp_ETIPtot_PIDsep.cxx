@@ -174,8 +174,7 @@ int main(int argc, char **argv){
   printf("Starting sortcode\n");
 
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
-  if (grsi_path.length() > 0)
-  {
+  if(grsi_path.length() > 0){
     grsi_path += "/";
   }
   // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup

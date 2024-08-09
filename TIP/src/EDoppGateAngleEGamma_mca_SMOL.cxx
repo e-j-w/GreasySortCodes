@@ -87,6 +87,14 @@ int main(int argc, char **argv){
   double eLow, eHigh;
   double angleLow, angleHigh;
   printf("Starting EDoppGateAngleEGamma_mca_SMOL\n");
+  std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
+  if(grsi_path.length() > 0){
+    grsi_path += "/";
+  }
+  // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup
+  grsi_path += ".grsirc";
+  gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
+  TParserLibrary::Get()->Load();
 
   if((argc != 7)&&(argc != 8)){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;

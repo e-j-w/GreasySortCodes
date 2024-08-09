@@ -34,7 +34,8 @@ TList *acList;
 //Angular correlation plots
 TH1F *angCorrRaw, *angCorrEvtMix;
 TH1F *angCorrCoreRaw, *angCorrCoreEvtMix;
-TH1F *evtMixDist;
+TH1F *evtMixDist, *corePosAngCorr, *corePosEvtMix;
+TH2F *corePosVsAngCorr, *corePosVsEvtMix;
 
 TF1 *corrfit, *corrfitzeroa4;
 
@@ -79,6 +80,22 @@ void AngCorr::Initialise() {
   evtMixDist->GetXaxis()->SetTitle("Event # difference");
   evtMixDist->GetYaxis()->SetTitle("Counts");
   acList->Add(evtMixDist);
+  corePosAngCorr = new TH1F("Raw angular correlation position (hit 2)", "Raw angular correlation position (hit 2)", 64, 0, 64);
+  corePosAngCorr->GetXaxis()->SetTitle("TIGRESS position");
+  corePosAngCorr->GetYaxis()->SetTitle("Counts");
+  acList->Add(corePosAngCorr);
+  corePosEvtMix = new TH1F("Event mixing position (hit 2)", "Event mixing position (hit 2)", 64, 0, 64);
+  corePosEvtMix->GetXaxis()->SetTitle("TIGRESS position");
+  corePosEvtMix->GetYaxis()->SetTitle("Counts");
+  acList->Add(corePosEvtMix);
+  corePosVsAngCorr = new TH2F("Raw angular correlation vs. Raw angular correlation position (hit 2)", "Raw angular correlation vs. Raw angular correlation position (hit 2)", NUM_HIST_BINS, -1, 1, 64, 0, 64);
+  corePosVsAngCorr->GetXaxis()->SetTitle("cos(#theta)");
+  corePosVsAngCorr->GetYaxis()->SetTitle("TIGRESS position");
+  acList->Add(corePosVsAngCorr);
+  corePosVsEvtMix = new TH2F("Event mixed core angular correlation vs. Event mixing position (hit 2)", "Event mixed core angular correlation vs. Event mixing position (hit 2)", NUM_HIST_BINS, -1, 1, 64, 0, 64);
+  corePosVsEvtMix->GetXaxis()->SetTitle("cos(#theta)");
+  corePosVsEvtMix->GetYaxis()->SetTitle("TIGRESS position");
+  acList->Add(corePosVsEvtMix);
 
   corrfit = new TF1("corrfit","[0]*(1 + [1]*0.5*(3*x*x - 1) + [2]*(1/8.0)*(35*x*x*x*x - 30*x*x + 3))",-1,1);
   corrfit->SetParameter(0,1.00);

@@ -103,6 +103,14 @@ int main(int argc, char **argv){
   double eLow[MAX_GATES], eHigh[MAX_GATES];
   int numGates = 0;
   printf("Starting EEGamma_ANDgate_mca_SMOL\n");
+  std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
+  if(grsi_path.length() > 0){
+    grsi_path += "/";
+  }
+  // Read in grsirc in the GRSISYS directory to set user defined options on grsisort startup
+  grsi_path += ".grsirc";
+  gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
+  TParserLibrary::Get()->Load();
 
   if((argc%2 != 0)||(argc < 6)||(argc > (4+(MAX_GATES*2)))){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;

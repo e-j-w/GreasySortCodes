@@ -163,7 +163,6 @@ int main(int argc, char **argv){
   char const *outfile;
   char const *calfile;
   printf("Starting sortcode\n");
-
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
   if(grsi_path.length() > 0){
     grsi_path += "/";

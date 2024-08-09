@@ -508,7 +508,7 @@ Int_t getTIGRESSPhiRing(const float theta, const float phi){
   Int_t ring = getTIGRESSSegmentRing(theta);
   if(ring < 12){
     if((phi > -180)&&(phi < -167)){
-    return 0; 
+      return 0; 
     }else if((phi > -165)&&(phi < -160)){
       return 1; 
     }else if((phi > -155)&&(phi < -148)){
@@ -571,6 +571,9 @@ Int_t getTIGRESSPhiRing(const float theta, const float phi){
       return 30;
     }else if((phi > 167)&&(phi < 172)){ //estimated, no detector present here during S2182
       return 31;
+    }else{
+      //cout << "Invalid TIGRESS angle: " << theta << endl;
+      return 32; //no phi ring
     }
   }else{
     //cout << "Invalid TIGRESS angle: " << theta << endl;
