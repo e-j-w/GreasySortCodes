@@ -1,13 +1,14 @@
 //Generates TIGRESS gamma ray spectra for PID and time separated data
 //timing windows are defined in common.h
+//PID gates in common.cxx
 
-#define EGamma_mca_SMOL_cxx
+#define EDopp_noAB_mult2up_mca_SMOL_cxx
 #include "common.h"
-#include "EGamma_mca_SMOL.h"
+#include "EDopp_noAB_mult2up_mca_SMOL.h"
 
 using namespace std;
 
-void EGamma_mca_SMOL::WriteData(const char* outName){
+void EDopp_noAB_mult2up_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -22,7 +23,7 @@ void EGamma_mca_SMOL::WriteData(const char* outName){
 
 }
 
-void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
+void EDopp_noAB_mult2up_mca_SMOL::SortData(char const *sfile, double keVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -41,19 +42,21 @@ void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
       exit(-1);
     }
 
-    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
+    if(sortedEvt.header.numTigHits >= 2){ //use addback here, but not elsewhere, as addback on this condition would be stricter than without
+        for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
 
-      if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
-        int eGamma = (int)(sortedEvt.tigHit[tigHitIndAB].energy/keVPerBin);
-        if(eGamma>=0 && eGamma<S32K){
-          double theta = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg).Theta()*180./PI;
-          mcaOut[getTIGRESSRing(theta)+1][eGamma]++;
-          mcaOut[getTIGRESSSegmentRing(theta)+7][eGamma]++;
-          mcaOut[0][eGamma]++;
+            if(sortedEvt.noABHit[tigHitInd].energy > MIN_TIG_EAB){
+                int eDopp = (int)(getEDoppFusEvapDirect(&sortedEvt.noABHit[tigHitInd],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates)/keVPerBin);
+                if(eDopp>=0 && eDopp<S32K){
+                double theta = getTigVector(sortedEvt.noABHit[tigHitInd].core,sortedEvt.noABHit[tigHitInd].seg).Theta()*180./PI;
+                mcaOut[getTIGRESSRing(theta)+1][eDopp]++;
+                mcaOut[getTIGRESSSegmentRing(theta)+7][eDopp]++;
+                mcaOut[0][eDopp]++;
+                }
+            }
         }
-      }
-      
     }
+    
 
     if (jentry % 1000 == 0)
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / sentries << "% complete" << "\r" << flush;
@@ -68,12 +71,12 @@ void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
 
 int main(int argc, char **argv){
 
-  EGamma_mca_SMOL *mysort = new EGamma_mca_SMOL();
+  EDopp_noAB_mult2up_mca_SMOL *mysort = new EDopp_noAB_mult2up_mca_SMOL();
 
   const char *sfile;
   const char *outfile;
   double keVPerBin = 1.0;
-  printf("Starting EGamma_mca_SMOL\n");
+  printf("Starting EDopp_noAB_mult2up_mca_SMOL\n");
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
   if(grsi_path.length() > 0){
     grsi_path += "/";
@@ -84,8 +87,8 @@ int main(int argc, char **argv){
   TParserLibrary::Get()->Load();
 
   if((argc != 3)&&(argc != 4)){
-    cout << "Generates TIGRESS mca spectra." << endl;
-    cout << "Arguments: EGamma_mca_SMOL smol_file output_file keV_per_bin" << endl;
+    cout << "Generates Doppler corrected TIGRESS mca spectra for PID and time separated data." << endl;
+    cout << "Arguments: EDopp_noAB_mult2up_mca_SMOL smol_file output_file keV_per_bin" << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     return 0;
   }else{
@@ -102,6 +105,7 @@ int main(int argc, char **argv){
   }
 
   memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
+  gates = new PIDGates;
 
   //single analysis tree
   cout << "SMOL tree: " << sfile << endl;

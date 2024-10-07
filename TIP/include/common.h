@@ -63,10 +63,11 @@ class PIDGates{
 static Int_t tip_waveform_pretrigger = 250;
 
 //static Double_t betaCompound = 0.02953; //compound nucleus recoil beta (26Mg)
-static Double_t betaCompound = 0.03633; //compound nucleus recoil beta (29Al)
+//static Double_t betaCompound = 0.03633; //compound nucleus recoil beta (29Al)
 //static Double_t betaCompound = 0.04143; //compound nucleus recoil beta (31Si)
 //static Double_t betaCompound = 0.04093; //compound nucleus recoil beta (32Si)
 //static Double_t betaCompound = 0.04243; //compound nucleus recoil beta (32Si, high E)
+static Double_t betaCompound = 0.0442;
 //static Double_t betaCompound = 0.04343; //compound nucleus recoil beta (32Si, 2362 keV line)
 //static Double_t betaCompound = 0.04600; //compound nucleus recoil beta (~2100 keV, 31Al?)
 static Int_t compoundM_AMU = 33.96786701; //compound mass in atomic mass units (34S)

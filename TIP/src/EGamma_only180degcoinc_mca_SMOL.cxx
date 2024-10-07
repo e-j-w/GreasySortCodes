@@ -1,13 +1,13 @@
 //Generates TIGRESS gamma ray spectra for PID and time separated data
 //timing windows are defined in common.h
 
-#define EGamma_mca_SMOL_cxx
+#define EGamma_only180degcoinc_mca_SMOL_cxx
 #include "common.h"
-#include "EGamma_mca_SMOL.h"
+#include "EGamma_only180degcoinc_mca_SMOL.h"
 
 using namespace std;
 
-void EGamma_mca_SMOL::WriteData(const char* outName){
+void EGamma_only180degcoinc_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -22,7 +22,7 @@ void EGamma_mca_SMOL::WriteData(const char* outName){
 
 }
 
-void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
+void EGamma_only180degcoinc_mca_SMOL::SortData(char const *sfile, const double keVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -43,16 +43,29 @@ void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
 
     for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
 
-      if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
-        int eGamma = (int)(sortedEvt.tigHit[tigHitIndAB].energy/keVPerBin);
-        if(eGamma>=0 && eGamma<S32K){
-          double theta = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg).Theta()*180./PI;
-          mcaOut[getTIGRESSRing(theta)+1][eGamma]++;
-          mcaOut[getTIGRESSSegmentRing(theta)+7][eGamma]++;
-          mcaOut[0][eGamma]++;
+      int eGamma = (int)(sortedEvt.tigHit[tigHitIndAB].energy/keVPerBin);
+      if(eGamma>=0 && eGamma<S32K){
+        TVector3 vec1 = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,0);
+        for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < sortedEvt.header.numTigHits; tigHitIndAB2++){
+          TVector3 vec2 = getTigVector(sortedEvt.tigHit[tigHitIndAB2].core,0);
+          Double_t angle = vec1.Angle(vec2)*180./PI; //angle between hits
+          if((angle >= 170)&&(angle <= 190)){
+            //printf("Angle: %f\n",angle);
+            //coincidence at 180 degrees
+            int eGamma2 = (int)(sortedEvt.tigHit[tigHitIndAB2].energy/keVPerBin);
+            if(eGamma2>=0 && eGamma2<S32K){
+              double theta1 = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg).Theta()*180./PI;
+              double theta2 = getTigVector(sortedEvt.tigHit[tigHitIndAB2].core,sortedEvt.tigHit[tigHitIndAB2].seg).Theta()*180./PI;
+              mcaOut[getTIGRESSRing(theta1)+1][eGamma]++;
+              mcaOut[getTIGRESSSegmentRing(theta1)+7][eGamma]++;
+              mcaOut[0][eGamma]++;
+              mcaOut[getTIGRESSRing(theta2)+1][eGamma]++;
+              mcaOut[getTIGRESSSegmentRing(theta2)+7][eGamma]++;
+              mcaOut[0][eGamma]++;
+            }
+          }
         }
       }
-      
     }
 
     if (jentry % 1000 == 0)
@@ -68,12 +81,12 @@ void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
 
 int main(int argc, char **argv){
 
-  EGamma_mca_SMOL *mysort = new EGamma_mca_SMOL();
+  EGamma_only180degcoinc_mca_SMOL *mysort = new EGamma_only180degcoinc_mca_SMOL();
 
   const char *sfile;
   const char *outfile;
   double keVPerBin = 1.0;
-  printf("Starting EGamma_mca_SMOL\n");
+  printf("Starting EGamma_only180degcoinc_mca_SMOL\n");
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
   if(grsi_path.length() > 0){
     grsi_path += "/";
@@ -84,15 +97,16 @@ int main(int argc, char **argv){
   TParserLibrary::Get()->Load();
 
   if((argc != 3)&&(argc != 4)){
-    cout << "Generates TIGRESS mca spectra." << endl;
-    cout << "Arguments: EGamma_mca_SMOL smol_file output_file keV_per_bin" << endl;
+    cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
+    cout << "Only gammas in 180-degree coincidence with another gamma will be included." << endl;
+    cout << "Arguments: EGamma_only180degcoinc_mca_SMOL smol_file output_file keV_per_bin" << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     return 0;
   }else{
     sfile = argv[1];
     outfile = argv[2];
     if(argc > 3){
-      keVPerBin = atof(argv[3]);
+      keVPerBin = atof(argv[4]);
     }
   }
 

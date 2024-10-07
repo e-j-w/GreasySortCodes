@@ -1,13 +1,14 @@
 //Generates TIGRESS gamma ray spectra for PID and time separated data
 //timing windows are defined in common.h
+//PID gates in common.cxx
 
-#define EGamma_mca_SMOL_cxx
+#define EGammaEDopp_noAB_mca_SMOL_cxx
 #include "common.h"
-#include "EGamma_mca_SMOL.h"
+#include "EGammaEDopp_noAB_mca_SMOL.h"
 
 using namespace std;
 
-void EGamma_mca_SMOL::WriteData(const char* outName){
+void EGammaEDopp_noAB_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -22,7 +23,7 @@ void EGamma_mca_SMOL::WriteData(const char* outName){
 
 }
 
-void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
+void EGammaEDopp_noAB_mca_SMOL::SortData(char const *sfile, const double eLow, const double eHigh, const double keVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -41,18 +42,24 @@ void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
       exit(-1);
     }
 
-    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
-
-      if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
-        int eGamma = (int)(sortedEvt.tigHit[tigHitIndAB].energy/keVPerBin);
-        if(eGamma>=0 && eGamma<S32K){
-          double theta = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg).Theta()*180./PI;
-          mcaOut[getTIGRESSRing(theta)+1][eGamma]++;
-          mcaOut[getTIGRESSSegmentRing(theta)+7][eGamma]++;
-          mcaOut[0][eGamma]++;
-        }
-      }
+    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
+      int eGamma = (int)(sortedEvt.noABHit[tigHitInd].energy/keVPerBin);
       
+      if((eGamma >= eLow)&&(eGamma <= eHigh)){
+        for(int tigHitInd2 = 0; tigHitInd2 < sortedEvt.header.numNoABHits; tigHitInd2++){
+          if(tigHitInd2 != tigHitInd){
+            int eDopp = (int)(getEDoppFusEvapDirect(&sortedEvt.noABHit[tigHitInd2],sortedEvt.header.numCsIHits,sortedEvt.csiHit,gates));
+            if(eDopp>=0 && eDopp<S32K){
+              double theta = getTigVector(sortedEvt.noABHit[tigHitInd2].core,sortedEvt.noABHit[tigHitInd2].seg).Theta()*180./PI;
+              mcaOut[getTIGRESSRing(theta)+1][eDopp]++;
+              mcaOut[getTIGRESSSegmentRing(theta)+7][eDopp]++;
+              mcaOut[0][eDopp]++;
+            }
+          }
+        }
+        break;
+      }
+
     }
 
     if (jentry % 1000 == 0)
@@ -68,12 +75,13 @@ void EGamma_mca_SMOL::SortData(char const *sfile, double keVPerBin){
 
 int main(int argc, char **argv){
 
-  EGamma_mca_SMOL *mysort = new EGamma_mca_SMOL();
+  EGammaEDopp_noAB_mca_SMOL *mysort = new EGammaEDopp_noAB_mca_SMOL();
 
   const char *sfile;
   const char *outfile;
   double keVPerBin = 1.0;
-  printf("Starting EGamma_mca_SMOL\n");
+  double eLow, eHigh;
+  printf("Starting EGammaEDopp_noAB_mca_SMOL\n");
   std::string grsi_path = getenv("GRSISYS"); // Finds the GRSISYS path to be used by other parts of the grsisort code
   if(grsi_path.length() > 0){
     grsi_path += "/";
@@ -83,16 +91,18 @@ int main(int argc, char **argv){
   gEnv->ReadFile(grsi_path.c_str(), kEnvChange);
   TParserLibrary::Get()->Load();
 
-  if((argc != 3)&&(argc != 4)){
-    cout << "Generates TIGRESS mca spectra." << endl;
-    cout << "Arguments: EGamma_mca_SMOL smol_file output_file keV_per_bin" << endl;
+  if((argc != 5)&&(argc != 6)){
+    cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
+    cout << "Arguments: EGammaEDopp_noAB_mca_SMOL smol_file EGammaGateLow EGammaGateHigh output_file keV_per_bin" << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     return 0;
   }else{
     sfile = argv[1];
-    outfile = argv[2];
-    if(argc > 3){
-      keVPerBin = atof(argv[3]);
+    eLow = atof(argv[2]);
+    eHigh = atof(argv[3]);
+    outfile = argv[4];
+    if(argc > 5){
+      keVPerBin = atof(argv[5]);
     }
   }
 
@@ -101,14 +111,23 @@ int main(int argc, char **argv){
     return 0;
   }
 
+  if(eLow > eHigh){
+    //swap energy gate bounds
+    double tmp = eHigh;
+    eHigh = eLow;
+    eLow = tmp;
+  }
+
   memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
+  gates = new PIDGates;
 
   //single analysis tree
   cout << "SMOL tree: " << sfile << endl;
+  cout << "Energy gate: [" << eLow << " " << eHigh << "]" << endl;
   cout << "Output file: " << outfile << endl;
   cout << "Written spectra will have " << keVPerBin << " keV per bin." << endl;
 
-  mysort->SortData(sfile, keVPerBin);
+  mysort->SortData(sfile, eLow, eHigh, keVPerBin);
   
   mysort->WriteData(outfile);
 
