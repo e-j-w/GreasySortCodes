@@ -44,32 +44,6 @@ bool gate1D(const double value, const double min, const double max){
     return false;
 }
 
-int getTIPRing(const int tipPosition){
-  if((tipPosition < 1)||(tipPosition > 128)){
-    cout << "Invalid TIP position: " << tipPosition << endl;
-    return 0;
-  }else if(tipPosition <= 4){
-    return 0;
-  }else if(tipPosition <= 10){
-    return 1;
-  }else if(tipPosition <= 22){
-    return 2;
-  }else if(tipPosition <= 38){
-    return 3;
-  }else if(tipPosition <= 58){
-    return 4;
-  }else if(tipPosition <= 76){
-    return 5;
-  }else if(tipPosition <= 94){
-    return 6;
-  }else if(tipPosition <= 108){
-    return 7;
-  }else if(tipPosition <= 120){
-    return 8;
-  }else{
-    return 9;
-  }
-}
 
 int getTIGRESSRing(const float theta){
   if((theta < 0.0f)||(theta > 180.0f)){

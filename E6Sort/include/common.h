@@ -10,26 +10,19 @@
 
 using namespace std;
 
-#define NTIP 128 //number of TIP channels
-#define NTIPRING 10 //number of TIP rings
 #define NTIGRING 6 //number of TIGRESS rings
 #define NTIGSEGRING 13 //number of TIGRESS segment rings (last ring contains hits with no segments)
 #define NTIGPOS 16 //number of TIGRESS positions (clovers)
 
 #define MAX_NUM_PARTICLE 4 //maximum particle multiplicity
 
-#define MAXNUMTIPHIT 30 //maximum number of TIP hits per event
-#define MAXNUMTIGHIT 30 //maximum number of TIGRESS hits per event
+#define MAXNUMHPGEHIT 32 //maximum number of HPGe hits per event
 
 #define AMU 931.4941 //atomic mass unit, MeV/c^2
 
 #define S32K 32768 //maximum number of channels per spectrum in .mca and .fmca (changing breaks file compatibility)
 
-#define TIPTIPFLAG 61
-#define TIGTIGFLAG 62
-#define TIPTIGFLAG 63
-
-#define MIN_TIG_EAB 15 //minimum TIGRESS energy (in keV) for addback
+#define MIN_HPGE_EAB 15 //minimum HPGe energy (in keV) for addback
 
 #define PI 3.14159265359
 
@@ -38,7 +31,7 @@ using namespace std;
 
 //timing windows
 //static Double_t tigtigTGate[2] = {-15, 5}; // super narrow TIGRESS - TIGRESS timing window (ns)
-static Double_t tigtigTGate[2] = {-20, 20}; // narrow TIGRESS - TIGRESS timing window (ns)
+static Double_t hpgehpgeTGate[2] = {-20, 20}; // narrow TIGRESS - TIGRESS timing window (ns)
 static Double_t tigBGOTGate[2] = {0, 380}; // TIGRESS - BGO timing window (ns)
 
 //FUNCTION PROTOTYPES

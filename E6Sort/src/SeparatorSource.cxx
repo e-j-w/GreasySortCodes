@@ -22,22 +22,23 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
   long int analentries = AnalysisTree->GetEntries();
 
   TTigress *tigress = 0;
+  TGriffin *griffin = 0;
+  TGriffinBgo *griffin_bgo = 0;
   if(AnalysisTree->FindBranch("TTigress")){
     AnalysisTree->SetBranchAddress("TTigress", &tigress);
+  }else if(AnalysisTree->FindBranch("TGriffin")){
+    AnalysisTree->SetBranchAddress("TGriffin", &griffin);
   }else{
-    cout << "ERROR: Branch 'TTigress' not found! TTigress variable is NULL pointer" << endl;
+    cout << "ERROR: Neither 'TTigress' or 'TGriffin' branches were found!" << endl;
     return 0;
   }
 
-  TTip *tip = 0;
-  if(AnalysisTree->FindBranch("TTip")){
-    AnalysisTree->SetBranchAddress("TTip", &tip);
-  }else{
-    cout << "No TIP data present." << endl;
+  if(AnalysisTree->FindBranch("TGriffinBgo")){
+    AnalysisTree->SetBranchAddress("TGriffinBgo", &griffin_bgo);
   }
 
   TTigressHit *add_hit, *noAB_hit;
-  TTipHit *tip_hit;
+  TGriffinHit *add_hit_grif, *noAB_hit_grif;
   sorted_evt sortedEvt;
   uint8_t footerVal = 227U;
 
@@ -54,22 +55,18 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
       continue;
     }
 
-    if(tip && (tip->GetMultiplicity()>0)){
-      continue;
-    }
-
     if(tigress){
 
       tigress->ResetAddback();
 
-      if((tigress->GetMultiplicity()>MAXNUMTIGHIT)||(tigress->GetMultiplicity()>MAX_EVT_HIT)){
+      if((tigress->GetMultiplicity()>MAXNUMHPGEHIT)||(tigress->GetMultiplicity()>MAX_EVT_HIT)){
         cout << "WARNING: event " << jentry << " has too many TIGRESS hits (" << tigress->GetMultiplicity() << ")!" << endl;
         continue;
       }else{
 
         memset(&sortedEvt,0,sizeof(sorted_evt));
         
-        uint8_t numTigHits = 0;
+        uint8_t numABHits = 0;
         uint8_t numNoABHits = 0;
         uint8_t suppressorFired = 0;
         for(int i = 0; i<tigress->GetMultiplicity();i++){
@@ -96,31 +93,101 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
             if(sortedEvt.header.evtTimeNs == 0){
               sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
             }
-            sortedEvt.tigHit[numTigHits].energy = (float)add_hit->GetEnergy();
-            sortedEvt.tigHit[numTigHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
-            sortedEvt.tigHit[numTigHits].core = (uint8_t)add_hit->GetArrayNumber();
-            sortedEvt.tigHit[numTigHits].seg = (uint8_t)add_hit->GetFirstSeg();
-            numTigHits++;
+            sortedEvt.ABHit[numABHits].energy = (float)add_hit->GetEnergy();
+            sortedEvt.ABHit[numABHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
+            sortedEvt.ABHit[numABHits].core = (uint8_t)add_hit->GetArrayNumber();
+            sortedEvt.ABHit[numABHits].seg = (uint8_t)add_hit->GetFirstSeg();
+            numABHits++;
           }
           if(add_hit->BGOFired()){
             suppressorFired = 1;
           }
         }
 
-        sortedEvt.header.numTigHits = numTigHits;
+        sortedEvt.header.numABHits = numABHits;
         sortedEvt.header.numNoABHits = numNoABHits;
-        sortedEvt.header.numCsIHits = (uint8_t)0;
         sortedEvt.header.metadata = (uint8_t)0;
         if(suppressorFired){
-          sortedEvt.header.metadata |= (uint8_t)(1U << 1);
+          sortedEvt.header.metadata |= (uint8_t)(1U << 0);
         }
         fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
 
-        for(int i = 0; i<numTigHits;i++){
-          fwrite(&sortedEvt.tigHit[i],sizeof(tig_hit),1,out);
+        for(int i = 0; i<numABHits;i++){
+          fwrite(&sortedEvt.ABHit[i],sizeof(hpge_hit),1,out);
         }
         for(int i = 0; i<numNoABHits;i++){
-          fwrite(&sortedEvt.noABHit[i],sizeof(tig_hit),1,out);
+          fwrite(&sortedEvt.noABHit[i],sizeof(hpge_hit),1,out);
+        }
+        //write footer value
+        fwrite(&footerVal,sizeof(uint8_t),1,out);
+        
+        numSeparatedEvents++;
+
+      }
+
+    }else if(griffin && griffin_bgo){
+
+      griffin->ResetAddback();
+
+      if((griffin->GetMultiplicity()>MAXNUMHPGEHIT)||(griffin->GetMultiplicity()>MAX_EVT_HIT)){
+        cout << "WARNING: event " << jentry << " has too many GRIFFIN hits (" << griffin->GetMultiplicity() << ")!" << endl;
+        continue;
+      }else{
+
+        memset(&sortedEvt,0,sizeof(sorted_evt));
+        
+        uint8_t numABHits = 0;
+        uint8_t numNoABHits = 0;
+        uint8_t suppressorFired = 0;
+        uint64_t suppressorHitmap = 0;
+
+        for(int i = 0; i<griffin->GetSuppressedMultiplicity(griffin_bgo);i++){
+          if(i<MAX_EVT_HIT){
+            noAB_hit_grif = griffin->GetSuppressedHit(i);
+            if(noAB_hit_grif->GetEnergy() > 0){
+              if(sortedEvt.header.evtTimeNs == 0){
+                sortedEvt.header.evtTimeNs = (double)noAB_hit_grif->GetTime();
+              }
+              sortedEvt.noABHit[numNoABHits].energy = (float)noAB_hit_grif->GetEnergy();
+              sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(noAB_hit_grif->GetTime() - sortedEvt.header.evtTimeNs);
+              sortedEvt.noABHit[numNoABHits].core = (uint8_t)(noAB_hit_grif->GetArrayNumber() + 63); //offset to indicate that this hit is GRIFFIN rather than TIGRESS, taking into account that GRIFFIN array number is 1-indexed while TIGRESS is 0-indexed
+              sortedEvt.noABHit[numNoABHits].seg = (uint8_t)0;
+              numNoABHits++;
+            }
+          }
+        }
+        for(int i = 0; i<griffin->GetSuppressedAddbackMultiplicity(griffin_bgo);i++){
+          add_hit_grif = griffin->GetSuppressedAddbackHit(i);
+          if(add_hit_grif->GetEnergy() > 0){
+            if(sortedEvt.header.evtTimeNs == 0){
+              sortedEvt.header.evtTimeNs = (double)add_hit_grif->GetTime();
+            }
+            sortedEvt.ABHit[numABHits].energy = (float)add_hit_grif->GetEnergy();
+            sortedEvt.ABHit[numABHits].timeOffsetNs = (float)(add_hit_grif->GetTime() - sortedEvt.header.evtTimeNs);
+            sortedEvt.ABHit[numABHits].core = (uint8_t)(add_hit_grif->GetArrayNumber() + 63); //offset to indicate that this hit is GRIFFIN rather than TIGRESS, taking into account that GRIFFIN array number is 1-indexed while TIGRESS is 0-indexed
+            sortedEvt.ABHit[numABHits].seg = (uint8_t)0;
+            numABHits++;
+          }
+        }
+
+        sortedEvt.header.numABHits = numABHits;
+        sortedEvt.header.numNoABHits = numNoABHits;
+        sortedEvt.header.metadata = (uint8_t)0;
+        if(griffin_bgo->GetMultiplicity() > 0){
+          //at least one suppressor fired
+          sortedEvt.header.metadata |= (uint8_t)(1U << 0);
+        }
+        fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
+        //write hits, without segment data (no segments for GRIFFIN)
+        for(int i = 0; i<numABHits;i++){
+          fwrite(&sortedEvt.ABHit[i].energy,sizeof(float),1,out);
+          fwrite(&sortedEvt.ABHit[i].timeOffsetNs,sizeof(float),1,out);
+          fwrite(&sortedEvt.ABHit[i].core,sizeof(uint8_t),1,out);
+        }
+        for(int i = 0; i<numNoABHits;i++){
+          fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
+          fwrite(&sortedEvt.noABHit[i].timeOffsetNs,sizeof(float),1,out);
+          fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
         }
         //write footer value
         fwrite(&footerVal,sizeof(uint8_t),1,out);

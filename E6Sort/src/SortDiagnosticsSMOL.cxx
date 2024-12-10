@@ -41,59 +41,71 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
       cout << "ERROR: bad event data in entry " << jentry << "." << endl;
       exit(-1);
     }
+
+    //correct GRIFFIN cores
+    for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+      if(sortedEvt.noABHit[noABHitInd].core >= 64){
+        sortedEvt.noABHit[noABHitInd].core = (uint8_t)(sortedEvt.noABHit[noABHitInd].core - 64);
+      }
+    }
+    for(int ABHitInd = 0; ABHitInd < sortedEvt.header.numABHits; ABHitInd++){
+      if(sortedEvt.ABHit[ABHitInd].core >= 64){
+        sortedEvt.ABHit[ABHitInd].core = (uint8_t)(sortedEvt.ABHit[ABHitInd].core - 64);
+      }
+    }
     
-    for (int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
-      if(sortedEvt.noABHit[tigHitInd].energy > MIN_TIG_EAB){
-        tigE->Fill(sortedEvt.noABHit[tigHitInd].energy);
-        tigE_ANum->Fill(sortedEvt.noABHit[tigHitInd].core, sortedEvt.noABHit[tigHitInd].energy);
+    for (int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+      if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
+        hpgeE->Fill(sortedEvt.noABHit[noABHitInd].energy);
+        hpgeE_ANum->Fill(sortedEvt.noABHit[noABHitInd].core, sortedEvt.noABHit[noABHitInd].energy);
       }
     }
 
-    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
+    for(int ABHitInd = 0; ABHitInd < sortedEvt.header.numABHits; ABHitInd++){
 
-      //cout << "energy: " << sortedEvt.tigHit[tigHitIndAB].energy << ", array num: " << sortedEvt.tigHit[tigHitIndAB].core << ", address: " << sortedEvt.tigHit[tigHitIndAB]->GetAddress() << endl;
+      //cout << "energy: " << sortedEvt.ABHit[ABHitInd].energy << ", array num: " << sortedEvt.ABHit[ABHitInd].core << ", address: " << sortedEvt.ABHit[ABHitInd]->GetAddress() << endl;
 
       numTigressABHits++;
 
-      if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
-        addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy);
-        tigRate->Fill(tigHitTime(&sortedEvt,tigHitIndAB)/pow(10,9));
-        tigNum_time->Fill(tigHitTime(&sortedEvt,tigHitIndAB)/pow(10,9),sortedEvt.tigHit[tigHitIndAB].core);
-        //cout << "hit " << tigHitIndAB << ", Anum: " << sortedEvt.tigHit[tigHitIndAB].core << ", energy: " << sortedEvt.tigHit[tigHitIndAB].energy << endl;
-        addE_ANum->Fill(sortedEvt.tigHit[tigHitIndAB].core, sortedEvt.tigHit[tigHitIndAB].energy);
-        TVector3 tigVec = getTigVector(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB].seg);
+      if(sortedEvt.ABHit[ABHitInd].energy > MIN_HPGE_EAB){
+        addE->Fill(sortedEvt.ABHit[ABHitInd].energy);
+        hpgeRate->Fill(ABHitTime(&sortedEvt,ABHitInd)/pow(10,9));
+        hpgeNum_time->Fill(ABHitTime(&sortedEvt,ABHitInd)/pow(10,9),sortedEvt.ABHit[ABHitInd].core);
+        //cout << "hit " << ABHitInd << ", Anum: " << sortedEvt.ABHit[ABHitInd].core << ", energy: " << sortedEvt.ABHit[ABHitInd].energy << endl;
+        addE_ANum->Fill(sortedEvt.ABHit[ABHitInd].core, sortedEvt.ABHit[ABHitInd].energy);
+        TVector3 tigVec = getTigVector(sortedEvt.ABHit[ABHitInd].core,sortedEvt.ABHit[ABHitInd].seg);
         //tigVec.SetZ(tigVec.Z() - 5.0); //target position offset
         double theta = tigVec.Theta()*180./PI;
         double phi = tigVec.Phi()*180./PI;
-        addE_theta->Fill(theta, sortedEvt.tigHit[tigHitIndAB].energy);
-        addE_phi->Fill(phi, sortedEvt.tigHit[tigHitIndAB].energy);
+        addE_theta->Fill(theta, sortedEvt.ABHit[ABHitInd].energy);
+        addE_phi->Fill(phi, sortedEvt.ABHit[ABHitInd].energy);
         theta_phi->Fill(theta, phi);
         //fill ring spectra
-        addE_ring[getTIGRESSRing(theta)]->Fill(sortedEvt.tigHit[tigHitIndAB].energy);
+        addE_ring[getTIGRESSRing(theta)]->Fill(sortedEvt.ABHit[ABHitInd].energy);
       }
       
     }
 
     //evaluate non-addback timing conditions
-    for(int tigHitInd = 0; tigHitInd < sortedEvt.header.numNoABHits; tigHitInd++){
+    for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
 
-      if(sortedEvt.noABHit[tigHitInd].energy > MIN_TIG_EAB){
+      if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
 
         //TIG-TIG timing, position, and energy
-        for(int tigHitInd2 = tigHitInd+1; tigHitInd2 < sortedEvt.header.numNoABHits; tigHitInd2++){
-          if(sortedEvt.noABHit[tigHitInd2].energy > MIN_TIG_EAB){
-            Double_t tDiff = noABHitTime(&sortedEvt,tigHitInd) - noABHitTime(&sortedEvt,tigHitInd2);
-            tigT_tigT->Fill(tDiff);
-            tigE_tigE->Fill(sortedEvt.noABHit[tigHitInd].energy,sortedEvt.noABHit[tigHitInd2].energy);
-            tigE_tigE->Fill(sortedEvt.noABHit[tigHitInd2].energy,sortedEvt.noABHit[tigHitInd].energy); //symmetrized
-            if((tDiff >= tigtigTGate[0])&&(tDiff <= tigtigTGate[1])){
-              tigT_tigT_tsep->Fill(tDiff);
-              tigE_tigE_tsep->Fill(sortedEvt.noABHit[tigHitInd].energy,sortedEvt.noABHit[tigHitInd2].energy);
-              tigE_tigE_tsep->Fill(sortedEvt.noABHit[tigHitInd2].energy,sortedEvt.noABHit[tigHitInd].energy); //symmetrized
+        for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+          if(sortedEvt.noABHit[noABHitInd2].energy > MIN_HPGE_EAB){
+            Double_t tDiff = noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2);
+            hpgeT_hpgeT->Fill(tDiff);
+            hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
+            hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
+            if((tDiff >= hpgehpgeTGate[0])&&(tDiff <= hpgehpgeTGate[1])){
+              hpgeT_hpgeT_tsep->Fill(tDiff);
+              hpgeE_hpgeE_tsep->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
+              hpgeE_hpgeE_tsep->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
               if(sortedEvt.header.numNoABHits == 2){
-                tigT_tigT_tsepmult2->Fill(tDiff);
-                tigE_tigE_tsepmult2->Fill(sortedEvt.noABHit[tigHitInd].energy,sortedEvt.noABHit[tigHitInd2].energy);
-                tigE_tigE_tsepmult2->Fill(sortedEvt.noABHit[tigHitInd2].energy,sortedEvt.noABHit[tigHitInd].energy); //symmetrized
+                hpgeT_hpgeT_tsepmult2->Fill(tDiff);
+                hpgeE_hpgeE_tsepmult2->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
+                hpgeE_hpgeE_tsepmult2->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
               }
             }
           }
@@ -102,26 +114,26 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
     }
 
     //evaluate addback timing conditions
-    for(int tigHitIndAB = 0; tigHitIndAB < sortedEvt.header.numTigHits; tigHitIndAB++){
+    for(int ABHitInd = 0; ABHitInd < sortedEvt.header.numABHits; ABHitInd++){
 
-      if(sortedEvt.tigHit[tigHitIndAB].energy > MIN_TIG_EAB){
+      if(sortedEvt.ABHit[ABHitInd].energy > MIN_HPGE_EAB){
 
         //TIG-TIG timing, position, and energy
-        for(int tigHitIndAB2 = tigHitIndAB+1; tigHitIndAB2 < sortedEvt.header.numTigHits; tigHitIndAB2++){
-          if(sortedEvt.tigHit[tigHitIndAB2].energy > MIN_TIG_EAB){
-            Double_t tDiff = tigHitTime(&sortedEvt,tigHitIndAB) - tigHitTime(&sortedEvt,tigHitIndAB2);
+        for(int ABHitInd2 = ABHitInd+1; ABHitInd2 < sortedEvt.header.numABHits; ABHitInd2++){
+          if(sortedEvt.ABHit[ABHitInd2].energy > MIN_HPGE_EAB){
+            Double_t tDiff = ABHitTime(&sortedEvt,ABHitInd) - ABHitTime(&sortedEvt,ABHitInd2);
             addT_addT->Fill(tDiff);
-            addE_addE->Fill(sortedEvt.tigHit[tigHitIndAB].energy,sortedEvt.tigHit[tigHitIndAB2].energy);
-            addE_addE->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,sortedEvt.tigHit[tigHitIndAB].energy); //symmetrized
-            tigPos_tigPos->Fill(sortedEvt.tigHit[tigHitIndAB].core,sortedEvt.tigHit[tigHitIndAB2].core);
-            if((tDiff >= tigtigTGate[0])&&(tDiff <= tigtigTGate[1])){
+            addE_addE->Fill(sortedEvt.ABHit[ABHitInd].energy,sortedEvt.ABHit[ABHitInd2].energy);
+            addE_addE->Fill(sortedEvt.ABHit[ABHitInd2].energy,sortedEvt.ABHit[ABHitInd].energy); //symmetrized
+            hpgePos_hpgePos->Fill(sortedEvt.ABHit[ABHitInd].core,sortedEvt.ABHit[ABHitInd2].core);
+            if((tDiff >= hpgehpgeTGate[0])&&(tDiff <= hpgehpgeTGate[1])){
               addT_addT_tsep->Fill(tDiff);
-              addE_addE_tsep->Fill(sortedEvt.tigHit[tigHitIndAB].energy,sortedEvt.tigHit[tigHitIndAB2].energy);
-              addE_addE_tsep->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,sortedEvt.tigHit[tigHitIndAB].energy); //symmetrized
-              if(sortedEvt.header.numTigHits == 2){
+              addE_addE_tsep->Fill(sortedEvt.ABHit[ABHitInd].energy,sortedEvt.ABHit[ABHitInd2].energy);
+              addE_addE_tsep->Fill(sortedEvt.ABHit[ABHitInd2].energy,sortedEvt.ABHit[ABHitInd].energy); //symmetrized
+              if(sortedEvt.header.numABHits == 2){
                 addT_addT_tsepmult2->Fill(tDiff);
-                addE_addE_tsepmult2->Fill(sortedEvt.tigHit[tigHitIndAB].energy,sortedEvt.tigHit[tigHitIndAB2].energy);
-                addE_addE_tsepmult2->Fill(sortedEvt.tigHit[tigHitIndAB2].energy,sortedEvt.tigHit[tigHitIndAB].energy); //symmetrized
+                addE_addE_tsepmult2->Fill(sortedEvt.ABHit[ABHitInd].energy,sortedEvt.ABHit[ABHitInd2].energy);
+                addE_addE_tsepmult2->Fill(sortedEvt.ABHit[ABHitInd2].energy,sortedEvt.ABHit[ABHitInd].energy); //symmetrized
               }
             }
           }
@@ -134,16 +146,16 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
   } // analysis tree
 
   cout << "Entry " << sentries << " of " << sentries << ", 100% complete" << endl;
-  cout << "Number of TIGRESS addback hits: " << numTigressABHits << endl;
+  cout << "Number of HPGe addback hits: " << numTigressABHits << endl;
   cout << endl << "Event sorting complete" << endl;
 
   cout << "Writing histograms to " << outfile << endl;
 
   TFile *myfile = new TFile(outfile, "RECREATE");
   myfile->cd();
-  TDirectory *tigdir = myfile->mkdir("TIGRESS");
-  tigdir->cd();
-  tigList->Write();
+  TDirectory *hpgedir = myfile->mkdir("HPGe");
+  hpgedir->cd();
+  hpgeList->Write();
   myfile->cd();
 
   TDirectory *timingdir = myfile->mkdir("Timing");
@@ -151,9 +163,9 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
   timingList->Write();
   myfile->cd();
 
-  TDirectory *tigtigdir = myfile->mkdir("TIGRESS_TIGRESS");
-  tigtigdir->cd();
-  tigtigList->Write();
+  TDirectory *hpgehpgedir = myfile->mkdir("HPGe_HPGe");
+  hpgehpgedir->cd();
+  hpgehpgeList->Write();
   myfile->cd();
 
   myfile->Write();
@@ -171,7 +183,7 @@ int main(int argc, char **argv)
 
   // Input-chain-file, output-histogram-file
   if (argc == 1){
-    cout << "Code sorts a bunch of diagnostic histograms for online TIP+TIGRESS data" << endl;
+    cout << "Code sorts a bunch of diagnostic histograms for online HPGe data" << endl;
     cout << "Arguments: SortDiagnosticsSMOL smol_file output_file" << endl;
     cout << "Default values will be used if arguments (other than SMOL file) are omitted." << endl;
     return 0;

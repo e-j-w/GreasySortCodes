@@ -13,3 +13,4 @@ octave*
 *~
 .nfs*
 *.root
+*.o
