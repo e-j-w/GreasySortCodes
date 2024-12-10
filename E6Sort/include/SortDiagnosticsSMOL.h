@@ -62,10 +62,10 @@ void SortDiagnosticsS::Initialise() {
   //histogram names shouldn't use spaces, to aid GRSISort-based analysis
 
   //Raw HPGe Spectra
-  hpgeNum_time = new TH2F("Tigress_Array_Number_vs_Time","Tigress Array Number vs Time;Time (s);Array Number",3600,0,3600,64,0,64);
+  hpgeNum_time = new TH2F("HPGe_Array_Number_vs_Time","HPGe Array Number vs Time;Time (s);Array Number",3600,0,3600,64,0,64);
   hpgeNum_time->GetXaxis()->SetTitle("Run Time (s)");
   hpgeList->Add(hpgeNum_time);
-  hpgeE = new TH1F("HPGe_Energy", "Tigress Energy (non-addback)", 16384, 0, 8192);
+  hpgeE = new TH1F("HPGe_Energy", "HPGe Energy (non-addback)", 16384, 0, 8192);
   hpgeList->Add(hpgeE);
   hpgeE_ANum = new TH2F("HPGe_Energy_vs_Array_Number", "HPGe Energy vs. Array Number", 64, 0, 64, 8192, 0, 8192);
   hpgeList->Add(hpgeE_ANum);
@@ -96,19 +96,19 @@ void SortDiagnosticsS::Initialise() {
   hpgeList->Add(hpgeRate);
 
   //Timing spectra
-  hpgeT_hpgeT = new TH1F("Tigress_Tigress_time","Tigress - Tigress time",4096,-2048,2048); 
+  hpgeT_hpgeT = new TH1F("HPGe_HPGe_time","HPGe - HPGe time",4096,-2048,2048); 
   hpgeT_hpgeT->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
   timingList->Add(hpgeT_hpgeT);
   addT_addT = new TH1F("Addback_Addback_time","Addback - Addback time",4096,-2048,2048); 
   addT_addT->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
   timingList->Add(addT_addT);
-  hpgeT_hpgeT_tsep = new TH1F("Tigress_Tigress_time_tsep","Tigress - Tigress time, time separated",4096,-2048,2048); 
+  hpgeT_hpgeT_tsep = new TH1F("HPGe_HPGe_time_tsep","HPGe - HPGe time, time separated",4096,-2048,2048); 
   hpgeT_hpgeT_tsep->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
   timingList->Add(hpgeT_hpgeT_tsep);
   addT_addT_tsep = new TH1F("Addback_Addback_time_tsep","Addback - Addback time, time separated",4096,-2048,2048); 
   addT_addT_tsep->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
   timingList->Add(addT_addT_tsep);
-  hpgeT_hpgeT_tsepmult2 = new TH1F("Tigress_Tigress_time_tsepmult2","Tigress - Tigress time, time separated multiplicity 2",4096,-2048,2048); 
+  hpgeT_hpgeT_tsepmult2 = new TH1F("HPGe_HPGe_time_tsepmult2","HPGe - HPGe time, time separated multiplicity 2",4096,-2048,2048); 
   hpgeT_hpgeT_tsepmult2->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
   timingList->Add(hpgeT_hpgeT_tsepmult2);
   addT_addT_tsepmult2 = new TH1F("Addback_Addback_time_tsepmult2","Addback - Addback time, time separated multiplicity 2",4096,-2048,2048); 

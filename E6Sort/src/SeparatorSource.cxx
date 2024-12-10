@@ -26,8 +26,10 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
   TGriffinBgo *griffin_bgo = 0;
   if(AnalysisTree->FindBranch("TTigress")){
     AnalysisTree->SetBranchAddress("TTigress", &tigress);
+    cout << "Sorting TIGRESS data." << endl;
   }else if(AnalysisTree->FindBranch("TGriffin")){
     AnalysisTree->SetBranchAddress("TGriffin", &griffin);
+    cout << "Sorting GRIFFIN data." << endl;
   }else{
     cout << "ERROR: Neither 'TTigress' or 'TGriffin' branches were found!" << endl;
     return 0;
@@ -35,6 +37,7 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
 
   if(AnalysisTree->FindBranch("TGriffinBgo")){
     AnalysisTree->SetBranchAddress("TGriffinBgo", &griffin_bgo);
+    cout << "GRIFFIN BGO data is present." << endl;
   }
 
   TTigressHit *add_hit, *noAB_hit;
@@ -79,6 +82,10 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
               sortedEvt.noABHit[numNoABHits].energy = (float)noAB_hit->GetEnergy();
               sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(noAB_hit->GetTime() - sortedEvt.header.evtTimeNs);
               sortedEvt.noABHit[numNoABHits].core = (uint8_t)noAB_hit->GetArrayNumber();
+              if(sortedEvt.ABHit[numNoABHits].core >= 64){
+                cout << "WARNING: invalid TIGRESS core: " << sortedEvt.ABHit[numABHits].core << endl;
+                continue;
+              }
               sortedEvt.noABHit[numNoABHits].seg = (uint8_t)noAB_hit->GetFirstSeg();
               numNoABHits++;
             }
@@ -96,6 +103,10 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
             sortedEvt.ABHit[numABHits].energy = (float)add_hit->GetEnergy();
             sortedEvt.ABHit[numABHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
             sortedEvt.ABHit[numABHits].core = (uint8_t)add_hit->GetArrayNumber();
+            if(sortedEvt.ABHit[numABHits].core >= 64){
+              cout << "WARNING: invalid TIGRESS core: " << sortedEvt.ABHit[numABHits].core << endl;
+              continue;
+            }
             sortedEvt.ABHit[numABHits].seg = (uint8_t)add_hit->GetFirstSeg();
             numABHits++;
           }
@@ -113,10 +124,16 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
         fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
 
         for(int i = 0; i<numABHits;i++){
-          fwrite(&sortedEvt.ABHit[i],sizeof(hpge_hit),1,out);
+          fwrite(&sortedEvt.ABHit[i].timeOffsetNs,sizeof(float),1,out);
+          fwrite(&sortedEvt.ABHit[i].energy,sizeof(float),1,out);
+          fwrite(&sortedEvt.ABHit[i].core,sizeof(uint8_t),1,out);
+          fwrite(&sortedEvt.ABHit[i].seg,sizeof(uint8_t),1,out);
         }
         for(int i = 0; i<numNoABHits;i++){
-          fwrite(&sortedEvt.noABHit[i],sizeof(hpge_hit),1,out);
+          fwrite(&sortedEvt.noABHit[i].timeOffsetNs,sizeof(float),1,out);
+          fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
+          fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
+          fwrite(&sortedEvt.noABHit[i].seg,sizeof(uint8_t),1,out);
         }
         //write footer value
         fwrite(&footerVal,sizeof(uint8_t),1,out);
@@ -151,7 +168,6 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
               sortedEvt.noABHit[numNoABHits].energy = (float)noAB_hit_grif->GetEnergy();
               sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(noAB_hit_grif->GetTime() - sortedEvt.header.evtTimeNs);
               sortedEvt.noABHit[numNoABHits].core = (uint8_t)(noAB_hit_grif->GetArrayNumber() + 63); //offset to indicate that this hit is GRIFFIN rather than TIGRESS, taking into account that GRIFFIN array number is 1-indexed while TIGRESS is 0-indexed
-              sortedEvt.noABHit[numNoABHits].seg = (uint8_t)0;
               numNoABHits++;
             }
           }
@@ -165,7 +181,6 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
             sortedEvt.ABHit[numABHits].energy = (float)add_hit_grif->GetEnergy();
             sortedEvt.ABHit[numABHits].timeOffsetNs = (float)(add_hit_grif->GetTime() - sortedEvt.header.evtTimeNs);
             sortedEvt.ABHit[numABHits].core = (uint8_t)(add_hit_grif->GetArrayNumber() + 63); //offset to indicate that this hit is GRIFFIN rather than TIGRESS, taking into account that GRIFFIN array number is 1-indexed while TIGRESS is 0-indexed
-            sortedEvt.ABHit[numABHits].seg = (uint8_t)0;
             numABHits++;
           }
         }
@@ -180,13 +195,13 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
         fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
         //write hits, without segment data (no segments for GRIFFIN)
         for(int i = 0; i<numABHits;i++){
-          fwrite(&sortedEvt.ABHit[i].energy,sizeof(float),1,out);
           fwrite(&sortedEvt.ABHit[i].timeOffsetNs,sizeof(float),1,out);
+          fwrite(&sortedEvt.ABHit[i].energy,sizeof(float),1,out);
           fwrite(&sortedEvt.ABHit[i].core,sizeof(uint8_t),1,out);
         }
         for(int i = 0; i<numNoABHits;i++){
-          fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
           fwrite(&sortedEvt.noABHit[i].timeOffsetNs,sizeof(float),1,out);
+          fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
           fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
         }
         //write footer value
@@ -229,11 +244,11 @@ int main(int argc, char **argv){
   }else if (argc == 1){
     afile = argv[1];
     calfile = "CalibrationFile.cal";
-    outfile = "Separated.smol";
+    outfile = "Separated.smole6";
   }else if (argc == 2){
     afile = argv[1];
     calfile = argv[2];
-    outfile = "Separated.smol";
+    outfile = "Separated.smole6";
   }else if (argc == 3){
     afile = argv[1];
     calfile = argv[2];

@@ -59,6 +59,7 @@ static int readSMOLEvent(FILE *inp, sorted_evt *sortedEvt){
 			fread(&sortedEvt->ABHit[i].seg,sizeof(uint8_t),1,inp);
 		}else{
 			//GRIFFIN hit
+			sortedEvt->ABHit[i].core = (uint8_t)(sortedEvt->ABHit[i].core - 64); //offset back to real position
 			sortedEvt->ABHit[i].seg = 0;
 		}
 	}
@@ -71,6 +72,7 @@ static int readSMOLEvent(FILE *inp, sorted_evt *sortedEvt){
 			fread(&sortedEvt->noABHit[i].seg,sizeof(uint8_t),1,inp);
 		}else{
 			//GRIFFIN hit
+			sortedEvt->noABHit[i].core = (uint8_t)(sortedEvt->noABHit[i].core - 64); //offset back to real position
 			sortedEvt->noABHit[i].seg = 0;
 		}
 	}
