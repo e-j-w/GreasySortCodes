@@ -23,7 +23,7 @@ TList *hpgeList, *tipList, *timingList, *tipPIDList, *tipPIDGateList, *tiptipLis
 TList *tiphpgeList, *hpgePIDSepList, *hpgehpgePIDSepList; 
 
 //Raw HPGe
-TH1F *hpgeE, *addE, *addE_ring[NTIGRING], *hpgeRate;
+TH1F *hpgeE, *addE, *addE_ring[NHPGERING], *hpgeRate;
 TH2F *hpgeE_ANum, *addE_ANum, *addE_theta, *addE_phi, *theta_phi, *hpgeNum_time;
 
 //Timing
@@ -73,7 +73,7 @@ void SortDiagnosticsS::Initialise() {
   hpgeList->Add(addE);
   addE_ANum = new TH2F("Addback_Energy_vs_Array_Number", "Addback Energy vs. Array Number", 64, 0, 64, 8192, 0, 8192);
   hpgeList->Add(addE_ANum);
-  for(int i=0; i<NTIGRING; i++){
+  for(int i=0; i<NHPGERING; i++){
     addE_ring[i] = new TH1F(Form("Addback_energy_ring_%i",i+1), Form("Addback energy (ring %i)",i+1), 8192, 0, 8192);
     addE_ring[i]->GetXaxis()->SetTitle("Addback Energy");
     hpgeList->Add(addE_ring[i]);

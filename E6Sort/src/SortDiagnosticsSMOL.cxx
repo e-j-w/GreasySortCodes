@@ -81,7 +81,7 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
         addE_phi->Fill(phi, sortedEvt.ABHit[ABHitInd].energy);
         theta_phi->Fill(theta, phi);
         //fill ring spectra
-        addE_ring[getTIGRESSRing(theta)]->Fill(sortedEvt.ABHit[ABHitInd].energy);
+        addE_ring[getHPGeRing(theta)]->Fill(sortedEvt.ABHit[ABHitInd].energy);
       }
       
     }

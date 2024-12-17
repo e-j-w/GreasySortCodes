@@ -45,9 +45,9 @@ bool gate1D(const double value, const double min, const double max){
 }
 
 
-int getTIGRESSRing(const float theta){
+int getHPGeRing(const float theta){
   if((theta < 0.0f)||(theta > 180.0f)){
-    cout << "Invalid TIGRESS angle: " << theta << endl;
+    cout << "Invalid HPGe angle: " << theta << endl;
     return 0;
   }else if(theta <= 45.0f){
     return 0;
@@ -69,7 +69,7 @@ int getTIGRESSRing(const float theta){
 //there are actually 8 unique segment angles per core, clustered
 //over 'rings' each with 4 angles covering a ~2.5 deg range
 //there are also core-only hits without any assigned segment
-int getTIGRESSSegmentRing(const float theta){
+int getHPGeSegmentRing(const float theta){
   if((theta >= 30.0f)&&(theta <= 37.0f)){
     return 0; //34.325 deg (low 32.95, high 35.55)
   }else if((theta >= 40.0f)&&(theta <= 43.0f)){
@@ -100,8 +100,8 @@ int getTIGRESSSegmentRing(const float theta){
   }
 }
 
-int getTIGRESSPhiRing(const float theta, const float phi){
-  int ring = getTIGRESSSegmentRing(theta);
+int getHPGePhiRing(const float theta, const float phi){
+  int ring = getHPGeSegmentRing(theta);
   if(ring < 12){
     if((phi > -180)&&(phi < -167)){
       return 0; 

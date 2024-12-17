@@ -10,7 +10,7 @@
 
 using namespace std;
 
-#define NTIGRING 6 //number of TIGRESS rings
+#define NHPGERING 6 //number of TIGRESS rings
 #define NTIGSEGRING 13 //number of TIGRESS segment rings (last ring contains hits with no segments)
 #define NTIGPOS 16 //number of TIGRESS positions (clovers)
 
@@ -31,14 +31,14 @@ using namespace std;
 
 //timing windows
 //static Double_t tigtigTGate[2] = {-15, 5}; // super narrow TIGRESS - TIGRESS timing window (ns)
-static Double_t hpgehpgeTGate[2] = {-20, 20}; // narrow TIGRESS - TIGRESS timing window (ns)
+static Double_t hpgehpgeTGate[2] = {-40, 0}; // narrow HPGe - HPGe timing window (ns)
 static Double_t tigBGOTGate[2] = {0, 380}; // TIGRESS - BGO timing window (ns)
 
 //FUNCTION PROTOTYPES
 TVector3 getTigVector(uint8_t core, uint8_t seg);
 bool gate1D(const Double_t value, const Double_t min, const Double_t max);
-Int_t getTIGRESSRing(const float theta);
-Int_t getTIGRESSSegmentRing(const float theta);
-Int_t getTIGRESSPhiRing(const float theta, const float phi);
+Int_t getHPGeRing(const float theta);
+Int_t getHPGeSegmentRing(const float theta);
+Int_t getHPGePhiRing(const float theta, const float phi);
 
 #endif
