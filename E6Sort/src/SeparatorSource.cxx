@@ -1,4 +1,4 @@
-//Sort code to separate source data (TIGRESS only)
+//Sort code to separate source data
 
 #define SeparatorSource_cxx
 #include "common.h"
@@ -86,7 +86,6 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
                 cout << "WARNING: invalid TIGRESS core: " << sortedEvt.ABHit[numABHits].core << endl;
                 continue;
               }
-              sortedEvt.noABHit[numNoABHits].seg = (uint8_t)noAB_hit->GetFirstSeg();
               numNoABHits++;
             }
             if(noAB_hit->BGOFired()){
@@ -107,7 +106,6 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
               cout << "WARNING: invalid TIGRESS core: " << sortedEvt.ABHit[numABHits].core << endl;
               continue;
             }
-            sortedEvt.ABHit[numABHits].seg = (uint8_t)add_hit->GetFirstSeg();
             numABHits++;
           }
           if(add_hit->BGOFired()){
@@ -117,9 +115,9 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
 
         sortedEvt.header.numABHits = numABHits;
         sortedEvt.header.numNoABHits = numNoABHits;
-        sortedEvt.header.metadata = (uint8_t)0;
+        sortedEvt.header.metadata = (uint8_t)1; //first bit is ON for TIGRESS data
         if(suppressorFired){
-          sortedEvt.header.metadata |= (uint8_t)(1U << 0);
+          sortedEvt.header.metadata |= (uint8_t)(1U << 1);
         }
         fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
 
@@ -127,13 +125,11 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
           fwrite(&sortedEvt.ABHit[i].timeOffsetNs,sizeof(float),1,out);
           fwrite(&sortedEvt.ABHit[i].energy,sizeof(float),1,out);
           fwrite(&sortedEvt.ABHit[i].core,sizeof(uint8_t),1,out);
-          fwrite(&sortedEvt.ABHit[i].seg,sizeof(uint8_t),1,out);
         }
         for(int i = 0; i<numNoABHits;i++){
           fwrite(&sortedEvt.noABHit[i].timeOffsetNs,sizeof(float),1,out);
           fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
           fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
-          fwrite(&sortedEvt.noABHit[i].seg,sizeof(uint8_t),1,out);
         }
         //write footer value
         fwrite(&footerVal,sizeof(uint8_t),1,out);
@@ -156,7 +152,6 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
         uint8_t numABHits = 0;
         uint8_t numNoABHits = 0;
         uint8_t suppressorFired = 0;
-        uint64_t suppressorHitmap = 0;
 
         for(int i = 0; i<griffin->GetSuppressedMultiplicity(griffin_bgo);i++){
           if(i<MAX_EVT_HIT){
@@ -167,7 +162,11 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
               }
               sortedEvt.noABHit[numNoABHits].energy = (float)noAB_hit_grif->GetEnergy();
               sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(noAB_hit_grif->GetTime() - sortedEvt.header.evtTimeNs);
-              sortedEvt.noABHit[numNoABHits].core = (uint8_t)(noAB_hit_grif->GetArrayNumber() + 63); //offset to indicate that this hit is GRIFFIN rather than TIGRESS, taking into account that GRIFFIN array number is 1-indexed while TIGRESS is 0-indexed
+              sortedEvt.noABHit[numNoABHits].core = (uint8_t)(noAB_hit_grif->GetArrayNumber() - 1); //takw into account that GRIFFIN array number is 1-indexed while TIGRESS is 0-indexed
+              if(sortedEvt.noABHit[numNoABHits].core >= 64){
+                cout << "WARNING: invalid GRIFFIN core: " << sortedEvt.noABHit[numNoABHits].core << endl;
+                continue;
+              }
               numNoABHits++;
             }
           }
@@ -180,17 +179,21 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
             }
             sortedEvt.ABHit[numABHits].energy = (float)add_hit_grif->GetEnergy();
             sortedEvt.ABHit[numABHits].timeOffsetNs = (float)(add_hit_grif->GetTime() - sortedEvt.header.evtTimeNs);
-            sortedEvt.ABHit[numABHits].core = (uint8_t)(add_hit_grif->GetArrayNumber() + 63); //offset to indicate that this hit is GRIFFIN rather than TIGRESS, taking into account that GRIFFIN array number is 1-indexed while TIGRESS is 0-indexed
+            sortedEvt.ABHit[numABHits].core = (uint8_t)(add_hit_grif->GetArrayNumber() - 1); //takw into account that GRIFFIN array number is 1-indexed while TIGRESS is 0-indexed
+            if(sortedEvt.ABHit[numABHits].core >= 64){
+              cout << "WARNING: invalid GRIFFIN core: " << sortedEvt.ABHit[numABHits].core << endl;
+              continue;
+            }
             numABHits++;
           }
         }
 
         sortedEvt.header.numABHits = numABHits;
         sortedEvt.header.numNoABHits = numNoABHits;
-        sortedEvt.header.metadata = (uint8_t)0;
+        sortedEvt.header.metadata = (uint8_t)0; //first bit is OFF for GRIFFIN data
         if(griffin_bgo->GetMultiplicity() > 0){
           //at least one suppressor fired
-          sortedEvt.header.metadata |= (uint8_t)(1U << 0);
+          sortedEvt.header.metadata |= (uint8_t)(1U << 1);
         }
         fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
         //write hits, without segment data (no segments for GRIFFIN)
@@ -241,18 +244,14 @@ int main(int argc, char **argv){
     cout << "*analysis_tree* can be a single analysis tree (extension .root), or a list of analysis trees (extension .list, one filepath per line)." << endl;
     cout << "Default values will be used if arguments (other than analysis_tree) are omitted." << endl;
     return 0;
-  }else if (argc == 1){
-    afile = argv[1];
-    calfile = "CalibrationFile.cal";
-    outfile = "Separated.smole6";
   }else if (argc == 2){
     afile = argv[1];
     calfile = argv[2];
     outfile = "Separated.smole6";
   }else if (argc == 3){
     afile = argv[1];
-    calfile = argv[2];
-    outfile = argv[3];
+    calfile = "CalibrationFile.cal";
+    outfile = "Separated.smole6";
   }else if (argc == 4){
     afile = argv[1];
     calfile = argv[2];

@@ -7,34 +7,62 @@
 
 using namespace std;
 
-TVector3 getTigVector(uint8_t core, uint8_t seg){
+TVector3 getGeVector(const uint8_t core, const uint8_t seg, const uint8_t forwardPos){
   TVector3 hitPos(0,0,0);
   if(core > 63){
     printf("WARNING: bad core value (%u)\n",core);
   }else if(seg > 8){
     printf("WARNING: bad segment value (%u)\n",seg);
   }else{
-    switch(core % 4){
-      case 3:
-        //white core
-        hitPos.SetXYZ(GeWhitePositionBack[(core/4) + 1][seg][0],GeWhitePositionBack[(core/4) + 1][seg][1],GeWhitePositionBack[(core/4) + 1][seg][2]);
-        break;
-      case 2:
-        //red core
-        hitPos.SetXYZ(GeRedPositionBack[(core/4) + 1][seg][0],GeRedPositionBack[(core/4) + 1][seg][1],GeRedPositionBack[(core/4) + 1][seg][2]);
-        break;
-      case 1:
-        //green core
-        hitPos.SetXYZ(GeGreenPositionBack[(core/4) + 1][seg][0],GeGreenPositionBack[(core/4) + 1][seg][1],GeGreenPositionBack[(core/4) + 1][seg][2]);
-        break;
-      case 0:
-      default:
-        //blue core
-        hitPos.SetXYZ(GeBluePositionBack[(core/4) + 1][seg][0],GeBluePositionBack[(core/4) + 1][seg][1],GeBluePositionBack[(core/4) + 1][seg][2]);
-        break;
+    if(forwardPos){
+      switch(core % 4){
+        case 3:
+          //white core
+          hitPos.SetXYZ(GeWhitePositionForward[(core/4) + 1][seg][0],GeWhitePositionForward[(core/4) + 1][seg][1],GeWhitePositionForward[(core/4) + 1][seg][2]);
+          break;
+        case 2:
+          //red core
+          hitPos.SetXYZ(GeRedPositionForward[(core/4) + 1][seg][0],GeRedPositionForward[(core/4) + 1][seg][1],GeRedPositionForward[(core/4) + 1][seg][2]);
+          break;
+        case 1:
+          //green core
+          hitPos.SetXYZ(GeGreenPositionForward[(core/4) + 1][seg][0],GeGreenPositionForward[(core/4) + 1][seg][1],GeGreenPositionForward[(core/4) + 1][seg][2]);
+          break;
+        case 0:
+        default:
+          //blue core
+          hitPos.SetXYZ(GeBluePositionForward[(core/4) + 1][seg][0],GeBluePositionForward[(core/4) + 1][seg][1],GeBluePositionForward[(core/4) + 1][seg][2]);
+          break;
+      }
+    }else{
+      switch(core % 4){
+        case 3:
+          //white core
+          hitPos.SetXYZ(GeWhitePositionBack[(core/4) + 1][seg][0],GeWhitePositionBack[(core/4) + 1][seg][1],GeWhitePositionBack[(core/4) + 1][seg][2]);
+          break;
+        case 2:
+          //red core
+          hitPos.SetXYZ(GeRedPositionBack[(core/4) + 1][seg][0],GeRedPositionBack[(core/4) + 1][seg][1],GeRedPositionBack[(core/4) + 1][seg][2]);
+          break;
+        case 1:
+          //green core
+          hitPos.SetXYZ(GeGreenPositionBack[(core/4) + 1][seg][0],GeGreenPositionBack[(core/4) + 1][seg][1],GeGreenPositionBack[(core/4) + 1][seg][2]);
+          break;
+        case 0:
+        default:
+          //blue core
+          hitPos.SetXYZ(GeBluePositionBack[(core/4) + 1][seg][0],GeBluePositionBack[(core/4) + 1][seg][1],GeBluePositionBack[(core/4) + 1][seg][2]);
+          break;
+      }
     }
   }
   return hitPos;
+}
+
+Double_t getGeHitDistance(const uint8_t core1, const uint8_t seg1, const uint8_t core2, const uint8_t seg2, const uint8_t forwardPos){
+  TVector3 vec1 = getGeVector(core1,seg1,forwardPos);
+  TVector3 vec2 = getGeVector(core2,seg2,forwardPos);
+  return sqrt(pow(vec1.X() - vec2.X(),2.0) + pow(vec1.Y() - vec2.Y(),2.0) + pow(vec1.Z() - vec2.Z(),2.0));
 }
 
 bool gate1D(const double value, const double min, const double max){

@@ -13,17 +13,17 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
   Initialise();
 
   FILE *inp = fopen(sfile, "rb");
+  if(inp==NULL){
+    printf("ERROR: couldn't open file: %s\n",sfile);
+    exit(-1);
+  }
   printf("File %s opened\n", sfile);
   
   uint64_t sentries = 0U;
   fread(&sentries,sizeof(uint64_t),1,inp);
   
   uint8_t footerVal;
-  unsigned long int numTigressABHits = 0;
-
-  Int_t evtNumProtons, evtNumAlphas;
-  Int_t evtNumProtonsDetSumGate, evtNumAlphasDetSumGate;
-  Int_t evtNumHorDetSumGate;
+  unsigned long int numHPGeABHits = 0;
 
   /*cout << "TIGRESS positions: " << endl;
   for(int det=1;det<17;det++){
@@ -42,17 +42,8 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
       exit(-1);
     }
 
-    //correct GRIFFIN cores
-    for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-      if(sortedEvt.noABHit[noABHitInd].core >= 64){
-        sortedEvt.noABHit[noABHitInd].core = (uint8_t)(sortedEvt.noABHit[noABHitInd].core - 64);
-      }
-    }
-    for(int ABHitInd = 0; ABHitInd < sortedEvt.header.numABHits; ABHitInd++){
-      if(sortedEvt.ABHit[ABHitInd].core >= 64){
-        sortedEvt.ABHit[ABHitInd].core = (uint8_t)(sortedEvt.ABHit[ABHitInd].core - 64);
-      }
-    }
+    hpgeMult->Fill(sortedEvt.header.numNoABHits);
+    hpgeMultAB->Fill(sortedEvt.header.numABHits);
     
     for (int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
       if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
@@ -65,7 +56,7 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
 
       //cout << "energy: " << sortedEvt.ABHit[ABHitInd].energy << ", array num: " << sortedEvt.ABHit[ABHitInd].core << ", address: " << sortedEvt.ABHit[ABHitInd]->GetAddress() << endl;
 
-      numTigressABHits++;
+      numHPGeABHits++;
 
       if(sortedEvt.ABHit[ABHitInd].energy > MIN_HPGE_EAB){
         addE->Fill(sortedEvt.ABHit[ABHitInd].energy);
@@ -73,10 +64,10 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
         hpgeNum_time->Fill(ABHitTime(&sortedEvt,ABHitInd)/pow(10,9),sortedEvt.ABHit[ABHitInd].core);
         //cout << "hit " << ABHitInd << ", Anum: " << sortedEvt.ABHit[ABHitInd].core << ", energy: " << sortedEvt.ABHit[ABHitInd].energy << endl;
         addE_ANum->Fill(sortedEvt.ABHit[ABHitInd].core, sortedEvt.ABHit[ABHitInd].energy);
-        TVector3 tigVec = getTigVector(sortedEvt.ABHit[ABHitInd].core,sortedEvt.ABHit[ABHitInd].seg);
-        //tigVec.SetZ(tigVec.Z() - 5.0); //target position offset
-        double theta = tigVec.Theta()*180./PI;
-        double phi = tigVec.Phi()*180./PI;
+        TVector3 geVec = getGeVector(sortedEvt.ABHit[ABHitInd].core,0,1); //FORWARD POSITION (11 cm)
+        //geVec.SetZ(geVec.Z() - 5.0); //target position offset
+        double theta = geVec.Theta()*180./PI;
+        double phi = geVec.Phi()*180./PI;
         addE_theta->Fill(theta, sortedEvt.ABHit[ABHitInd].energy);
         addE_phi->Fill(phi, sortedEvt.ABHit[ABHitInd].energy);
         theta_phi->Fill(theta, phi);
@@ -98,6 +89,8 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
             hpgeT_hpgeT->Fill(tDiff);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
+            hpgePos_hpgePos->Fill(sortedEvt.noABHit[noABHitInd].core,sortedEvt.noABHit[noABHitInd2].core);
+            hpge_hpge_dist->Fill(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core,0,sortedEvt.noABHit[noABHitInd2].core,0,1)); //FORWARD POSITION (11 cm)
             if((tDiff >= hpgehpgeTGate[0])&&(tDiff <= hpgehpgeTGate[1])){
               hpgeT_hpgeT_tsep->Fill(tDiff);
               hpgeE_hpgeE_tsep->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
@@ -107,6 +100,20 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
                 hpgeE_hpgeE_tsepmult2->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
                 hpgeE_hpgeE_tsepmult2->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
               }
+            }
+            if((tDiff >= hpgehpgeABGate[0])&&(tDiff <= hpgehpgeABGate[1])){
+              if(getGeVector(sortedEvt.noABHit[noABHitInd].core,0,1).Angle(getGeVector(sortedEvt.noABHit[noABHitInd2].core,0,1))*180.0/PI > 175.0){
+                hpgeE_hpgeE_180deg->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
+                hpgeE_hpgeE_180deg->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
+                hpgeE_hpgeE_180deg_proj->Fill(sortedEvt.noABHit[noABHitInd].energy);
+                hpgeE_hpgeE_180deg_proj->Fill(sortedEvt.noABHit[noABHitInd2].energy);
+                hpgeE_hpgeE_180deg_sum->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy);
+              }
+            }
+            if((tDiff >= hpgehpgeTRandGate[0])&&(tDiff <= hpgehpgeTRandGate[1])){
+              hpgeT_hpgeT_tseprand->Fill(tDiff);
+              hpgeE_hpgeE_tseprand->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
+              hpgeE_hpgeE_tseprand->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
             }
           }
         }
@@ -125,7 +132,8 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
             addT_addT->Fill(tDiff);
             addE_addE->Fill(sortedEvt.ABHit[ABHitInd].energy,sortedEvt.ABHit[ABHitInd2].energy);
             addE_addE->Fill(sortedEvt.ABHit[ABHitInd2].energy,sortedEvt.ABHit[ABHitInd].energy); //symmetrized
-            hpgePos_hpgePos->Fill(sortedEvt.ABHit[ABHitInd].core,sortedEvt.ABHit[ABHitInd2].core);
+            hpge_hpge_dist_AB->Fill(getGeHitDistance(sortedEvt.ABHit[ABHitInd].core,0,sortedEvt.ABHit[ABHitInd2].core,0,1)); //FORWARD POSITION (11 cm)
+            hpge_hpge_angle_AB->Fill(getGeVector(sortedEvt.ABHit[ABHitInd].core,0,1).Angle(getGeVector(sortedEvt.ABHit[ABHitInd2].core,0,1))*180.0/PI); //FORWARD POSITION (11 cm)
             if((tDiff >= hpgehpgeTGate[0])&&(tDiff <= hpgehpgeTGate[1])){
               addT_addT_tsep->Fill(tDiff);
               addE_addE_tsep->Fill(sortedEvt.ABHit[ABHitInd].energy,sortedEvt.ABHit[ABHitInd2].energy);
@@ -135,6 +143,20 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
                 addE_addE_tsepmult2->Fill(sortedEvt.ABHit[ABHitInd].energy,sortedEvt.ABHit[ABHitInd2].energy);
                 addE_addE_tsepmult2->Fill(sortedEvt.ABHit[ABHitInd2].energy,sortedEvt.ABHit[ABHitInd].energy); //symmetrized
               }
+            }
+            if((tDiff >= hpgehpgeABGate[0])&&(tDiff <= hpgehpgeABGate[1])){
+              if(getGeVector(sortedEvt.ABHit[ABHitInd].core,0,1).Angle(getGeVector(sortedEvt.ABHit[ABHitInd2].core,0,1))*180.0/PI > 175.0){
+                addE_addE_180deg->Fill(sortedEvt.ABHit[ABHitInd].energy,sortedEvt.ABHit[ABHitInd2].energy);
+                addE_addE_180deg->Fill(sortedEvt.ABHit[ABHitInd2].energy,sortedEvt.ABHit[ABHitInd].energy); //symmetrized
+                addE_addE_180deg_proj->Fill(sortedEvt.ABHit[ABHitInd].energy);
+                addE_addE_180deg_proj->Fill(sortedEvt.ABHit[ABHitInd2].energy);
+                addE_addE_180deg_sum->Fill(sortedEvt.ABHit[ABHitInd].energy + sortedEvt.ABHit[ABHitInd2].energy);
+              }
+            }
+            if((tDiff >= hpgehpgeTRandGate[0])&&(tDiff <= hpgehpgeTRandGate[1])){
+              addT_addT_tseprand->Fill(tDiff);
+              addE_addE_tseprand->Fill(sortedEvt.ABHit[ABHitInd].energy,sortedEvt.ABHit[ABHitInd2].energy);
+              addE_addE_tseprand->Fill(sortedEvt.ABHit[ABHitInd2].energy,sortedEvt.ABHit[ABHitInd].energy); //symmetrized
             }
           }
         }
@@ -146,7 +168,7 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
   } // analysis tree
 
   cout << "Entry " << sentries << " of " << sentries << ", 100% complete" << endl;
-  cout << "Number of HPGe addback hits: " << numTigressABHits << endl;
+  cout << "Number of HPGe addback hits: " << numHPGeABHits << endl;
   cout << endl << "Event sorting complete" << endl;
 
   cout << "Writing histograms to " << outfile << endl;
@@ -181,7 +203,6 @@ int main(int argc, char **argv)
   const char *outfile;
   printf("Starting SortDiagnosticsSMOL\n");
 
-  // Input-chain-file, output-histogram-file
   if (argc == 1){
     cout << "Code sorts a bunch of diagnostic histograms for online HPGe data" << endl;
     cout << "Arguments: SortDiagnosticsSMOL smol_file output_file" << endl;

@@ -103,14 +103,14 @@ void SortDiagnosticsS::Initialise() {
   tigNum_time = new TH2F("Tigress_Array_Number_vs_Time","Tigress Array Number vs Time;Time (s);Array Number",3600,0,3600,64,0,64);
   tigNum_time->GetXaxis()->SetTitle("Run Time (s)");
   tigList->Add(tigNum_time);
-  tigE = new TH1F("Tigress_Energy", "Tigress Energy (non-addback)", 16384, 0, 8192);
+  tigE = new TH1F("Tigress_Energy", "Tigress Energy (non-addback)", 32768, 0, 16384);
   tigList->Add(tigE);
-  addE = new TH1F("Addback_Energy", "Addback Energy", 16384, 0, 8192);
+  addE = new TH1F("Addback_Energy", "Addback Energy", 32768, 0, 16384);
   tigList->Add(addE);
-  addE_ANum = new TH2F("Addback_Energy_vs_Array_Number", "Addback Energy vs. Array Number", 64, 0, 64, 8192, 0, 8192);
+  addE_ANum = new TH2F("Addback_Energy_vs_Array_Number", "Addback Energy vs. Array Number", 64, 0, 64, 16384, 0, 16384);
   tigList->Add(addE_ANum);
   for(int i=0; i<NTIGRING; i++){
-    addE_ring[i] = new TH1F(Form("Addback_energy_ring_%i",i+1), Form("Addback energy (ring %i)",i+1), 8192, 0, 8192);
+    addE_ring[i] = new TH1F(Form("Addback_energy_ring_%i",i+1), Form("Addback energy (ring %i)",i+1), 32768, 0, 16384);
     addE_ring[i]->GetXaxis()->SetTitle("Addback Energy");
     tigList->Add(addE_ring[i]);
   }
@@ -126,7 +126,7 @@ void SortDiagnosticsS::Initialise() {
   theta_phi->GetXaxis()->SetTitle("#theta (deg)");
   theta_phi->GetYaxis()->SetTitle("#phi (deg)");
   tigList->Add(theta_phi);
-  addDopp = new TH1F("Addback_Doppler", Form("Addback Doppler corrected energy (beta=%f)",betaCompound), 16384, 0, 8192);
+  addDopp = new TH1F("Addback_Doppler", Form("Addback Doppler corrected energy (beta=%f)",betaCompound), 32768, 0, 16384);
   tigList->Add(addDopp);
   addDopp_dopp = new TH2F("Addback_Doppler_vs_beta", "Addback Doppler corrected energy vs. beta",200,0.03,0.05,8192,0,8192);
   addDopp_dopp->GetXaxis()->SetTitle("#beta");

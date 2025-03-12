@@ -2,13 +2,13 @@
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define EEGamma_noAB_mca_SMOL_cxx
+#define EEGamma_noAB_tRand_mca_SMOL_cxx
 #include "common.cxx"
-#include "EEGamma_noAB_mca_SMOL.h"
+#include "EEGamma_noAB_tRand_mca_SMOL.h"
 
 using namespace std;
 
-void EEGamma_noAB_mca_SMOL::WriteData(const char* outName){
+void EEGamma_noAB_tRand_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -23,7 +23,7 @@ void EEGamma_noAB_mca_SMOL::WriteData(const char* outName){
 
 }
 
-uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, const double eHigh, const double keVPerBin){
+void EEGamma_noAB_tRand_mca_SMOL::SortData(char const *sfile, const double eLow, const double eHigh, const double keVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -45,14 +45,13 @@ uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, c
     for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
       if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
         if((sortedEvt.noABHit[noABHitInd].energy >= eLow)&&(sortedEvt.noABHit[noABHitInd].energy <= eHigh)){
-          for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
-            if(noABHitInd != noABHitInd2){
-              Double_t tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-              if(tDiff <= 200.0){
-                int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
-                if(eGamma>=0 && eGamma<S32K){
-                  mcaOut[eGamma]++;
-                }
+          for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+            //perform time separation
+            Double_t tDiff = noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2);
+            if((tDiff >= hpgehpgeTRandGate[0])&&(tDiff <= hpgehpgeTRandGate[1])){
+              int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
+              if(eGamma>=0 && eGamma<S32K){
+                mcaOut[eGamma]++;
               }
             }
           }
@@ -67,27 +66,25 @@ uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, c
   } // analysis tree
 
   cout << "Entry " << sentries << " of " << sentries << ", 100% complete" << endl;
+  cout << "Event sorting complete" << endl;
   
   fclose(inp);
-
-  return sentries;
   
 }
 
 int main(int argc, char **argv){
 
-  EEGamma_noAB_mca_SMOL *mysort = new EEGamma_noAB_mca_SMOL();
+  EEGamma_noAB_tRand_mca_SMOL *mysort = new EEGamma_noAB_tRand_mca_SMOL();
 
   const char *sfile;
   const char *outfile;
   double keVPerBin = 1.0;
   double eLow, eHigh;
-  printf("Starting EEGamma_noAB_mca_SMOL\n");
+  printf("Starting EEGamma_noAB_tRand_mca_SMOL\n");
 
   if((argc != 5)&&(argc != 6)){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
-    cout << "Arguments: EEGamma_noAB_mca_SMOL smol_file EGateLow EGateHigh output_dmca_file keV_per_bin" << endl;
-    cout << "  *smol_file* can be a single SMOL tree (extension .smole6), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
+    cout << "Arguments: EEGamma_noAB_tRand_mca_SMOL smol_file EGateLow EGateHigh output_file keV_per_bin" << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     return 0;
   }else{
@@ -114,40 +111,15 @@ int main(int argc, char **argv){
 
   memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
 
-  const char *dot = strrchr(sfile, '.'); //get the file extension
-  if(dot==NULL){
-    cout << "ERROR: couldn't get SMOL tree or list file name." << endl;
-    return 0;
-  }
+  //single analysis tree
+  cout << "SMOL tree: " << sfile << endl;
+  cout << "Energy gate: [" << eLow << " " << eHigh << "]" << endl;
+  cout << "Output file: " << outfile << endl;
+  cout << "Written spectra will have " << keVPerBin << " keV per bin." << endl;
 
-  uint64_t numSepEvts = 0U;
-  if(strcmp(dot + 1, "smole6") == 0){
-    printf("SMOL tree: %s\nEnergy gate: [%0.2f %0.2f]\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, outfile, keVPerBin);
-    numSepEvts += mysort->SortData(sfile, eLow, eHigh, keVPerBin);
-  }else if(strcmp(dot + 1, "list") == 0){
-    printf("SMOL tree list: %s\nEnergy gate: [%0.2f %0.2f]\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, outfile, keVPerBin);
-    
-    FILE *listfile;
-    char str[256];
-
-    if((listfile=fopen(sfile,"r"))==NULL){
-      cout << "ERROR: Cannot open the list file: " << sfile << endl;
-      return 0;
-    }else{
-      while(!(feof(listfile))){//go until the end of file is reached
-        if(fgets(str,256,listfile)!=NULL){ //get an entire line
-          str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          numSepEvts += mysort->SortData(str, eLow, eHigh, keVPerBin);
-        }
-      }
-    }
-  }else{
-    cout << "ERROR: improper file extension for SMOL tree or list (should be .smole6 or .list)." << endl;
-    return 0;
-  }
+  mysort->SortData(sfile, eLow, eHigh, keVPerBin);
   
   mysort->WriteData(outfile);
-  cout << "Wrote " << numSepEvts << " separated events to: " << outfile << endl;
 
   return 0;
 }

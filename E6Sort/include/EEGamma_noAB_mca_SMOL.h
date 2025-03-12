@@ -7,14 +7,14 @@
 using namespace std;
 
 //spectra
-float mcaOut[NHPGERING+NTIGSEGRING+1][S32K]; //output .fmca data, sp 0 is sum, sp 1-6 are TIGRESS rings, sp 7-18 are segment rings
+double mcaOut[S32K]; //output .fmca data, sp 0 is sum
 
 class EEGamma_noAB_mca_SMOL{
 	public :
 
 		EEGamma_noAB_mca_SMOL(){;}
 		void WriteData(const char*);
-		void SortData(const char*, const double, const double, const double);
+		uint64_t SortData(const char*, const double, const double, const double);
 
 };
 

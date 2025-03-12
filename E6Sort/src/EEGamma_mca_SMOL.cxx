@@ -23,7 +23,7 @@ void EEGamma_mca_SMOL::WriteData(const char* outName){
 
 }
 
-void EEGamma_mca_SMOL::SortData(char const *sfile, const double eLow, const double eHigh, const double keVPerBin){
+uint64_t EEGamma_mca_SMOL::SortData(char const *sfile, const double eLow, const double eHigh, const double keVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -46,13 +46,13 @@ void EEGamma_mca_SMOL::SortData(char const *sfile, const double eLow, const doub
       if(sortedEvt.ABHit[ABHitInd].energy > MIN_HPGE_EAB){
         if((sortedEvt.ABHit[ABHitInd].energy >= eLow)&&(sortedEvt.ABHit[ABHitInd].energy <= eHigh)){
           for(int ABHitInd2 = 0; ABHitInd2 < sortedEvt.header.numABHits; ABHitInd2++){
-            if(ABHitInd2 != ABHitInd){
-              int eGamma = (int)(sortedEvt.ABHit[ABHitInd2].energy/keVPerBin);
-              if(eGamma>=0 && eGamma<S32K){
-                double theta = getTigVector(sortedEvt.ABHit[ABHitInd2].core,sortedEvt.ABHit[ABHitInd2].seg).Theta()*180./PI;
-                mcaOut[getHPGeRing(theta)+1][eGamma]++;
-                mcaOut[getHPGeSegmentRing(theta)+7][eGamma]++;
-                mcaOut[0][eGamma]++;
+            if(ABHitInd != ABHitInd2){
+              Double_t tDiff = fabs(ABHitTime(&sortedEvt,ABHitInd) - ABHitTime(&sortedEvt,ABHitInd2));
+              if(tDiff <= 200.0){
+                int eGamma = (int)(sortedEvt.ABHit[ABHitInd2].energy/keVPerBin);
+                if(eGamma>=0 && eGamma<S32K){
+                  mcaOut[eGamma]++;
+                }
               }
             }
           }
@@ -67,9 +67,10 @@ void EEGamma_mca_SMOL::SortData(char const *sfile, const double eLow, const doub
   } // analysis tree
 
   cout << "Entry " << sentries << " of " << sentries << ", 100% complete" << endl;
-  cout << "Event sorting complete" << endl;
   
   fclose(inp);
+
+  return sentries;
   
 }
 
@@ -85,7 +86,8 @@ int main(int argc, char **argv){
 
   if((argc != 5)&&(argc != 6)){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
-    cout << "Arguments: EEGamma_mca_SMOL smol_file EGateLow EGateHigh output_file keV_per_bin" << endl;
+    cout << "Arguments: EEGamma_mca_SMOL smol_file EGateLow EGateHigh output_dmca_file keV_per_bin" << endl;
+    cout << "  *smol_file* can be a single SMOL tree (extension .smole6), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     return 0;
   }else{
@@ -112,15 +114,40 @@ int main(int argc, char **argv){
 
   memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
 
-  //single analysis tree
-  cout << "SMOL tree: " << sfile << endl;
-  cout << "Energy gate: [" << eLow << " " << eHigh << "]" << endl;
-  cout << "Output file: " << outfile << endl;
-  cout << "Written spectra will have " << keVPerBin << " keV per bin." << endl;
+  const char *dot = strrchr(sfile, '.'); //get the file extension
+  if(dot==NULL){
+    cout << "ERROR: couldn't get SMOL tree or list file name." << endl;
+    return 0;
+  }
 
-  mysort->SortData(sfile, eLow, eHigh, keVPerBin);
+  uint64_t numSepEvts = 0U;
+  if(strcmp(dot + 1, "smole6") == 0){
+    printf("SMOL tree: %s\nEnergy gate: [%0.2f %0.2f]\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, outfile, keVPerBin);
+    numSepEvts += mysort->SortData(sfile, eLow, eHigh, keVPerBin);
+  }else if(strcmp(dot + 1, "list") == 0){
+    printf("SMOL tree list: %s\nEnergy gate: [%0.2f %0.2f]\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, outfile, keVPerBin);
+    
+    FILE *listfile;
+    char str[256];
+
+    if((listfile=fopen(sfile,"r"))==NULL){
+      cout << "ERROR: Cannot open the list file: " << sfile << endl;
+      return 0;
+    }else{
+      while(!(feof(listfile))){//go until the end of file is reached
+        if(fgets(str,256,listfile)!=NULL){ //get an entire line
+          str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
+          numSepEvts += mysort->SortData(str, eLow, eHigh, keVPerBin);
+        }
+      }
+    }
+  }else{
+    cout << "ERROR: improper file extension for SMOL tree or list (should be .smole6 or .list)." << endl;
+    return 0;
+  }
   
   mysort->WriteData(outfile);
+  cout << "Wrote " << numSepEvts << " separated events to: " << outfile << endl;
 
   return 0;
 }
