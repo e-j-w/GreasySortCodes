@@ -69,51 +69,33 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
 
         memset(&sortedEvt,0,sizeof(sorted_evt));
         
-        uint8_t numABHits = 0;
         uint8_t numNoABHits = 0;
         uint8_t suppressorFired = 0;
+
         for(int i = 0; i<tigress->GetMultiplicity();i++){
           if(i<MAX_EVT_HIT){
             noAB_hit = tigress->GetTigressHit(i);
-            if(!(noAB_hit->BGOFired()) && (noAB_hit->GetEnergy() > 0)){
-              if(sortedEvt.header.evtTimeNs == 0){
-                sortedEvt.header.evtTimeNs = (double)noAB_hit->GetTime();
+            if(noAB_hit->GetKValue() != noPileupKValue){
+              if(!(noAB_hit->BGOFired()) && (noAB_hit->GetEnergy() > 0)){
+                if(sortedEvt.header.evtTimeNs == 0){
+                  sortedEvt.header.evtTimeNs = (double)noAB_hit->GetTime();
+                }
+                sortedEvt.noABHit[numNoABHits].energy = (float)noAB_hit->GetEnergy();
+                sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(noAB_hit->GetTime() - sortedEvt.header.evtTimeNs);
+                sortedEvt.noABHit[numNoABHits].core = (uint8_t)noAB_hit->GetArrayNumber();
+                if(sortedEvt.noABHit[numNoABHits].core >= 64){
+                  cout << "WARNING: invalid TIGRESS core: " << sortedEvt.noABHit[numNoABHits].core << endl;
+                  continue;
+                }
+                numNoABHits++;
               }
-              sortedEvt.noABHit[numNoABHits].energy = (float)noAB_hit->GetEnergy();
-              sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(noAB_hit->GetTime() - sortedEvt.header.evtTimeNs);
-              sortedEvt.noABHit[numNoABHits].core = (uint8_t)noAB_hit->GetArrayNumber();
-              if(sortedEvt.ABHit[numNoABHits].core >= 64){
-                cout << "WARNING: invalid TIGRESS core: " << sortedEvt.ABHit[numABHits].core << endl;
-                continue;
+              if(noAB_hit->BGOFired()){
+                suppressorFired = 1;
               }
-              numNoABHits++;
             }
-            if(noAB_hit->BGOFired()){
-              suppressorFired = 1;
-            }
-          }
-        }
-        for(int i = 0; i<tigress->GetAddbackMultiplicity();i++){
-          add_hit = tigress->GetAddbackHit(i);
-          if(!(add_hit->BGOFired()) && (add_hit->GetEnergy() > 0)){
-            if(sortedEvt.header.evtTimeNs == 0){
-              sortedEvt.header.evtTimeNs = (double)add_hit->GetTime();
-            }
-            sortedEvt.ABHit[numABHits].energy = (float)add_hit->GetEnergy();
-            sortedEvt.ABHit[numABHits].timeOffsetNs = (float)(add_hit->GetTime() - sortedEvt.header.evtTimeNs);
-            sortedEvt.ABHit[numABHits].core = (uint8_t)add_hit->GetArrayNumber();
-            if(sortedEvt.ABHit[numABHits].core >= 64){
-              cout << "WARNING: invalid TIGRESS core: " << sortedEvt.ABHit[numABHits].core << endl;
-              continue;
-            }
-            numABHits++;
-          }
-          if(add_hit->BGOFired()){
-            suppressorFired = 1;
           }
         }
 
-        sortedEvt.header.numABHits = numABHits;
         sortedEvt.header.numNoABHits = numNoABHits;
         sortedEvt.header.metadata = (uint8_t)1; //first bit is ON for TIGRESS data
         if(suppressorFired){
@@ -121,11 +103,6 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
         }
         fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
 
-        for(int i = 0; i<numABHits;i++){
-          fwrite(&sortedEvt.ABHit[i].timeOffsetNs,sizeof(float),1,out);
-          fwrite(&sortedEvt.ABHit[i].energy,sizeof(float),1,out);
-          fwrite(&sortedEvt.ABHit[i].core,sizeof(uint8_t),1,out);
-        }
         for(int i = 0; i<numNoABHits;i++){
           fwrite(&sortedEvt.noABHit[i].timeOffsetNs,sizeof(float),1,out);
           fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
@@ -149,46 +126,30 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
 
         memset(&sortedEvt,0,sizeof(sorted_evt));
         
-        uint8_t numABHits = 0;
         uint8_t numNoABHits = 0;
-        uint8_t suppressorFired = 0;
 
         for(int i = 0; i<griffin->GetSuppressedMultiplicity(griffin_bgo);i++){
           if(i<MAX_EVT_HIT){
             noAB_hit_grif = griffin->GetSuppressedHit(i);
-            if(noAB_hit_grif->GetEnergy() > 0){
-              if(sortedEvt.header.evtTimeNs == 0){
-                sortedEvt.header.evtTimeNs = (double)noAB_hit_grif->GetTime();
+            //cout << noAB_hit_grif->GetKValue() << endl;
+            if(noAB_hit_grif->GetKValue() != noPileupKValue){
+              if(noAB_hit_grif->GetEnergy() > 0){
+                if(sortedEvt.header.evtTimeNs == 0){
+                  sortedEvt.header.evtTimeNs = (double)noAB_hit_grif->GetTime();
+                }
+                sortedEvt.noABHit[numNoABHits].energy = (float)noAB_hit_grif->GetEnergy();
+                sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(noAB_hit_grif->GetTime() - sortedEvt.header.evtTimeNs);
+                sortedEvt.noABHit[numNoABHits].core = (uint8_t)(noAB_hit_grif->GetArrayNumber() - 1); //takw into account that GRIFFIN array number is 1-indexed while TIGRESS is 0-indexed
+                if(sortedEvt.noABHit[numNoABHits].core >= 64){
+                  cout << "WARNING: invalid GRIFFIN core: " << sortedEvt.noABHit[numNoABHits].core << endl;
+                  continue;
+                }
+                numNoABHits++;
               }
-              sortedEvt.noABHit[numNoABHits].energy = (float)noAB_hit_grif->GetEnergy();
-              sortedEvt.noABHit[numNoABHits].timeOffsetNs = (float)(noAB_hit_grif->GetTime() - sortedEvt.header.evtTimeNs);
-              sortedEvt.noABHit[numNoABHits].core = (uint8_t)(noAB_hit_grif->GetArrayNumber() - 1); //takw into account that GRIFFIN array number is 1-indexed while TIGRESS is 0-indexed
-              if(sortedEvt.noABHit[numNoABHits].core >= 64){
-                cout << "WARNING: invalid GRIFFIN core: " << sortedEvt.noABHit[numNoABHits].core << endl;
-                continue;
-              }
-              numNoABHits++;
             }
-          }
-        }
-        for(int i = 0; i<griffin->GetSuppressedAddbackMultiplicity(griffin_bgo);i++){
-          add_hit_grif = griffin->GetSuppressedAddbackHit(i);
-          if(add_hit_grif->GetEnergy() > 0){
-            if(sortedEvt.header.evtTimeNs == 0){
-              sortedEvt.header.evtTimeNs = (double)add_hit_grif->GetTime();
-            }
-            sortedEvt.ABHit[numABHits].energy = (float)add_hit_grif->GetEnergy();
-            sortedEvt.ABHit[numABHits].timeOffsetNs = (float)(add_hit_grif->GetTime() - sortedEvt.header.evtTimeNs);
-            sortedEvt.ABHit[numABHits].core = (uint8_t)(add_hit_grif->GetArrayNumber() - 1); //takw into account that GRIFFIN array number is 1-indexed while TIGRESS is 0-indexed
-            if(sortedEvt.ABHit[numABHits].core >= 64){
-              cout << "WARNING: invalid GRIFFIN core: " << sortedEvt.ABHit[numABHits].core << endl;
-              continue;
-            }
-            numABHits++;
           }
         }
 
-        sortedEvt.header.numABHits = numABHits;
         sortedEvt.header.numNoABHits = numNoABHits;
         sortedEvt.header.metadata = (uint8_t)0; //first bit is OFF for GRIFFIN data
         if(griffin_bgo->GetMultiplicity() > 0){
@@ -197,11 +158,6 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
         }
         fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
         //write hits, without segment data (no segments for GRIFFIN)
-        for(int i = 0; i<numABHits;i++){
-          fwrite(&sortedEvt.ABHit[i].timeOffsetNs,sizeof(float),1,out);
-          fwrite(&sortedEvt.ABHit[i].energy,sizeof(float),1,out);
-          fwrite(&sortedEvt.ABHit[i].core,sizeof(uint8_t),1,out);
-        }
         for(int i = 0; i<numNoABHits;i++){
           fwrite(&sortedEvt.noABHit[i].timeOffsetNs,sizeof(float),1,out);
           fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);

@@ -281,7 +281,6 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const 
         }
 
         //write out data
-        sortedEvt.header.numABHits = 0;
         fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
         //write hits, without segment data (no segments for GRIFFIN)
         for(int i = 0; i<sortedEvt.header.numNoABHits;i++){

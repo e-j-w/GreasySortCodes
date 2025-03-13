@@ -32,6 +32,7 @@ using namespace std;
 
 //GLOBAL VARIABLES
 //(static to avoid multiple declaration when linking)
+static Int_t noPileupKValue = 379; //should be modified for the specific dataset being analyzed
 
 //timing windows
 //static Double_t tigtigTGate[2] = {-15, 5}; // super narrow TIGRESS - TIGRESS timing window (ns)

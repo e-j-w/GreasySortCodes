@@ -22,7 +22,7 @@ TApplication *theApp;
 TList *dcList; 
 
 //decay curve
-TH2F *hpgeE_time, *addE_time;
+TH2F *hpgeE_time;
 
 class DecayCurveS {
 
@@ -48,10 +48,6 @@ void DecayCurveS::Initialise() {
     hpgeE_time->GetXaxis()->SetTitle("Energy (keV)");
     hpgeE_time->GetYaxis()->SetTitle("Time (min)");
     dcList->Add(hpgeE_time);
-    addE_time = new TH2F("Addback_Energy_vs_time", "Addback Energy vs. time", 2048, 0, 2048, 32768, 0, 32768);
-    addE_time->GetXaxis()->SetTitle("Energy (keV)");
-    addE_time->GetYaxis()->SetTitle("Time (min)");
-    dcList->Add(addE_time);
 
 
 }

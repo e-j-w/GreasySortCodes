@@ -47,19 +47,6 @@ void DecayCurveS::SortData(const char *sfile, const uint64_t startNumSec)
       }
     }
 
-    for(int ABHitInd = 0; ABHitInd < sortedEvt.header.numABHits; ABHitInd++){
-
-      //cout << "energy: " << sortedEvt.ABHit[ABHitInd].energy << ", array num: " << sortedEvt.ABHit[ABHitInd].core << ", address: " << sortedEvt.ABHit[ABHitInd]->GetAddress() << endl;
-
-      numHPGeABHits++;
-
-      if(sortedEvt.ABHit[ABHitInd].energy > MIN_HPGE_EAB){
-        Double_t tSec = ((sortedEvt.header.evtTimeNs + sortedEvt.ABHit[ABHitInd].timeOffsetNs)/(1.0E9)) + (double)startNumSec;
-        addE_time->Fill(sortedEvt.ABHit[ABHitInd].energy, tSec/60.0);
-      }
-      
-    }
-
     if (jentry % 10000 == 0)
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / sentries << "% complete" << "\r" << flush;
   } // analysis tree

@@ -18,7 +18,6 @@
 
 typedef struct
 {
-	uint8_t numABHits;
 	uint8_t numNoABHits;
 	uint8_t metadata; //bit 0: TIGRESS (on) or GRIFFIN (off), bit 1: any suppressor fired
 	double evtTimeNs; //time of the first hit, in ns - float doesn't have enough precision
@@ -36,11 +35,9 @@ typedef struct
 typedef struct
 {
 	evt_header header;
-	hpge_hit ABHit[MAX_EVT_HIT]; //addback
 	hpge_hit noABHit[MAX_EVT_HIT]; //non-addback
 }sorted_evt;
 
-inline static double ABHitTime(const sorted_evt *evt, const int hit){return (double)(evt->header.evtTimeNs + evt->ABHit[hit].timeOffsetNs);};
 inline static double noABHitTime(const sorted_evt *evt, const int hit){return (double)(evt->header.evtTimeNs + evt->noABHit[hit].timeOffsetNs);};
 inline static double isTIGRESSData(const sorted_evt *evt){return evt->header.metadata & 1U;};
 
@@ -50,11 +47,6 @@ static int readSMOLEvent(FILE *inp, sorted_evt *sortedEvt){
 	//read event
 	memset(sortedEvt,0,sizeof(sorted_evt));
 	fread(&sortedEvt->header,sizeof(evt_header),1,inp);
-	for(int i = 0; i<sortedEvt->header.numABHits;i++){
-		fread(&sortedEvt->ABHit[i].timeOffsetNs,sizeof(float),1,inp);
-		fread(&sortedEvt->ABHit[i].energy,sizeof(float),1,inp);
-		fread(&sortedEvt->ABHit[i].core,sizeof(uint8_t),1,inp);
-	}
 	for(int i = 0; i<sortedEvt->header.numNoABHits;i++){
 		fread(&sortedEvt->noABHit[i].timeOffsetNs,sizeof(float),1,inp);
 		fread(&sortedEvt->noABHit[i].energy,sizeof(float),1,inp);
