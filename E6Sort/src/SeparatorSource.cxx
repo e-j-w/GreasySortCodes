@@ -75,7 +75,7 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
         for(int i = 0; i<tigress->GetMultiplicity();i++){
           if(i<MAX_EVT_HIT){
             noAB_hit = tigress->GetTigressHit(i);
-            if(noAB_hit->GetKValue() != noPileupKValue){
+            if(noAB_hit->GetKValue() >= noPileupKValue){
               if(!(noAB_hit->BGOFired()) && (noAB_hit->GetEnergy() > 0)){
                 if(sortedEvt.header.evtTimeNs == 0){
                   sortedEvt.header.evtTimeNs = (double)noAB_hit->GetTime();
@@ -132,7 +132,7 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
           if(i<MAX_EVT_HIT){
             noAB_hit_grif = griffin->GetSuppressedHit(i);
             //cout << noAB_hit_grif->GetKValue() << endl;
-            if(noAB_hit_grif->GetKValue() != noPileupKValue){
+            if(noAB_hit_grif->GetKValue() >= noPileupKValue){
               if(noAB_hit_grif->GetEnergy() > 0){
                 if(sortedEvt.header.evtTimeNs == 0){
                   sortedEvt.header.evtTimeNs = (double)noAB_hit_grif->GetTime();
