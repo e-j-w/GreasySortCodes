@@ -29,6 +29,8 @@ using namespace std;
 #define ADDBACK_TIMING_GATE 200.0 //maximum time (in ns) that can separate events which will be summed in addback
 #define COINC_TIMING_GATE   200.0 //maximum time (in ns) that can separate sorted coincidences (following addback)
 #define SUM_TIMING_GATE     200.0 //maximum time (in ns) that can separate sorted coincidences (following addback), affects summing histograms
+#define TRANDOM_GATE_MIN    1100.0
+#define TRANDOM_GATE_MAX    1900.0
 
 //GLOBAL VARIABLES
 //(static to avoid multiple declaration when linking)

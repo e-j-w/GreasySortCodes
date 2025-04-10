@@ -32,10 +32,11 @@ TH1F *hpgeT_hpgeT;
 TH1F *hpgeT_hpgeT_tsep;
 TH1F *hpgeT_hpgeT_tsepmult2;
 TH1F *hpgeT_hpgeT_tseprand;
+TH2F *hpgeT_hpgeT_EDiff, *hpgeT_hpgeT_hpgeE;
 
 //HPGe-HPGe
 TH1F *hpge_hpge_dist, *hpge_hpge_angle;
-TH2I *hpgePos_hpgePos;
+TH2I *hpgePos_hpgePos, *hpgePos_hpgePos_lowEDiff;
 TH2F *hpgeE_hpgeE;
 TH2F *hpgeE_hpgeE_tsep;
 TH2F *hpgeE_hpgeE_tsepmult2;
@@ -96,6 +97,14 @@ void SortDiagnosticsS::Initialise() {
   hpgeT_hpgeT_tseprand = new TH1F("HPGe_HPGe_time_tseprand","HPGe - HPGe time, time-random separated",4096,-2048,2048); 
   hpgeT_hpgeT_tseprand->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
   timingList->Add(hpgeT_hpgeT_tseprand);
+  hpgeT_hpgeT_EDiff = new TH2F("HPGe_HPGe_time_vs_e_diff", "HPGe - HPGe time vs. energy difference", 4096, -2048, 2048, 4096, -256, 256);
+  hpgeT_hpgeT_EDiff->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  hpgeT_hpgeT_EDiff->GetYaxis()->SetTitle("E_{#gamma 2} - E_{#gamma 1} (keV)");
+  timingList->Add(hpgeT_hpgeT_EDiff);
+  hpgeT_hpgeT_hpgeE = new TH2F("HPGe_HPGe_time_vs_energy", "HPGe - HPGe time vs. energy", 4096, -2048, 2048, 4096, 0, 8192);
+  hpgeT_hpgeT_hpgeE->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  hpgeT_hpgeT_hpgeE->GetYaxis()->SetTitle("E_{#gamma} (keV)");
+  timingList->Add(hpgeT_hpgeT_hpgeE);
 
   //HPGe-HPGe
   hpge_hpge_dist = new TH1F("HPGe_HPGe_distance","HPGe-HPGe distance",512,0,512);
@@ -108,6 +117,10 @@ void SortDiagnosticsS::Initialise() {
   hpgePos_hpgePos->GetXaxis()->SetTitle("HPGe position 1");
   hpgePos_hpgePos->GetYaxis()->SetTitle("HPGe position 2");
   hpgehpgeList->Add(hpgePos_hpgePos);
+  hpgePos_hpgePos_lowEDiff = new TH2I("HPGe_HPGe_position_lowEDiff", "HPGe-HPGe position, Ediff < 0.1 keV", 64, 0, 64, 64, 0, 64);
+  hpgePos_hpgePos_lowEDiff->GetXaxis()->SetTitle("HPGe position 1");
+  hpgePos_hpgePos_lowEDiff->GetYaxis()->SetTitle("HPGe position 2");
+  hpgehpgeList->Add(hpgePos_hpgePos_lowEDiff);
   hpgeE_hpgeE = new TH2F("HPGe_Gamma_Gamma", "HPGe Gamma-Gamma", 8192, 0, 4096, 8192, 0, 4096);
   hpgeE_hpgeE->GetXaxis()->SetTitle("E_{#gamma 1} (keV)");
   hpgeE_hpgeE->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");

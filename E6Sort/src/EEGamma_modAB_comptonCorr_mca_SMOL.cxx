@@ -6,9 +6,9 @@
 //It is possible to have the gate hit be one of the already filled hits,
 //which is necessary if multiple hits fall into the energy gate.
 
-#define EEGamma_modAB_mca_SMOL_cxx
+#define EEGamma_modAB_comptonCorr_mca_SMOL_cxx
 #include "common.cxx"
-#include "EEGamma_modAB_mca_SMOL.h"
+#include "EEGamma_modAB_comptonCorr_mca_SMOL.h"
 
 using namespace std;
 
@@ -18,7 +18,7 @@ uint8_t gateABHitMapping[64], projABHitMapping[64]; //arrays specifying which hi
 double gateAddbackE[64], projAddbackE[64];
 double gateAddbackT[64], projAddbackT[64];
 
-void EEGamma_modAB_mca_SMOL::WriteData(const char* outName){
+void EEGamma_modAB_comptonCorr_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -33,7 +33,7 @@ void EEGamma_modAB_mca_SMOL::WriteData(const char* outName){
 
 }
 
-uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, const double eHigh, const double gateABRad, const double projABRad, const double keVPerBin){
+uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const double eLow, const double eHigh, const double eShift, const double gateABRad, const double projABRad, const double keVPerBin){
 
     FILE *inp = fopen(sfile, "rb");
     printf("\nFile %s opened\n", sfile);
@@ -247,7 +247,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                     if(hitPrevFilled == 0){
                         if(tDiff <= COINC_TIMING_GATE){ //timing condition
                             //fill spectrum with hit
-                            int eGamma = (int)(projAddbackE[projABHitInd]/keVPerBin);
+                            int eGamma = (int)((projAddbackE[projABHitInd] + eShift)/keVPerBin);
                             if(eGamma>=0 && eGamma<S32K){
                                 mcaOut[0][eGamma]++;
                                 //mcaOut[6][eGamma]++;
@@ -260,7 +260,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                             }
                         }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
                             //time random
-                            int eGamma = (int)(projAddbackE[projABHitInd]/keVPerBin);
+                            int eGamma = (int)((projAddbackE[projABHitInd] + eShift)/keVPerBin);
                             if(eGamma>=0 && eGamma<S32K){
                                 mcaOut[3][eGamma]++;
                             }
@@ -287,7 +287,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                             if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                                 if(((!(projABHitBuildFlags & (1UL << noABHitInd2))) || (projABHitMapping[noABHitInd2] != projABHitInd))&&(noABHitInd2 != gateNoABHitInd)){
                                                     if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
-                                                        double eGamma = projAddbackE[projABHitInd]/keVPerBin;
+                                                        double eGamma = (projAddbackE[projABHitInd] + eShift)/keVPerBin;
                                                         double eGamma2 = 0;
                                                         tDiff = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
                                                         if(projABHitBuildFlags & (1UL << noABHitInd2)){
@@ -345,7 +345,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                         if(!(specFillFlags[0] & (1UL << noABHitInd))){
                             if(tDiff <= COINC_TIMING_GATE){ //timing condition
                                 //fill spectrum with hit
-                                int eGamma = (int)(sortedEvt.noABHit[noABHitInd].energy/keVPerBin);
+                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin);
                                 if(eGamma>=0 && eGamma<S32K){
                                     mcaOut[0][eGamma]++;
                                     //mcaOut[7][eGamma]++;
@@ -354,7 +354,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                 specFillFlags[0] |= (1UL << noABHitInd);
                             }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
                                 //time random
-                                int eGamma = (int)(sortedEvt.noABHit[noABHitInd].energy/keVPerBin);
+                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin);
                                 if(eGamma>=0 && eGamma<S32K){
                                     mcaOut[3][eGamma]++;
                                 }
@@ -367,7 +367,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                     if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                         if((noABHitInd2 != noABHitInd)&&(noABHitInd2 != gateNoABHitInd)){
                                             if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
-                                                double eGamma = sortedEvt.noABHit[noABHitInd].energy/keVPerBin;
+                                                double eGamma = (sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin;
                                                 double eGamma2 = 0;
                                                 double tDiff = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
                                                 if(projABHitBuildFlags & (1UL << noABHitInd2)){
@@ -520,7 +520,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                     if(hitPrevFilled == 0){
                         if(tDiff <= COINC_TIMING_GATE){ //timing condition
                             //fill spectrum with hit
-                            int eGamma = (int)(projAddbackE[projABHitInd]/keVPerBin);
+                            int eGamma = (int)((projAddbackE[projABHitInd] + eShift)/keVPerBin);
                             if(eGamma>=0 && eGamma<S32K){
                                 mcaOut[0][eGamma]++;
                                 //mcaOut[4][eGamma]++;
@@ -533,7 +533,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                             }
                         }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
                             //time random
-                            int eGamma = (int)(projAddbackE[projABHitInd]/keVPerBin);
+                            int eGamma = (int)((projAddbackE[projABHitInd] + eShift)/keVPerBin);
                             if(eGamma>=0 && eGamma<S32K){
                                 mcaOut[3][eGamma]++;
                             }
@@ -559,7 +559,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                             if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                                 if(((!(projABHitBuildFlags & (1UL << noABHitInd2))) || (projABHitMapping[noABHitInd2] != projABHitInd))&&(!(usedGateHitBuildFlags & (1UL << noABHitInd2)))){
                                                     if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
-                                                        double eGamma = projAddbackE[projABHitInd]/keVPerBin;
+                                                        double eGamma = (projAddbackE[projABHitInd] + eShift)/keVPerBin;
                                                         double eGamma2 = 0;
                                                         double tDiff = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
                                                         if(projABHitBuildFlags & (1UL << noABHitInd2)){
@@ -616,7 +616,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                         if(!(specFillFlags[0] & (1UL << noABHitInd))){
                             if(tDiff <= COINC_TIMING_GATE){ //timing condition
                                 //fill spectrum with hit
-                                int eGamma = (int)(sortedEvt.noABHit[noABHitInd].energy/keVPerBin);
+                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin);
                                 if(eGamma>=0 && eGamma<S32K){
                                     mcaOut[0][eGamma]++;
                                     //mcaOut[5][eGamma]++;
@@ -626,7 +626,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                 
                             }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
                                 //time random
-                                int eGamma = (int)(sortedEvt.noABHit[noABHitInd].energy/keVPerBin);
+                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin);
                                 if(eGamma>=0 && eGamma<S32K){
                                     mcaOut[3][eGamma]++;
                                 }
@@ -639,7 +639,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                     if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                         if(!(usedGateHitBuildFlags & (1UL << noABHitInd2))){
                                             if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
-                                                double eGamma = sortedEvt.noABHit[noABHitInd].energy/keVPerBin;
+                                                double eGamma = (sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin;
                                                 double eGamma2 = 0;
                                                 double tDiff = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
                                                 if(projABHitBuildFlags & (1UL << noABHitInd2)){
@@ -664,7 +664,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                                         specFillFlags[1] |= (1UL << noABHitInd2);
                                                     }
                                                     //fill sum spectra
-                                                    int eGammaSum = (int)(eGamma + eGamma2);
+                                                    int eGammaSum = (int)(eGamma + eGamma2 + eShift);
                                                     if(eGammaSum>=0 && eGammaSum<S32K){
                                                         mcaOut[2][eGammaSum]++;
                                                     }
@@ -707,18 +707,19 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
 
 int main(int argc, char **argv){
 
-  EEGamma_modAB_mca_SMOL *mysort = new EEGamma_modAB_mca_SMOL();
+  EEGamma_modAB_comptonCorr_mca_SMOL *mysort = new EEGamma_modAB_comptonCorr_mca_SMOL();
 
   const char *sfile;
   const char *outfile;
   double keVPerBin = 1.0;
-  double eLow, eHigh, gateABRad, projABRad;
-  printf("Starting EEGamma_modAB_mca_SMOL\n");
+  double eLow, eHigh, eCorr, gateABRad, projABRad;
+  printf("Starting EEGamma_modAB_comptonCorr_mca_SMOL\n");
 
-  if((argc != 7)&&(argc != 8)){
-    cout << "Generates dmca gamma-gated spectra." << endl;
-    cout << "Arguments: EEGamma_modAB_mca_SMOL smol_file EGateLow EGateHigh gateABRadius projABRadius output_dmca_file keV_per_bin" << endl;
+  if((argc != 8)&&(argc != 9)){
+    cout << "Generates dmca gamma-gated Compton background spectra, to be used in background subtraction of Compton scatter features." << endl;
+    cout << "Arguments: EEGamma_modAB_comptonCorr_mca_SMOL smol_file EGateLow EGateHigh ECorr gateABRadius projABRadius output_dmca_file keV_per_bin" << endl;
     cout << "  *smol_file* can be a single SMOL tree (extension .smole6), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
+    cout << "  *ECorr* is the energy in keV for which the Compton background is being generated (ie. the original gate energy which the background will be subtracted from)." << endl;
     cout << "  *gateABRadius* and *projABRadius* are in mm. Values of zero correspond to no addback." << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     return 0;
@@ -726,11 +727,12 @@ int main(int argc, char **argv){
     sfile = argv[1];
     eLow = atof(argv[2]);
     eHigh = atof(argv[3]);
-    gateABRad = atof(argv[4]);
-    projABRad = atof(argv[5]);
-    outfile = argv[6];
-    if(argc > 7){
-      keVPerBin = atof(argv[7]);
+    eCorr = atof(argv[4]);
+    gateABRad = atof(argv[5]);
+    projABRad = atof(argv[6]);
+    outfile = argv[7];
+    if(argc > 8){
+      keVPerBin = atof(argv[8]);
     }
   }
 
@@ -758,12 +760,14 @@ int main(int argc, char **argv){
     return 0;
   }
 
+  double eShift = (eLow + eHigh)/2.0 - eCorr; //energy to shift all hits by
+
   uint64_t numSepEvts = 0U;
   if(strcmp(dot + 1, "smole6") == 0){
-    printf("SMOL tree: %s\nEnergy gate: [%0.2f %0.2f]\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, gateABRad, projABRad, outfile, keVPerBin);
-    numSepEvts += mysort->SortData(sfile, eLow, eHigh, gateABRad, projABRad, keVPerBin);
+    printf("SMOL tree: %s\nEnergy gate: [%0.2f %0.2f]\nCompton correction energy: %0.2f keV\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, eCorr, gateABRad, projABRad, outfile, keVPerBin);
+    numSepEvts += mysort->SortData(sfile, eLow, eHigh, eShift, gateABRad, projABRad, keVPerBin);
   }else if(strcmp(dot + 1, "list") == 0){
-    printf("SMOL tree list: %s\nEnergy gate: [%0.2f %0.2f]\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, gateABRad, projABRad, outfile, keVPerBin);
+    printf("SMOL tree list: %s\nEnergy gate: [%0.2f %0.2f]\nCompton correction energy: %0.2f keV\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, eCorr, gateABRad, projABRad, outfile, keVPerBin);
     
     FILE *listfile;
     char str[256];
@@ -775,7 +779,7 @@ int main(int argc, char **argv){
       while(!(feof(listfile))){//go until the end of file is reached
         if(fgets(str,256,listfile)!=NULL){ //get an entire line
           str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          numSepEvts += mysort->SortData(str, eLow, eHigh, gateABRad, projABRad, keVPerBin);
+          numSepEvts += mysort->SortData(str, eLow, eHigh, eShift, gateABRad, projABRad, keVPerBin);
         }
       }
     }

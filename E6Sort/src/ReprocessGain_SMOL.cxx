@@ -324,6 +324,7 @@ int main(int argc, char **argv){
         cout << "Arguments: ReprocessGain_SMOL smol_file eval_time_window corr_time_window output_smolfile_suffix energy1 energy2 energy3..." << endl;
         cout << "  *smol_file* can be a single SMOL tree (extension .smole6), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
         cout << "  *eval_time_window* is the size of the window at the start of the data used to evaluate the correct gain, in seconds.  This should be the longest time period at the start of the data where gain shift is not observed." << endl;
+        cout << "    - If a list of SMOL trees is used, the correct gains will be evaluated using the first SMOL tree in the list." << endl;
         cout << "  *corr_time_window* is the size of the window used to evaluate gain shift, in seconds." << endl;
         cout << "  *energy1*, *energy2*, etc are up to " << MAX_INPUT_E << " approximate energies (in keV) corresponding to peaks used to the fit." << endl;
         cout << "Default values will be used if arguments (other than analysis_tree) are omitted." << endl;

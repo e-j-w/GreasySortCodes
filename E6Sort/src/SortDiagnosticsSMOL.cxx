@@ -23,7 +23,6 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
   fread(&sentries,sizeof(uint64_t),1,inp);
   
   uint8_t footerVal;
-  unsigned long int numHPGeABHits = 0;
 
   /*cout << "TIGRESS positions: " << endl;
   for(int det=1;det<17;det++){
@@ -64,8 +63,14 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
             hpgePos_hpgePos->Fill(sortedEvt.noABHit[noABHitInd].core,sortedEvt.noABHit[noABHitInd2].core);
+            if(fabs(sortedEvt.noABHit[noABHitInd2].energy - sortedEvt.noABHit[noABHitInd].energy) < 0.1){
+              hpgePos_hpgePos_lowEDiff->Fill(sortedEvt.noABHit[noABHitInd].core,sortedEvt.noABHit[noABHitInd2].core);
+            }
             hpge_hpge_dist->Fill(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core,0,sortedEvt.noABHit[noABHitInd2].core,0,1)); //FORWARD POSITION (11 cm)
             hpge_hpge_angle->Fill(getGeVector(sortedEvt.noABHit[noABHitInd].core,0,1).Angle(getGeVector(sortedEvt.noABHit[noABHitInd2].core,0,1))*180.0/PI); //FORWARD POSITION (11 cm)
+            hpgeT_hpgeT_EDiff->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy - sortedEvt.noABHit[noABHitInd].energy);
+            hpgeT_hpgeT_hpgeE->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy);
+            hpgeT_hpgeT_hpgeE->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy);
             if((tDiff >= hpgehpgeTGate[0])&&(tDiff <= hpgehpgeTGate[1])){
               hpgeT_hpgeT_tsep->Fill(tDiff);
               hpgeE_hpgeE_tsep->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
@@ -95,12 +100,11 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
       }
     }
 
-    if (jentry % 10000 == 0)
+    if (jentry % 9713 == 0)
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / sentries << "% complete" << "\r" << flush;
   } // analysis tree
 
   cout << "Entry " << sentries << " of " << sentries << ", 100% complete" << endl;
-  cout << "Number of HPGe addback hits: " << numHPGeABHits << endl;
   cout << endl << "Event sorting complete" << endl;
 
   cout << "Writing histograms to " << outfile << endl;

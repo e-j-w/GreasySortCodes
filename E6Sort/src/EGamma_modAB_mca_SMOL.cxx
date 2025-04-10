@@ -67,8 +67,8 @@ uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABR
 
         //read event
         if(readSMOLEvent(inp,&sortedEvt)==0){
-        cout << "ERROR: bad event data in entry " << jentry << "." << endl;
-        exit(-1);
+            cout << "ERROR: bad event data in entry " << jentry << "." << endl;
+            exit(-1);
         }
 
         //reset flags

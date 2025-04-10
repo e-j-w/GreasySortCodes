@@ -8,6 +8,8 @@
 
 using namespace std;
 
+uint8_t hitMap180deg[64][64]; //1st index = crystal of hit, 2nd index = crystal of 2nd hit, val = 1 indicates 180 degree summing occurs
+
 void EEGamma_noAB_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
@@ -33,6 +35,19 @@ uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, c
   sorted_evt sortedEvt;
   uint8_t footerVal;
 
+  //construct 180 degree summing hit map
+  memset(hitMap180deg,0,sizeof(hitMap180deg));
+  for(uint8_t i=0;i<64;i++){ //first core
+      for(uint8_t j=0;j<64;j++){ //coinc core
+          if(i!=j){
+              if(getGeVector(i,0,1).Angle(getGeVector(j,0,1))*180.0/PI > 175.0){
+                  hitMap180deg[i][j] = 1;
+                  continue; //check the next coinc core
+              }
+          }
+      }
+  }
+
   printf("\nSorting events...\n");
   for(Long64_t jentry = 0; jentry < sentries; jentry++){
 
@@ -47,11 +62,33 @@ uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, c
         if((sortedEvt.noABHit[noABHitInd].energy >= eLow)&&(sortedEvt.noABHit[noABHitInd].energy <= eHigh)){
           for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
             if(noABHitInd != noABHitInd2){
-              Double_t tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-              if(tDiff <= 200.0){
-                int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
-                if(eGamma>=0 && eGamma<S32K){
-                  mcaOut[eGamma]++;
+              if(sortedEvt.noABHit[noABHitInd2].energy > MIN_HPGE_EAB){
+                Double_t tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
+                if(tDiff <= ADDBACK_TIMING_GATE){
+                  int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
+                  if(eGamma>=0 && eGamma<S32K){
+                    mcaOut[0][eGamma]++;
+                  }
+                  for(int noABHitInd3 = 0; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
+                    if((noABHitInd3 != noABHitInd)&&((noABHitInd3 != noABHitInd2))){
+                      if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
+                        tDiff = tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd3) - noABHitTime(&sortedEvt,noABHitInd2));
+                        if(tDiff<= SUM_TIMING_GATE){ //timing condition
+                          int eGamma3 = (int)(sortedEvt.noABHit[noABHitInd3].energy/keVPerBin);
+                          int eGammaSum = (int)((sortedEvt.noABHit[noABHitInd3].energy + sortedEvt.noABHit[noABHitInd2].energy)/keVPerBin);
+                          if(eGammaSum>=0 && eGammaSum<S32K){
+                              mcaOut[2][eGammaSum]++;
+                          }
+                          if(eGamma3>=0 && eGamma3<S32K){
+                              mcaOut[1][eGamma3]++;
+                          }
+                          if(eGamma>=0 && eGamma<S32K){
+                              mcaOut[1][eGamma]++;
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }

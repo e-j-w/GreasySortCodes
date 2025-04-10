@@ -76,6 +76,9 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
           if(i<MAX_EVT_HIT){
             noAB_hit = tigress->GetTigressHit(i);
             if(noAB_hit->GetKValue() >= noPileupKValue){
+              if(noAB_hit->GetKValue() != noPileupKValue){
+                cout << "Entry " << jentry << ", K = " << noAB_hit->GetKValue() << endl;
+              }
               if(!(noAB_hit->BGOFired()) && (noAB_hit->GetEnergy() > 0)){
                 if(sortedEvt.header.evtTimeNs == 0){
                   sortedEvt.header.evtTimeNs = (double)noAB_hit->GetTime();
@@ -86,6 +89,20 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
                 if(sortedEvt.noABHit[numNoABHits].core >= 64){
                   cout << "WARNING: invalid TIGRESS core: " << sortedEvt.noABHit[numNoABHits].core << endl;
                   continue;
+                }else{
+                  //handle duplicate data
+                  uint8_t dupFound = 0;
+                  for(int i = 0; i<numNoABHits;i++){
+                    if(sortedEvt.noABHit[numNoABHits].core == sortedEvt.noABHit[i].core){
+                      if(fabs(sortedEvt.noABHit[numNoABHits].timeOffsetNs - sortedEvt.noABHit[i].timeOffsetNs) < 20.0){
+                        //cout << "Duplicate TIGRESS hit found!" << endl;
+                        dupFound = 1;
+                      }
+                    }
+                  }
+                  if(dupFound != 0){
+                    continue;
+                  }
                 }
                 numNoABHits++;
               }
@@ -95,23 +112,25 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
             }
           }
         }
-
-        sortedEvt.header.numNoABHits = numNoABHits;
-        sortedEvt.header.metadata = (uint8_t)1; //first bit is ON for TIGRESS data
-        if(suppressorFired){
-          sortedEvt.header.metadata |= (uint8_t)(1U << 1);
-        }
-        fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
-
-        for(int i = 0; i<numNoABHits;i++){
-          fwrite(&sortedEvt.noABHit[i].timeOffsetNs,sizeof(float),1,out);
-          fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
-          fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
-        }
-        //write footer value
-        fwrite(&footerVal,sizeof(uint8_t),1,out);
         
-        numSeparatedEvents++;
+        if(numNoABHits > 0){
+          sortedEvt.header.numNoABHits = numNoABHits;
+          sortedEvt.header.metadata = (uint8_t)1; //first bit is ON for TIGRESS data
+          if(suppressorFired){
+            sortedEvt.header.metadata |= (uint8_t)(1U << 1);
+          }
+          fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
+
+          for(int i = 0; i<numNoABHits;i++){
+            fwrite(&sortedEvt.noABHit[i].timeOffsetNs,sizeof(float),1,out);
+            fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
+            fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
+          }
+          //write footer value
+          fwrite(&footerVal,sizeof(uint8_t),1,out);
+          
+          numSeparatedEvents++;
+        }
 
       }
 
@@ -133,6 +152,9 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
             noAB_hit_grif = griffin->GetSuppressedHit(i);
             //cout << noAB_hit_grif->GetKValue() << endl;
             if(noAB_hit_grif->GetKValue() >= noPileupKValue){
+              if(noAB_hit_grif->GetKValue() != noPileupKValue){
+                cout << "Entry " << jentry << ", K = " << noAB_hit_grif->GetKValue() << endl;
+              }
               if(noAB_hit_grif->GetEnergy() > 0){
                 if(sortedEvt.header.evtTimeNs == 0){
                   sortedEvt.header.evtTimeNs = (double)noAB_hit_grif->GetTime();
@@ -143,6 +165,20 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
                 if(sortedEvt.noABHit[numNoABHits].core >= 64){
                   cout << "WARNING: invalid GRIFFIN core: " << sortedEvt.noABHit[numNoABHits].core << endl;
                   continue;
+                }else{
+                  //handle duplicate data
+                  uint8_t dupFound = 0;
+                  for(int i = 0; i<numNoABHits;i++){
+                    if(sortedEvt.noABHit[numNoABHits].core == sortedEvt.noABHit[i].core){
+                      if(fabs(sortedEvt.noABHit[numNoABHits].timeOffsetNs - sortedEvt.noABHit[i].timeOffsetNs) < 20.0){
+                        //cout << "Duplicate GRIFFIN hit found!" << endl;
+                        dupFound = 1;
+                      }
+                    }
+                  }
+                  if(dupFound != 0){
+                    continue;
+                  }
                 }
                 numNoABHits++;
               }
@@ -150,36 +186,38 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
           }
         }
 
-        sortedEvt.header.numNoABHits = numNoABHits;
-        sortedEvt.header.metadata = (uint8_t)0; //first bit is OFF for GRIFFIN data
-        if(griffin_bgo->GetMultiplicity() > 0){
-          //at least one suppressor fired
-          sortedEvt.header.metadata |= (uint8_t)(1U << 1);
+        if(numNoABHits > 0){
+
+          sortedEvt.header.numNoABHits = numNoABHits;
+          sortedEvt.header.metadata = (uint8_t)0; //first bit is OFF for GRIFFIN data
+          if(griffin_bgo->GetMultiplicity() > 0){
+            //at least one suppressor fired
+            sortedEvt.header.metadata |= (uint8_t)(1U << 1);
+          }
+          fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
+          //write hits, without segment data (no segments for GRIFFIN)
+          for(int i = 0; i<numNoABHits;i++){
+            fwrite(&sortedEvt.noABHit[i].timeOffsetNs,sizeof(float),1,out);
+            fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
+            fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
+          }
+          //write footer value
+          fwrite(&footerVal,sizeof(uint8_t),1,out);
+
+          numSeparatedEvents++;
         }
-        fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
-        //write hits, without segment data (no segments for GRIFFIN)
-        for(int i = 0; i<numNoABHits;i++){
-          fwrite(&sortedEvt.noABHit[i].timeOffsetNs,sizeof(float),1,out);
-          fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
-          fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
-        }
-        //write footer value
-        fwrite(&footerVal,sizeof(uint8_t),1,out);
-        
-        numSeparatedEvents++;
 
       }
 
     }
 
-    if (jentry % 1000 == 0)
+    if (jentry % 9713 == 0)
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << analentries << ", " << 100 * jentry / analentries << "% complete" << "\r" << flush;
   } // analysis tree
 
   cout << "Entry " << analentries << " of " << analentries << ", 100% complete" << endl;
   cout << "Event sorting complete" << endl;
   cout << "Number of separated events: " << numSeparatedEvents << " ("<< 100.0f*numSeparatedEvents/(float)analentries << "\% of total)" << endl;
-
 
   analysisfile->Close();
 
