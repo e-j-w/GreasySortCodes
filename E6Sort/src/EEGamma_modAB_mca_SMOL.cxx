@@ -279,27 +279,27 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                         }
                     }
                     if(hitPrevFilledS == 0){
-                        if(tDiff <= COINC_TIMING_GATE){ //timing condition
-                            for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-                                if(!(specFillFlags[1] & (1UL << noABHitInd))){
-                                    if(projABHitMapping[noABHitInd] == projABHitInd){
-                                        for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
-                                            if(!(specFillFlags[1] & (1UL << noABHitInd2))){
-                                                if(((!(projABHitBuildFlags & (1UL << noABHitInd2))) || (projABHitMapping[noABHitInd2] != projABHitInd))&&(noABHitInd2 != gateNoABHitInd)){
-                                                    if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
-                                                        double eGamma = projAddbackE[projABHitInd]/keVPerBin;
-                                                        double eGamma2 = 0;
-                                                        tDiff = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
-                                                        if(projABHitBuildFlags & (1UL << noABHitInd2)){
-                                                            //opposing hit was part of a different projection hit
-                                                            eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
-                                                            tDiff = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
-                                                        }else{
-                                                            //opposing hit was a single non-addback hit
-                                                            eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
-                                                            tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
-                                                        }
-                                                        if(tDiff<= SUM_TIMING_GATE){ //timing condition
+                        for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+                            if(!(specFillFlags[1] & (1UL << noABHitInd))){
+                                if(projABHitMapping[noABHitInd] == projABHitInd){
+                                    for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+                                        if(!(specFillFlags[1] & (1UL << noABHitInd2))){
+                                            if(((!(projABHitBuildFlags & (1UL << noABHitInd2))) || (projABHitMapping[noABHitInd2] != projABHitInd))&&(noABHitInd2 != gateNoABHitInd)){
+                                                if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
+                                                    double eGamma = projAddbackE[projABHitInd]/keVPerBin;
+                                                    double eGamma2 = 0;
+                                                    double tDiffSum = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
+                                                    if(projABHitBuildFlags & (1UL << noABHitInd2)){
+                                                        //opposing hit was part of a different projection hit
+                                                        eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
+                                                        tDiffSum = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
+                                                    }else{
+                                                        //opposing hit was a single non-addback hit
+                                                        eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
+                                                        tDiffSum = fabs(noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
+                                                    }
+                                                    if(tDiffSum<= SUM_TIMING_GATE){ //timing condition
+                                                        if(tDiff <= COINC_TIMING_GATE){ //timing condition
                                                             //set flags
                                                             for(int noABHitIndS = 0; noABHitIndS < sortedEvt.header.numNoABHits; noABHitIndS++){
                                                                 if(projABHitMapping[noABHitIndS] == projABHitInd){
@@ -325,8 +325,21 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                                             if(eGamma2>=0 && eGamma2<S32K){
                                                                 mcaOut[1][(int)eGamma2]++;
                                                             }
+                                                        }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
+                                                            int eGammaSum = (int)(eGamma + eGamma2);
+                                                            if(eGammaSum>=0 && eGammaSum<S32K){
+                                                                mcaOut[5][eGammaSum]++;
+                                                            }
+                                                            if(eGamma>=0 && eGamma<S32K){
+                                                                mcaOut[4][(int)eGamma]++;
+                                                            }
+                                                            if(eGamma2>=0 && eGamma2<S32K){
+                                                                mcaOut[4][(int)eGamma2]++;
+                                                            }
                                                         }
+                                                        
                                                     }
+                                                    
                                                 }
                                             }
                                         }
@@ -362,24 +375,24 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                         }
                         //check angles of original projection hits, and fill 180 degree spectra
                         if(!(specFillFlags[1] & (1UL << noABHitInd))){
-                            if(tDiff <= COINC_TIMING_GATE){ //timing condition
-                                for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
-                                    if(!(specFillFlags[1] & (1UL << noABHitInd2))){
-                                        if((noABHitInd2 != noABHitInd)&&(noABHitInd2 != gateNoABHitInd)){
-                                            if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
-                                                double eGamma = sortedEvt.noABHit[noABHitInd].energy/keVPerBin;
-                                                double eGamma2 = 0;
-                                                double tDiff = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
-                                                if(projABHitBuildFlags & (1UL << noABHitInd2)){
-                                                    //opposing hit was part of a different projection hit
-                                                    eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
-                                                    tDiff = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - noABHitTime(&sortedEvt,noABHitInd));
-                                                }else{
-                                                    //opposing hit was a single non-addback hit
-                                                    eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
-                                                    tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
-                                                }
-                                                if(tDiff<= SUM_TIMING_GATE){ //timing condition
+                            for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+                                if(!(specFillFlags[1] & (1UL << noABHitInd2))){
+                                    if((noABHitInd2 != noABHitInd)&&(noABHitInd2 != gateNoABHitInd)){
+                                        if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
+                                            double eGamma = sortedEvt.noABHit[noABHitInd].energy/keVPerBin;
+                                            double eGamma2 = 0;
+                                            double tDiffSum = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
+                                            if(projABHitBuildFlags & (1UL << noABHitInd2)){
+                                                //opposing hit was part of a different projection hit
+                                                eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
+                                                tDiffSum = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - noABHitTime(&sortedEvt,noABHitInd));
+                                            }else{
+                                                //opposing hit was a single non-addback hit
+                                                eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
+                                                tDiffSum = fabs(noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
+                                            }
+                                            if(tDiffSum<= SUM_TIMING_GATE){ //timing condition
+                                                if(tDiff <= COINC_TIMING_GATE){ //timing condition
                                                     //set flags
                                                     specFillFlags[1] |= (1UL << noABHitInd);
                                                     if(projABHitBuildFlags & (1UL << noABHitInd2)){
@@ -400,6 +413,17 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                                     }
                                                     if(eGamma2>=0 && eGamma2<S32K){
                                                         mcaOut[1][(int)eGamma2]++;
+                                                    }
+                                                }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
+                                                    int eGammaSum = (int)(eGamma + eGamma2);
+                                                    if(eGammaSum>=0 && eGammaSum<S32K){
+                                                        mcaOut[5][eGammaSum]++;
+                                                    }
+                                                    if(eGamma>=0 && eGamma<S32K){
+                                                        mcaOut[4][(int)eGamma]++;
+                                                    }
+                                                    if(eGamma2>=0 && eGamma2<S32K){
+                                                        mcaOut[4][(int)eGamma2]++;
                                                     }
                                                 }
                                             }
@@ -551,7 +575,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                         }
                     }
                     if(hitPrevFilledS == 0){
-                        if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                        
                             for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
                                 if(!(specFillFlags[1] & (1UL << noABHitInd))){
                                     if(projABHitMapping[noABHitInd] == projABHitInd){
@@ -561,41 +585,54 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                                     if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
                                                         double eGamma = projAddbackE[projABHitInd]/keVPerBin;
                                                         double eGamma2 = 0;
-                                                        double tDiff = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
+                                                        double tDiffSum = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
                                                         if(projABHitBuildFlags & (1UL << noABHitInd2)){
                                                             //opposing hit was part of a different projection hit
                                                             eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
-                                                            tDiff = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
+                                                            tDiffSum = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
                                                         }else{
                                                             //opposing hit was a single non-addback hit
                                                             eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
-                                                            tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
+                                                            tDiffSum = fabs(noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
                                                         }
-                                                        if(tDiff<= SUM_TIMING_GATE){ //timing condition
-                                                            //set flags
-                                                            for(int noABHitIndS = 0; noABHitIndS < sortedEvt.header.numNoABHits; noABHitIndS++){
-                                                                if(projABHitMapping[noABHitIndS] == projABHitInd){
-                                                                    specFillFlags[1] |= (1UL << noABHitIndS);
-                                                                }
-                                                            }
-                                                            if(projABHitBuildFlags & (1UL << noABHitInd2)){
+                                                        if(tDiffSum<= SUM_TIMING_GATE){ //timing condition
+                                                            if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                                                                //set flags
                                                                 for(int noABHitIndS = 0; noABHitIndS < sortedEvt.header.numNoABHits; noABHitIndS++){
-                                                                    if(projABHitMapping[noABHitIndS] == projABHitMapping[noABHitInd2]){
+                                                                    if(projABHitMapping[noABHitIndS] == projABHitInd){
                                                                         specFillFlags[1] |= (1UL << noABHitIndS);
                                                                     }
                                                                 }
-                                                            }else{
-                                                                specFillFlags[1] |= (1UL << noABHitInd2);
-                                                            }
-                                                            int eGammaSum = (int)(eGamma + eGamma2);
-                                                            if(eGammaSum>=0 && eGammaSum<S32K){
-                                                                mcaOut[2][eGammaSum]++;
-                                                            }
-                                                            if(eGamma>=0 && eGamma<S32K){
-                                                                mcaOut[1][(int)eGamma]++;
-                                                            }
-                                                            if(eGamma2>=0 && eGamma2<S32K){
-                                                                mcaOut[1][(int)eGamma2]++;
+                                                                if(projABHitBuildFlags & (1UL << noABHitInd2)){
+                                                                    for(int noABHitIndS = 0; noABHitIndS < sortedEvt.header.numNoABHits; noABHitIndS++){
+                                                                        if(projABHitMapping[noABHitIndS] == projABHitMapping[noABHitInd2]){
+                                                                            specFillFlags[1] |= (1UL << noABHitIndS);
+                                                                        }
+                                                                    }
+                                                                }else{
+                                                                    specFillFlags[1] |= (1UL << noABHitInd2);
+                                                                }
+                                                                int eGammaSum = (int)(eGamma + eGamma2);
+                                                                if(eGammaSum>=0 && eGammaSum<S32K){
+                                                                    mcaOut[2][eGammaSum]++;
+                                                                }
+                                                                if(eGamma>=0 && eGamma<S32K){
+                                                                    mcaOut[1][(int)eGamma]++;
+                                                                }
+                                                                if(eGamma2>=0 && eGamma2<S32K){
+                                                                    mcaOut[1][(int)eGamma2]++;
+                                                                }
+                                                            }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
+                                                                int eGammaSum = (int)(eGamma + eGamma2);
+                                                                if(eGammaSum>=0 && eGammaSum<S32K){
+                                                                    mcaOut[5][eGammaSum]++;
+                                                                }
+                                                                if(eGamma>=0 && eGamma<S32K){
+                                                                    mcaOut[4][(int)eGamma]++;
+                                                                }
+                                                                if(eGamma2>=0 && eGamma2<S32K){
+                                                                    mcaOut[4][(int)eGamma2]++;
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -605,7 +642,6 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                     }
                                 }
                             }
-                        }
                     }
                 }
                 //add in any remaining hits that weren't addback'd
@@ -634,52 +670,65 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                         }
                         //check angles of original projection hits, and fill 180 degree spectra
                         if(!(specFillFlags[1] & (1UL << noABHitInd))){
-                            if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                            
                                 for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
                                     if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                         if(!(usedGateHitBuildFlags & (1UL << noABHitInd2))){
                                             if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
                                                 double eGamma = sortedEvt.noABHit[noABHitInd].energy/keVPerBin;
                                                 double eGamma2 = 0;
-                                                double tDiff = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
+                                                double tDiffSum = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
                                                 if(projABHitBuildFlags & (1UL << noABHitInd2)){
                                                     //opposing hit was part of a different projection hit
                                                     eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
-                                                    tDiff = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - noABHitTime(&sortedEvt,noABHitInd));
+                                                    tDiffSum = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - noABHitTime(&sortedEvt,noABHitInd));
                                                 }else{
                                                     //opposing hit was a single non-addback hit
                                                     eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
-                                                    tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
+                                                    tDiffSum = fabs(noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
                                                 }
-                                                if(tDiff <= SUM_TIMING_GATE){ //timing condition
-                                                    //set flags
-                                                    specFillFlags[1] |= (1UL << noABHitInd);
-                                                    if(projABHitBuildFlags & (1UL << noABHitInd2)){
-                                                        for(int noABHitIndS = 0; noABHitIndS < sortedEvt.header.numNoABHits; noABHitIndS++){
-                                                            if(projABHitMapping[noABHitIndS] == projABHitMapping[noABHitInd2]){
-                                                                specFillFlags[1] |= (1UL << noABHitIndS);
+                                                if(tDiffSum <= SUM_TIMING_GATE){ //timing condition
+                                                    if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                                                        //set flags
+                                                        specFillFlags[1] |= (1UL << noABHitInd);
+                                                        if(projABHitBuildFlags & (1UL << noABHitInd2)){
+                                                            for(int noABHitIndS = 0; noABHitIndS < sortedEvt.header.numNoABHits; noABHitIndS++){
+                                                                if(projABHitMapping[noABHitIndS] == projABHitMapping[noABHitInd2]){
+                                                                    specFillFlags[1] |= (1UL << noABHitIndS);
+                                                                }
                                                             }
+                                                        }else{
+                                                            specFillFlags[1] |= (1UL << noABHitInd2);
                                                         }
-                                                    }else{
-                                                        specFillFlags[1] |= (1UL << noABHitInd2);
-                                                    }
-                                                    //fill sum spectra
-                                                    int eGammaSum = (int)(eGamma + eGamma2);
-                                                    if(eGammaSum>=0 && eGammaSum<S32K){
-                                                        mcaOut[2][eGammaSum]++;
-                                                    }
-                                                    if(eGamma>=0 && eGamma<S32K){
-                                                        mcaOut[1][(int)eGamma]++;
-                                                    }
-                                                    if(eGamma2>=0 && eGamma2<S32K){
-                                                        mcaOut[1][(int)eGamma2]++;
+                                                        //fill sum spectra
+                                                        int eGammaSum = (int)(eGamma + eGamma2);
+                                                        if(eGammaSum>=0 && eGammaSum<S32K){
+                                                            mcaOut[2][eGammaSum]++;
+                                                        }
+                                                        if(eGamma>=0 && eGamma<S32K){
+                                                            mcaOut[1][(int)eGamma]++;
+                                                        }
+                                                        if(eGamma2>=0 && eGamma2<S32K){
+                                                            mcaOut[1][(int)eGamma2]++;
+                                                        }
+                                                    }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
+                                                        //fill sum spectra
+                                                        int eGammaSum = (int)(eGamma + eGamma2);
+                                                        if(eGammaSum>=0 && eGammaSum<S32K){
+                                                            mcaOut[5][eGammaSum]++;
+                                                        }
+                                                        if(eGamma>=0 && eGamma<S32K){
+                                                            mcaOut[4][(int)eGamma]++;
+                                                        }
+                                                        if(eGamma2>=0 && eGamma2<S32K){
+                                                            mcaOut[4][(int)eGamma2]++;
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
                                 }
-                            }
                         }
                     }
                 }

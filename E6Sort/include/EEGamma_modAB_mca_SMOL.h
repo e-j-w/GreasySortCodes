@@ -7,7 +7,13 @@
 using namespace std;
 
 //spectra
-double mcaOut[4][S32K]; //output .dmca data, sp 0 is gated energy spectrum, sp 1 is 180 degree projection, sp 2 is 180 degree sum, sp 3 is time random
+double mcaOut[6][S32K]; //output .dmca data
+// sp 0 is gated energy spectrum
+// sp 1 is 180 degree projection
+// sp 2 is 180 degree sum
+// sp 3 is time random
+// sp 4 is time random 180 degree projection
+// sp 5 is time random 180 degree sum
 
 class EEGamma_modAB_mca_SMOL{
 	public :

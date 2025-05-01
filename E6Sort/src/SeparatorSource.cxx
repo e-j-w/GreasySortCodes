@@ -43,7 +43,6 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
   TTigressHit *add_hit, *noAB_hit;
   TGriffinHit *add_hit_grif, *noAB_hit_grif;
   sorted_evt sortedEvt;
-  uint8_t footerVal = 227U;
 
   TChannel::ReadCalFile(calfile);
 
@@ -119,6 +118,7 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
           if(suppressorFired){
             sortedEvt.header.metadata |= (uint8_t)(1U << 1);
           }
+          sortedEvt.header.metadata |= (uint8_t)(1U << 7); //set data validation bit
           fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
 
           for(int i = 0; i<numNoABHits;i++){
@@ -126,8 +126,6 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
             fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
             fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
           }
-          //write footer value
-          fwrite(&footerVal,sizeof(uint8_t),1,out);
           
           numSeparatedEvents++;
         }
@@ -194,6 +192,7 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
             //at least one suppressor fired
             sortedEvt.header.metadata |= (uint8_t)(1U << 1);
           }
+          sortedEvt.header.metadata |= (uint8_t)(1U << 7); //set data validation bit
           fwrite(&sortedEvt.header,sizeof(evt_header),1,out);
           //write hits, without segment data (no segments for GRIFFIN)
           for(int i = 0; i<numNoABHits;i++){
@@ -201,8 +200,6 @@ uint64_t SeparatorSource::SortData(const char *afile, const char *calfile){
             fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
             fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
           }
-          //write footer value
-          fwrite(&footerVal,sizeof(uint8_t),1,out);
 
           numSeparatedEvents++;
         }

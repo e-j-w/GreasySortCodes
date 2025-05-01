@@ -10,6 +10,26 @@ using namespace std;
 
 uint8_t hitMap180deg[64][64]; //1st index = crystal of hit, 2nd index = crystal of 2nd hit, val = 1 indicates 180 degree summing occurs
 
+//make sure srand() is called somewhere
+double rand_expo(double lambda){
+  double u;
+  u = rand() / (RAND_MAX + 1.0);
+  return -log(1- u) / lambda;
+}
+
+//function attempting to correct the sum peak energy for 180 degree coincidences
+//in true summing, the energy will be shifted down slightly, since the first
+//pulse will decay partially before the second hit occurs
+float correctSumE(float en, double tDiffSum, double gain, double offset){
+  double corrVal = rand_expo(0.50)*tDiffSum/480.0; //divisor more significant for 1740 line, expo more significant for 2950 line
+  //printf("corrVal: %f\n",corrVal);
+  return (float)((en - corrVal)*gain + offset);
+  //lambda = 1.0: not enough skew
+  //lambda = 0.5: closer but still not enough skew
+  //lambda = 0.25: good for coincident summing, too fast for time random
+  //0.35 - slightly too slow for time-random
+}
+
 void EEGamma_noAB_mca_SMOL::WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
@@ -25,6 +45,8 @@ void EEGamma_noAB_mca_SMOL::WriteData(const char* outName){
 
 }
 
+
+
 uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, const double eHigh, const double keVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
@@ -33,7 +55,7 @@ uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, c
   uint64_t sentries = 0U;
   fread(&sentries,sizeof(uint64_t),1,inp);
   sorted_evt sortedEvt;
-  uint8_t footerVal;
+  srand(92370104);
 
   //construct 180 degree summing hit map
   memset(hitMap180deg,0,sizeof(hitMap180deg));
@@ -58,34 +80,62 @@ uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, c
     }
 
     for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-      if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
-        if((sortedEvt.noABHit[noABHitInd].energy >= eLow)&&(sortedEvt.noABHit[noABHitInd].energy <= eHigh)){
-          for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
-            if(noABHitInd != noABHitInd2){
-              if(sortedEvt.noABHit[noABHitInd2].energy > MIN_HPGE_EAB){
-                Double_t tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-                if(tDiff <= ADDBACK_TIMING_GATE){
-                  int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
-                  if(eGamma>=0 && eGamma<S32K){
-                    mcaOut[0][eGamma]++;
-                  }
-                  for(int noABHitInd3 = 0; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
-                    if((noABHitInd3 != noABHitInd)&&((noABHitInd3 != noABHitInd2))){
-                      if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
-                        tDiff = tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd3) - noABHitTime(&sortedEvt,noABHitInd2));
-                        if(tDiff<= SUM_TIMING_GATE){ //timing condition
-                          int eGamma3 = (int)(sortedEvt.noABHit[noABHitInd3].energy/keVPerBin);
-                          int eGammaSum = (int)((sortedEvt.noABHit[noABHitInd3].energy + sortedEvt.noABHit[noABHitInd2].energy)/keVPerBin);
-                          if(eGammaSum>=0 && eGammaSum<S32K){
-                              mcaOut[2][eGammaSum]++;
-                          }
-                          if(eGamma3>=0 && eGamma3<S32K){
-                              mcaOut[1][eGamma3]++;
-                          }
-                          if(eGamma>=0 && eGamma<S32K){
-                              mcaOut[1][eGamma]++;
-                          }
-                        }
+      if((sortedEvt.noABHit[noABHitInd].energy >= eLow)&&(sortedEvt.noABHit[noABHitInd].energy <= eHigh)){
+        for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+          if(noABHitInd != noABHitInd2){
+            Double_t tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
+            if(tDiff <= COINC_TIMING_GATE){
+              int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
+              if(eGamma>=0 && eGamma<S32K){
+                mcaOut[0][eGamma]++; //fill true coincidence histogram
+              }
+            }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
+              //time random
+              int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
+              if(eGamma>=0 && eGamma<S32K){
+                mcaOut[3][eGamma]++; //fill time-random 'coincidence' histogram
+              }
+            }
+            //make summing histograms
+            for(int noABHitInd3 = 0; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
+              if((noABHitInd3 != noABHitInd)&&((noABHitInd3 != noABHitInd2))){
+                if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
+                  Double_t tDiffSum = fabs(noABHitTime(&sortedEvt,noABHitInd3) - noABHitTime(&sortedEvt,noABHitInd2));
+                  if(tDiffSum <= SUM_TIMING_GATE){ //timing condition (sum)
+                    //for comparing the summed hits to the original gated hit, need to consider the timing of the first
+                    //sum hit, since in the actual sum peak, the trigger is based off the initial rise of the pulse, 
+                    //which will occur at the time of the first hit
+                    Double_t tDiffFirstSumHit = tDiff;
+                    if(noABHitTime(&sortedEvt,noABHitInd3) < noABHitTime(&sortedEvt,noABHitInd2)){
+                      tDiffFirstSumHit = fabs(noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd3));
+                    }
+                    if(tDiffFirstSumHit <= COINC_TIMING_GATE){ //timing condition (original energy gate)
+                      int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
+                      int eGamma3 = (int)(sortedEvt.noABHit[noABHitInd3].energy/keVPerBin);
+                      //int eGammaSum = eGamma + eGamma3;
+                      int eGammaSum = (int)(correctSumE(sortedEvt.noABHit[noABHitInd2].energy + sortedEvt.noABHit[noABHitInd3].energy,tDiffSum,1.0,0.0)/keVPerBin);
+                      if(eGammaSum>=0 && eGammaSum<S32K){
+                          mcaOut[2][eGammaSum]++; //fill 180 degree sum histogram
+                      }
+                      if(eGamma3>=0 && eGamma3<S32K){
+                          mcaOut[1][eGamma3]++; //fill 180 degree projection histogram
+                      }
+                      if(eGamma>=0 && eGamma<S32K){
+                          mcaOut[1][eGamma]++; //fill 180 degree projection histogram
+                      }
+                    }else if((tDiffFirstSumHit >= TRANDOM_GATE_MIN)&&(tDiffFirstSumHit <= TRANDOM_GATE_MAX)){
+                      int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
+                      int eGamma3 = (int)(sortedEvt.noABHit[noABHitInd3].energy/keVPerBin);
+                      //int eGammaSum = eGamma + eGamma3;
+                      int eGammaSum = (int)(correctSumE(sortedEvt.noABHit[noABHitInd2].energy + sortedEvt.noABHit[noABHitInd3].energy,tDiffSum,1.0,0.0)/keVPerBin);
+                      if(eGammaSum>=0 && eGammaSum<S32K){
+                          mcaOut[5][eGammaSum]++; //fill 180 degree sum histogram (time random)
+                      }
+                      if(eGamma3>=0 && eGamma3<S32K){
+                          mcaOut[4][eGamma3]++; //fill 180 degree projection histogram (time random)
+                      }
+                      if(eGamma>=0 && eGamma<S32K){
+                          mcaOut[4][eGamma]++; //fill 180 degree projection histogram (time random)
                       }
                     }
                   }
@@ -93,13 +143,14 @@ uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, c
               }
             }
           }
-          //shouldn't break, what if there are 2 gammas in the gate?
-          //break;
         }
+        //shouldn't break, what if there are 2 gammas in the gate?
+        //break;
+        
       }
     }
 
-    if (jentry % 1000 == 0)
+    if (jentry % 9713 == 0)
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / sentries << "% complete" << "\r" << flush;
   } // analysis tree
 
