@@ -18,10 +18,23 @@ void DecayCurveS::SortData(const char *sfile, const uint64_t startNumSec)
   }
   
   uint64_t sentries = 0U;
+  uint64_t pileupCtrs[16];
   fread(&sentries,sizeof(uint64_t),1,inp);
-  
-  uint8_t footerVal;
-  unsigned long int numHPGeABHits = 0;
+  uint64_t smolVersion = (uint64_t)(sentries >> 48);
+  if(smolVersion > 0){
+    fread(&pileupCtrs,sizeof(pileupCtrs),1,inp);
+    printf("\nNumber of hits of each pileup type:\n");
+    uint64_t totalHits = 0;
+    for(uint8_t i=0; i<16; i++){
+      printf("Pileup type %2u: %Lu\n",i,pileupCtrs[i]);
+      totalHits += pileupCtrs[i];
+    }
+    printf("Total hits:     %Lu\n",totalHits);
+    long double frac = (long double)(pileupCtrs[1])/((long double)(totalHits));
+    printf("Fraction of hits with type 1 (no pileup): %Lf\n",frac);
+  }
+  sentries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
+  sorted_evt sortedEvt;
 
   /*cout << "TIGRESS positions: " << endl;
   for(int det=1;det<17;det++){
@@ -40,19 +53,23 @@ void DecayCurveS::SortData(const char *sfile, const uint64_t startNumSec)
       exit(-1);
     }
     
-    for (int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+    Double_t tSec = 0.0;
+    for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
       if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
-        Double_t tSec = ((sortedEvt.header.evtTimeNs + sortedEvt.noABHit[noABHitInd].timeOffsetNs)/(1.0E9)) + (double)startNumSec;
+        tSec = ((sortedEvt.header.evtTimeNs + (double)(sortedEvt.noABHit[noABHitInd].timeOffsetNs))/(1.0E9)) + (double)startNumSec;
+        //if((jentry % 10000)==0) printf("evtTimeNs: %f, tSec: %f\n",sortedEvt.header.evtTimeNs,tSec);
         hpgeE_time->Fill(sortedEvt.noABHit[noABHitInd].energy, tSec/60.0);
       }
     }
 
-    if (jentry % 10000 == 0)
+    if (jentry % 10000 == 0){
+      //cout << "tNs: " << sortedEvt.header.evtTimeNs << ", tSec: " << tSec << endl;
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / sentries << "% complete" << "\r" << flush;
+    }
+      
   } // analysis tree
 
   cout << "Entry " << sentries << " of " << sentries << ", 100% complete" << endl;
-  cout << "Number of HPGe addback hits: " << numHPGeABHits << endl;
   cout << endl << "Event sorting complete" << endl;
   
   fclose(inp);

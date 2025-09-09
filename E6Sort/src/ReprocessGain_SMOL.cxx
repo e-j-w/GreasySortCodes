@@ -10,9 +10,9 @@ using namespace std;
 
 FILE *inp, *out;
 double actualEnergy[MAX_INPUT_E];
-double corrCoeff[MAX_INPUT_E][NTIGPOS*4][MAX_TIME_WINDOWS_PER_TREE];
-double enWindowAvg[MAX_INPUT_E][NTIGPOS*4][MAX_TIME_WINDOWS_PER_TREE];
-uint64_t enWindowNumHits[MAX_INPUT_E][NTIGPOS*4][MAX_TIME_WINDOWS_PER_TREE];
+double corrCoeff[MAX_INPUT_E][NGRIFPOS*4][MAX_TIME_WINDOWS_PER_TREE];
+double enWindowAvg[MAX_INPUT_E][NGRIFPOS*4][MAX_TIME_WINDOWS_PER_TREE];
+uint64_t enWindowNumHits[MAX_INPUT_E][NGRIFPOS*4][MAX_TIME_WINDOWS_PER_TREE];
 uint8_t actualEnDetermined;
 
 //fitter
@@ -20,36 +20,38 @@ long double xpowsum[5];//sums of (x1)^0, (x1)^1, (x1)^2, etc. indexed  by power 
 long double mxpowsum[3];//sums of m*(x1)^0, m*(x1)^1, m*(x1)^2, etc. indexed by power #
   
 
-void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const double evalWindowSize, const double tWindowSize, const double en[MAX_INPUT_E], const int numEnVals){
+void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const char *outfile, const double evalWindowSize, const double tWindowSize, const double en[MAX_INPUT_E], const int numEnVals){
 
     if((numEnVals > MAX_INPUT_E)||(numEnVals < 1)){
         cout << "ERROR: invalid number of input energy values." << endl;
         exit(-1);
     }
-
-    inp = fopen(sfile, "r");
-    if(inp == NULL){
-        cout << "ERROR: couldn't open file " << sfile << endl;
-        return;
-    }
     
     uint64_t sentries = 0U;
+    uint64_t pileupCtrs[16];
     sorted_evt sortedEvt;
-    uint8_t footerVal = 227U;
     uint64_t hitBuildFlags = 0;
     uint64_t numSeparatedEvents = 0;
     memset(enWindowAvg,0,sizeof(enWindowAvg));
     memset(enWindowNumHits,0,sizeof(enWindowNumHits));
     memset(corrCoeff,0,sizeof(corrCoeff));
 
-    fread(&sentries,sizeof(uint64_t),1,inp);
-
-    cout << endl << "Computing gain corrections for file: " << sfile << endl;
-    cout << "Will write results to file: " << outfile << endl;
-
-    //evaluate proper gain
+    //evaluate proper gain, if it hasn't already been done
     if(actualEnDetermined == 0){
-        cout << endl << "Evaluating actual gain correction energies..." << endl;
+
+        inp = fopen(efile, "r");
+        if(inp == NULL){
+            cout << "ERROR: couldn't open file " << efile << endl;
+            return;
+        }
+        fread(&sentries,sizeof(uint64_t),1,inp);
+        uint64_t smolVersion = (uint64_t)(sentries >> 48);
+        if(smolVersion > 0){
+            fread(&pileupCtrs,sizeof(pileupCtrs),1,inp);
+        }
+        sentries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
+
+        cout << endl << "Evaluating actual gain correction energies (from file " << efile << ")..." << endl;
         for(Long64_t jentry = 0; jentry < sentries; jentry++){
 
             //read event from input file
@@ -62,7 +64,7 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const 
             if((tSec > 0.0)&&(tSec < evalWindowSize)){
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
                     for(uint8_t i=0;i<numEnVals;i++){
-                        if(fabs(sortedEvt.noABHit[noABHitInd].energy - en[i]) < 5.0){
+                        if(fabs(sortedEvt.noABHit[noABHitInd].energy - en[i]) < EN_WINDOW_WIDTH){
                             enWindowAvg[i][0][0] += sortedEvt.noABHit[noABHitInd].energy;
                             enWindowNumHits[i][0][0]++;
                         }
@@ -88,15 +90,37 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const 
         memset(enWindowAvg,0,sizeof(enWindowAvg));
         memset(enWindowNumHits,0,sizeof(enWindowNumHits));
 
-        //close and re-open the file
-        fclose(inp);
+        fclose(inp); //done with energy evaluation file
+
+        //open the file to be sorted
         inp = fopen(sfile, "r");
         if(inp == NULL){
             cout << "ERROR: couldn't open file " << sfile << endl;
             return;
         }
         fread(&sentries,sizeof(uint64_t),1,inp);
+        smolVersion = (uint64_t)(sentries >> 48);
+        if(smolVersion > 0){
+            fread(&pileupCtrs,sizeof(pileupCtrs),1,inp);
+        }
+        sentries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
+    }else{
+        //open the file to be sorted
+        inp = fopen(sfile, "r");
+        if(inp == NULL){
+            cout << "ERROR: couldn't open file " << sfile << endl;
+            return;
+        }
+        fread(&sentries,sizeof(uint64_t),1,inp);
+        uint64_t smolVersion = (uint64_t)(sentries >> 48);
+        if(smolVersion > 0){
+            fread(&pileupCtrs,sizeof(pileupCtrs),1,inp);
+        }
+        sentries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
     }
+
+    cout << endl << "Computing gain corrections for file: " << sfile << endl;
+    cout << "Will write results to file: " << outfile << endl;
 
     //evaluate gain in window
     cout << endl << "Determining correction coefficients from data..." << endl;
@@ -118,7 +142,7 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const 
             }else{
                 printf("ERROR: zero time for event with hit data:\n");
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-                    printf("Hit %i, core: %u, energy: %f\n",noABHitInd,sortedEvt.noABHit[noABHitInd].core,sortedEvt.noABHit[noABHitInd].energy);
+                    printf("Hit %i, core: %u, energy: %f\n",noABHitInd,sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd].energy);
                     exit(-1);
                 }
             }
@@ -137,11 +161,11 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const 
         }
 
         for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-            if(sortedEvt.noABHit[noABHitInd].core < (NTIGPOS*4)){
+            if((sortedEvt.noABHit[noABHitInd].core & 63U) < (NGRIFPOS*4)){
                 for(uint8_t i=0;i<numEnVals;i++){
-                    if(fabs(sortedEvt.noABHit[noABHitInd].energy - actualEnergy[i]) < 5.0){
-                        enWindowAvg[i][sortedEvt.noABHit[noABHitInd].core][windowNum] += sortedEvt.noABHit[noABHitInd].energy;
-                        enWindowNumHits[i][sortedEvt.noABHit[noABHitInd].core][windowNum]++;
+                    if(fabs(sortedEvt.noABHit[noABHitInd].energy - actualEnergy[i]) < EN_WINDOW_WIDTH){
+                        enWindowAvg[i][sortedEvt.noABHit[noABHitInd].core & 63U][windowNum] += sortedEvt.noABHit[noABHitInd].energy;
+                        enWindowNumHits[i][sortedEvt.noABHit[noABHitInd].core & 63U][windowNum]++;
                     }
                 }
             }
@@ -154,7 +178,7 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const 
     cout << endl << "Fitting..." << endl;
     for(int window = 0; window < numWindows; window++){
         //fit gain correction coefficients and copy them
-        for(uint8_t coreNum=0; coreNum<(NTIGPOS*4); coreNum++){
+        for(uint8_t coreNum=0; coreNum<(NGRIFPOS*4); coreNum++){
 
             //generate sums needed for fit
             memset(xpowsum,0,sizeof(xpowsum));
@@ -225,7 +249,7 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const 
 
     printf("\nCorrection coefficients:\n");
     for(int i=0; i<numWindows; i++){
-        for(int j=0; j<(NTIGPOS*4); j++){
+        for(int j=0; j<(NGRIFPOS*4); j++){
             printf("Window %i, crystal %i: %0.4f %0.4f %0.4f\n",i,j,corrCoeff[0][j][i],corrCoeff[1][j][i],corrCoeff[2][j][i]);
         }
     }
@@ -238,6 +262,11 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const 
         return;
     }
     fread(&sentries,sizeof(uint64_t),1,inp);
+    uint64_t smolVersion = (uint64_t)(sentries >> 48);
+    if(smolVersion > 0){
+        fread(&pileupCtrs,sizeof(pileupCtrs),1,inp);
+    }
+    
     
     //setup the output file
     out = fopen(outfile, "wb");
@@ -246,6 +275,10 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const 
         return;
     }
     fwrite(&sentries,sizeof(uint64_t),1,out);
+    if(smolVersion > 0){
+        fwrite(&pileupCtrs,sizeof(pileupCtrs),1,out);
+    }
+    sentries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
 
     cout << endl << "Writing out corrected gains to file: " << outfile << endl;
     uint64_t actualSepEntries = 0;
@@ -271,8 +304,8 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const 
 
         //correct energies
         for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-            uint8_t corePos = sortedEvt.noABHit[noABHitInd].core;
-            if(corePos < (NTIGPOS*4)){
+            uint8_t corePos = sortedEvt.noABHit[noABHitInd].core & 63U;
+            if(corePos < (NGRIFPOS*4)){
                 float newE = (float)(corrCoeff[0][corePos][windowNum] + corrCoeff[1][corePos][windowNum]*sortedEvt.noABHit[noABHitInd].energy + corrCoeff[2][corePos][windowNum]*sortedEvt.noABHit[noABHitInd].energy*sortedEvt.noABHit[noABHitInd].energy);
                 sortedEvt.noABHit[noABHitInd].energy = newE;
             }else{
@@ -288,8 +321,6 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *outfile, const 
             fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
             fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
         }
-        //write footer value
-        fwrite(&footerVal,sizeof(uint8_t),1,out);
         actualSepEntries++;
 
         if(jentry % 9713 == 0)
@@ -313,7 +344,7 @@ int main(int argc, char **argv){
 
     ReprocessGain_SMOL *mysort = new ReprocessGain_SMOL();
 
-    char const *sfile;
+    char const *sfile, *efile;
     char const *soutfile;
     char outName[64];
     double corrEnergy[MAX_INPUT_E];
@@ -321,25 +352,28 @@ int main(int argc, char **argv){
     int numEnVals = 0;
 
     if(argc <= 1){
-        cout << "Arguments: ReprocessGain_SMOL smol_file eval_time_window corr_time_window output_smolfile_suffix energy1 energy2 energy3..." << endl;
-        cout << "  *smol_file* can be a single SMOL tree (extension .smole6), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
-        cout << "  *eval_time_window* is the size of the window at the start of the data used to evaluate the correct gain, in seconds.  This should be the longest time period at the start of the data where gain shift is not observed." << endl;
+        cout << "Arguments: ReprocessGain_SMOL smol_file eval_smol_file eval_time_window corr_time_window output_smolfile_suffix energy1 energy2 energy3..." << endl;
+        cout << "A code for re-aligning gains in SMOL trees." << endl;
+        cout << "  *smol_file* can be a single SMOL tree (extension .smol), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
+        cout << "  *eval_smol_file* is a single SMOL tree (extension .smol) which is used to evaluate the correct gain." << endl;
+        cout << "  *eval_time_window* is the size of the window at the start of the data in *eval_smol_file* that is used to evaluate the correct gain, in seconds.  This should be the longest time period where gain shift is not observed." << endl;
         cout << "    - If a list of SMOL trees is used, the correct gains will be evaluated using the first SMOL tree in the list." << endl;
         cout << "  *corr_time_window* is the size of the window used to evaluate gain shift, in seconds." << endl;
-        cout << "  *energy1*, *energy2*, etc are up to " << MAX_INPUT_E << " approximate energies (in keV) corresponding to peaks used to the fit." << endl;
+        cout << "  *energy1*, *energy2*, etc are up to " << MAX_INPUT_E << " approximate energies (in keV) corresponding to peaks used to the fit. At least 3 energies must be specified (we are doing a quadratic fit)." << endl;
         cout << "Default values will be used if arguments (other than analysis_tree) are omitted." << endl;
         return 0;
-    }else if((argc >= 8)&&(argc < (5+MAX_INPUT_E))){
+    }else if((argc >= 9)&&(argc < (6+MAX_INPUT_E))){
         sfile = argv[1];
-        evalWindow = atof(argv[2]);
-        tWindow = atof(argv[3]);
-        soutfile = argv[4];
-        for(int arg=5; arg<argc; arg++){
-            corrEnergy[arg-5] = atof(argv[arg]);
+        efile = argv[2];
+        evalWindow = atof(argv[3]);
+        tWindow = atof(argv[4]);
+        soutfile = argv[5];
+        for(int arg=6; arg<argc; arg++){
+            corrEnergy[arg-6] = atof(argv[arg]);
         }
-        numEnVals = argc-5;
+        numEnVals = argc-6;
     }else{
-        printf("Incorrect arguments\nArguments: ReprocessGain_SMOL smol_file initial_time_window corr_time_window energy1 energy2 energy3 output_smolfile_suffix\n");
+        printf("Incorrect arguments\nArguments: ReprocessGain_SMOL smol_file eval_time_window corr_time_window output_smolfile_suffix energy1 energy2 energy3...\n");
         return 0;
     }
 
@@ -382,10 +416,12 @@ int main(int argc, char **argv){
         printf("%0.3f, ",corrEnergy[i]);
     }
     printf("%0.3f keV\n",corrEnergy[numEnVals-1]);
-    cout << "Output file: " << soutfile << endl;
+    cout << "Output file suffix: " << soutfile << endl;
 
     memset(actualEnergy,0,sizeof(actualEnergy)); //zero out
     actualEnDetermined = 0;
+
+    char filePrefix[256];
 
     const char *dot = strrchr(sfile, '.'); //get the file extension
     if(dot==NULL){
@@ -393,31 +429,57 @@ int main(int argc, char **argv){
         return 0;
     }
 
-    if(strcmp(dot + 1, "smole6") == 0){
-        snprintf(outName,63,"%s_%s.smole6",sfile,soutfile);
-        mysort->SortData(sfile, outName, evalWindow, tWindow, corrEnergy, numEnVals);
-    }else if(strcmp(dot + 1, "list") == 0){
-        printf("SMOL tree list: %s\n", sfile);
-        
-        FILE *listfile;
-        char str[256];
-
-        if((listfile=fopen(sfile,"r"))==NULL){
-            cout << "ERROR: Cannot open the list file: " << sfile << endl;
-            return 0;
-        }else{
-            while(!(feof(listfile))){//go until the end of file is reached
-                if(fgets(str,256,listfile)!=NULL){ //get an entire line
-                    str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-                    snprintf(outName,63,"%s_%s.smole6",str,soutfile);
-                    mysort->SortData(str, outName, evalWindow, tWindow, corrEnergy, numEnVals);
-                }
-            }
-        }
-    }else{
-        cout << "ERROR: improper file extension for SMOL tree or list (should be .smole6 or .list)." << endl;
+    const char *dote = strrchr(efile, '.'); //get the file extension
+    if(dote==NULL){
+        cout << "ERROR: couldn't get eval SMOL tree file name." << endl;
         return 0;
     }
+
+    if(strcmp(dote + 1, "smol") == 0){
+        if(strcmp(dot + 1, "smol") == 0){
+            strncpy(filePrefix,sfile,256);
+            const char *tok = strtok(filePrefix,"."); //get the filename without the extension
+            if(tok!=NULL){
+                snprintf(outName,63,"%s_%s.smol",tok,soutfile);
+                mysort->SortData(sfile, efile, outName, evalWindow, tWindow, corrEnergy, numEnVals);
+            }else{
+                cout << "ERROR: improperly formatted filename: " << sfile << endl;
+                return 0;
+            }
+        }else if(strcmp(dot + 1, "list") == 0){
+            printf("SMOL tree list: %s\n", sfile);
+            
+            FILE *listfile;
+            char str[256];
+
+            if((listfile=fopen(sfile,"r"))==NULL){
+                cout << "ERROR: Cannot open the list file: " << sfile << endl;
+                return 0;
+            }else{
+                while(!(feof(listfile))){//go until the end of file is reached
+                    if(fgets(str,256,listfile)!=NULL){ //get an entire line
+                        str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
+                        strncpy(filePrefix,str,256);
+                        const char *tok = strtok(filePrefix,"."); //get the filename without the extension
+                        if(tok!=NULL){
+                            snprintf(outName,63,"%s_%s.smol",tok,soutfile);
+                            mysort->SortData(str, efile, outName, evalWindow, tWindow, corrEnergy, numEnVals);
+                        }else{
+                            cout << "ERROR: improperly formatted filename: " << str << endl;
+                            return 0;
+                        }
+                    }
+                }
+            }
+        }else{
+            cout << "ERROR: improper file extension for *smol_file* argument (should be .smol or .list)." << endl;
+            return 0;
+        }
+    }else{
+        cout << "ERROR: improper file extension for *eval_smol_file* argument (should be .smol)." << endl;
+        return 0;
+    }
+    
 
     
 

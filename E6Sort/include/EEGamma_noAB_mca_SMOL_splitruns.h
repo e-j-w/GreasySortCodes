@@ -1,5 +1,5 @@
-#ifndef EEGamma_noAB_mca_SMOL_h
-#define EEGamma_noAB_mca_SMOL_h
+#ifndef EEGamma_noAB_mca_SMOL_splitruns_h
+#define EEGamma_noAB_mca_SMOL_splitruns_h
 
 #include <iostream>
 #include <iomanip>
@@ -19,12 +19,11 @@ double mcaOut[9][S32K]; //output .dmca data
 // sp 8 is ungated 180 degree sum
 
 
-class EEGamma_noAB_mca_SMOL{
+class EEGamma_noAB_mca_SMOL_splitruns{
 	public :
 
-		EEGamma_noAB_mca_SMOL(){;}
-		void WriteData(const char*);
-		uint64_t SortData(const char*, const double, const double, const double);
+		EEGamma_noAB_mca_SMOL_splitruns(){;}
+		uint64_t SortData(const char*, const char*, const double, const double, const double, const uint8_t, const uint64_t);
 
 };
 

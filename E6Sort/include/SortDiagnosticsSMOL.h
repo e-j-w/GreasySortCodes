@@ -24,7 +24,7 @@ TList *tiphpgeList, *hpgePIDSepList, *hpgehpgePIDSepList;
 
 //Raw HPGe
 TH1D *hpgeE;
-TH2D *hpgeE_ANum, *hpgeNum_time;
+TH2D *hpgeE_ANum;
 TH1I *hpgeMult;
 
 //Timing
@@ -32,7 +32,7 @@ TH1D *hpgeT_hpgeT;
 TH1D *hpgeT_hpgeT_tsep;
 TH1D *hpgeT_hpgeT_tsepmult2;
 TH1D *hpgeT_hpgeT_tseprand;
-TH2D *hpgeT_hpgeT_EDiff, *hpgeT_hpgeT_hpgeE;
+TH2D *hpgeT_hpgeT_EDiff, *hpgeT_hpgeT_hpgeE, *hpgeT_hpgeT_hpgeE_NoCFDfail, *hpgeT_hpgeT_hpgeE_1CFDfail, *hpgeT_hpgeT_hpgeE_2CFDfail;
 
 //HPGe-HPGe
 TH1D *hpge_hpge_dist, *hpge_hpge_angle;
@@ -43,8 +43,8 @@ TH2D *hpgeE_hpgeE_tsepmult2;
 TH2D *hpgeE_hpgeE_tseprand;
 TH2D *hpgeE_hpgeE_180deg, *hpgeE_hpgeE_180deg_1477gate;
 TH1D *hpgeE_hpgeE_180deg_proj;
-TH1D *hpgeE_hpgeE_180deg_sum;
-TH2D *hpgeE_hpgeE_180deg_sum_tDiff;
+TH1D *hpgeE_hpgeE_180deg_sum, *hpgeE_hpgeE_180deg_sum_1477gate;
+TH2D *hpgeE_hpgeE_180deg_sum_tDiff, *hpgeE_hpgeE_180deg_sum_tDiff_1477gate, *hpgeE_hpgeE_180deg_sum_tDiff_685gate;
 
 class SortDiagnosticsS {
 
@@ -70,9 +70,6 @@ void SortDiagnosticsS::Initialise() {
   //histogram names shouldn't use spaces, to aid GRSISort-based analysis
 
   //Raw HPGe Spectra
-  hpgeNum_time = new TH2D("HPGe_Array_Number_vs_Time","HPGe Array Number vs Time;Time (s);Array Number",3600,0,3600,64,0,64);
-  hpgeNum_time->GetXaxis()->SetTitle("Run Time (s)");
-  hpgeList->Add(hpgeNum_time);
   hpgeE = new TH1D("HPGe_Energy", "HPGe Energy (non-addback)", 16384, 0, 8192);
   hpgeList->Add(hpgeE);
   hpgeE_ANum = new TH2D("HPGe_Energy_vs_Array_Number", "HPGe Energy vs. Array Number", 64, 0, 64, 8192, 0, 8192);
@@ -102,6 +99,18 @@ void SortDiagnosticsS::Initialise() {
   hpgeT_hpgeT_hpgeE->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
   hpgeT_hpgeT_hpgeE->GetYaxis()->SetTitle("E_{#gamma} (keV)");
   timingList->Add(hpgeT_hpgeT_hpgeE);
+  hpgeT_hpgeT_hpgeE_NoCFDfail = new TH2D("HPGe_HPGe_time_vs_energy_NoCFDfail", "HPGe - HPGe time vs. energy (no CFD fail)", 4096, -2048, 2048, 2048, 0, 4096);
+  hpgeT_hpgeT_hpgeE_NoCFDfail->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  hpgeT_hpgeT_hpgeE_NoCFDfail->GetYaxis()->SetTitle("E_{#gamma} (keV)");
+  timingList->Add(hpgeT_hpgeT_hpgeE_NoCFDfail);
+  hpgeT_hpgeT_hpgeE_1CFDfail = new TH2D("HPGe_HPGe_time_vs_energy_1CFDfail", "HPGe - HPGe time vs. energy (1 CFD fail hit)", 4096, -2048, 2048, 2048, 0, 4096);
+  hpgeT_hpgeT_hpgeE_1CFDfail->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  hpgeT_hpgeT_hpgeE_1CFDfail->GetYaxis()->SetTitle("E_{#gamma} (keV)");
+  timingList->Add(hpgeT_hpgeT_hpgeE_1CFDfail);
+  hpgeT_hpgeT_hpgeE_2CFDfail = new TH2D("HPGe_HPGe_time_vs_energy_2CFDfail", "HPGe - HPGe time vs. energy (2 CFD fail hits)", 4096, -2048, 2048, 2048, 0, 4096);
+  hpgeT_hpgeT_hpgeE_2CFDfail->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  hpgeT_hpgeT_hpgeE_2CFDfail->GetYaxis()->SetTitle("E_{#gamma} (keV)");
+  timingList->Add(hpgeT_hpgeT_hpgeE_2CFDfail);
 
   //HPGe-HPGe
   hpge_hpge_dist = new TH1D("HPGe_HPGe_distance","HPGe-HPGe distance",512,0,512);
@@ -148,9 +157,20 @@ void SortDiagnosticsS::Initialise() {
   hpgeE_hpgeE_180deg_sum = new TH1D("HPGe_Gamma_Gamma_180deg_sum", "HPGe Gamma-Gamma 180 degree coincidences (sum of hits)", 8192, 0, 4096);
   hpgeE_hpgeE_180deg_sum->GetXaxis()->SetTitle("E_{#gamma} (keV)");
   hpgehpgeList->Add(hpgeE_hpgeE_180deg_sum);
+  hpgeE_hpgeE_180deg_sum_1477gate = new TH1D("HPGe_Gamma_Gamma_180deg_sum_1477gate", "HPGe Gamma-Gamma 180 degree coincidences (sum of hits), 1477 keV gate", 8192, 0, 4096);
+  hpgeE_hpgeE_180deg_sum_1477gate->GetXaxis()->SetTitle("E_{#gamma} (keV)");
+  hpgehpgeList->Add(hpgeE_hpgeE_180deg_sum_1477gate);
   hpgeE_hpgeE_180deg_sum_tDiff = new TH2D("HPGe_Gamma_Gamma_180deg_sum_tDiff", "HPGe Gamma-Gamma 180 degree coincidences (sum of hits vs. tDiff)", 8192, 0, 4096, 4096, -2048, 2048);
   hpgeE_hpgeE_180deg_sum_tDiff->GetXaxis()->SetTitle("E_{#gamma } (keV)");
   hpgeE_hpgeE_180deg_sum_tDiff->GetYaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
   hpgehpgeList->Add(hpgeE_hpgeE_180deg_sum_tDiff);
+  hpgeE_hpgeE_180deg_sum_tDiff_1477gate = new TH2D("HPGe_Gamma_Gamma_180deg_sum_tDiff_1477gate", "HPGe Gamma-Gamma 180 degree coincidences (sum of hits vs. tDiff), 1477 keV gate", 8192, 0, 4096, 4096, -2048, 2048);
+  hpgeE_hpgeE_180deg_sum_tDiff_1477gate->GetXaxis()->SetTitle("E_{#gamma } (keV)");
+  hpgeE_hpgeE_180deg_sum_tDiff_1477gate->GetYaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  hpgehpgeList->Add(hpgeE_hpgeE_180deg_sum_tDiff_1477gate);
+  hpgeE_hpgeE_180deg_sum_tDiff_685gate = new TH2D("HPGe_Gamma_Gamma_180deg_sum_tDiff_685gate", "HPGe Gamma-Gamma 180 degree coincidences (sum of hits vs. tDiff), 685 keV gate", 8192, 0, 4096, 4096, -2048, 2048);
+  hpgeE_hpgeE_180deg_sum_tDiff_685gate->GetXaxis()->SetTitle("E_{#gamma } (keV)");
+  hpgeE_hpgeE_180deg_sum_tDiff_685gate->GetYaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  hpgehpgeList->Add(hpgeE_hpgeE_180deg_sum_tDiff_685gate);
 
 }

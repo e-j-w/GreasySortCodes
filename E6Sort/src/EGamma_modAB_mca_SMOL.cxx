@@ -87,9 +87,9 @@ uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABR
                     if(noABHitInd2 < 64){
                         if(noABHitInd2 != noABHitInd){
                             //check if hits are in neighbouring crystals
-                            if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core,0,sortedEvt.noABHit[noABHitInd2].core,0,1) < projABRad){ //FORWARD POSITION (11 cm)
-                                double tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-                                if(tDiff <= ADDBACK_TIMING_GATE){ //timing condition
+                            if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < projABRad){ //FORWARD POSITION (11 cm)
+                                double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
+                                if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                     if(!(abHitBuildFlags & (1UL << noABHitInd))){
                                         //first hit not yet flagged
                                         if(!(abHitBuildFlags & (1UL << noABHitInd2))){
@@ -182,19 +182,19 @@ uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABR
                 for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
                     //if(noABHitInd != noABHitInd2){
                         if((!(usedHits & (1UL << noABHitInd2))) && ((!(abHitBuildFlags & (1UL << noABHitInd2))) || (!(usedABHits2 & (1UL << ABHitMapping[noABHitInd2]))))){
-                            if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
+                            if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
                                 int eGamma2 = 0;
-                                double tDiff = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
+                                double tDiff = SUM_TIMING_GATE_MAX + 1000.0; //default value, outside the gate
                                 if(abHitBuildFlags & (1UL << noABHitInd2)){
                                     //opposing hit was part of an addback hit
                                     eGamma2 = (int)(addbackE[ABHitMapping[noABHitInd2]]/keVPerBin);
-                                    tDiff = fabs(addbackT[ABHitMapping[noABHitInd2]] - tGamma1);
+                                    tDiff = (addbackT[ABHitMapping[noABHitInd2]] - tGamma1);
                                 }else{
                                     //opposing hit was a single non-addback hit
                                     eGamma2 = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
-                                    tDiff = fabs(sortedEvt.noABHit[noABHitInd2].timeOffsetNs - tGamma1);
+                                    tDiff = (sortedEvt.noABHit[noABHitInd2].timeOffsetNs - tGamma1);
                                 }
-                                if(tDiff<= SUM_TIMING_GATE){ //timing condition
+                                if((tDiff >= SUM_TIMING_GATE_MIN)&&(tDiff <= SUM_TIMING_GATE_MAX)){ //timing condition
                                     usedHits |= (1UL << noABHitInd);
                                     usedHits |= (1UL << noABHitInd2);
                                     if(abHitBuildFlags & (1UL << noABHitInd)){

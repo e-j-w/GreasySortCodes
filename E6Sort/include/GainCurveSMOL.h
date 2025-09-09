@@ -22,7 +22,7 @@ TApplication *theApp;
 TList *gcList; 
 
 //gain curve
-TH2F *hpgeE_time[NTIGPOS*4];
+TH2F *hpgeE_time[NGRIFPOS*4];
 
 class GainCurveS {
 
@@ -44,7 +44,7 @@ void GainCurveS::Initialise() {
     //histogram names shouldn't use spaces, to aid GRSISort-based analysis
 
     //gain curve Spectra
-    for(int i=0; i<(NTIGPOS*4); i++){
+    for(int i=0; i<(NGRIFPOS*4); i++){
         hpgeE_time[i] = new TH2F(Form("Gamma_Energy_time_%i",i), Form("Gamma Energy vs. time (crystal %i)",i), 8192, 0, 32768, 1024, 0, 1024);
         hpgeE_time[i]->GetXaxis()->SetTitle("Time (min)");
         hpgeE_time[i]->GetYaxis()->SetTitle("Energy (keV)");

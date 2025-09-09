@@ -40,10 +40,10 @@ void GainCurveS::SortData(const char *sfile, const uint64_t startNumSec)
         }
         
         for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-            if(sortedEvt.noABHit[noABHitInd].core < (NTIGPOS*4)){
+            if((sortedEvt.noABHit[noABHitInd].core & 63U) < (NGRIFPOS*4)){
                 if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
                     Double_t tSec = ((sortedEvt.header.evtTimeNs + sortedEvt.noABHit[noABHitInd].timeOffsetNs)/(1.0E9)) + (double)startNumSec;
-                    hpgeE_time[sortedEvt.noABHit[noABHitInd].core]->Fill(tSec/60.0, sortedEvt.noABHit[noABHitInd].energy);
+                    hpgeE_time[sortedEvt.noABHit[noABHitInd].core & 63U]->Fill(tSec/60.0, sortedEvt.noABHit[noABHitInd].energy);
                 }
             }
         }

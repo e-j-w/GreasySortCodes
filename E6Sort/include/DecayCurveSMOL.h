@@ -44,7 +44,7 @@ void DecayCurveS::Initialise() {
     //histogram names shouldn't use spaces, to aid GRSISort-based analysis
 
     //decay curve Spectra
-    hpgeE_time = new TH2F("Gamma_Energy_vs_time", "Gamma Energy vs. time", 2048, 0, 2048, 32768, 0, 32768);
+    hpgeE_time = new TH2F("Gamma_Energy_vs_time", "Gamma Energy vs. time", 2048, 0, 2048, 32768, 0, 512);
     hpgeE_time->GetXaxis()->SetTitle("Energy (keV)");
     hpgeE_time->GetYaxis()->SetTitle("Time (min)");
     dcList->Add(hpgeE_time);

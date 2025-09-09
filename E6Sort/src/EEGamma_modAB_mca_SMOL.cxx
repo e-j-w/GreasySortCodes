@@ -95,9 +95,9 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                     if(noABHitInd2 < 64){
                         if(noABHitInd2 != noABHitInd){
                             //check if hits are in neighbouring crystals
-                            if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core,0,sortedEvt.noABHit[noABHitInd2].core,0,1) < gateABRad){ //FORWARD POSITION (11 cm)
-                                double tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-                                if(tDiff <= ADDBACK_TIMING_GATE){ //timing condition
+                            if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < gateABRad){ //FORWARD POSITION (11 cm)
+                                double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
+                                if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                     if(!(gateABHitBuildFlags & (1UL << noABHitInd))){
                                         //first hit not yet flagged
                                         if(!(gateABHitBuildFlags & (1UL << noABHitInd2))){
@@ -173,9 +173,9 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                 if(noABHitInd2 < 64){
                                     if((noABHitInd2 != gateNoABHitInd)&&(noABHitInd2 != noABHitInd)){
                                         //check if hits are in neighbouring crystals
-                                        if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core,0,sortedEvt.noABHit[noABHitInd2].core,0,1) < projABRad){ //FORWARD POSITION (11 cm)
-                                            double tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-                                            if(tDiff <= ADDBACK_TIMING_GATE){ //timing condition
+                                        if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < projABRad){ //FORWARD POSITION (11 cm)
+                                            double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
+                                            if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                                 if(!(projABHitBuildFlags & (1UL << noABHitInd))){
                                                     //first hit not yet flagged
                                                     if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
@@ -232,7 +232,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                 //projection addback hits built, now add them to the spectrum
                 //printf("  numProjHits: %u\n",numProjABHitsBuilt);
                 for(uint8_t projABHitInd=0; projABHitInd < numProjABHitsBuilt; projABHitInd++){
-                    double tDiff = fabs(noABHitTime(&sortedEvt,gateNoABHitInd) - projAddbackT[projABHitInd]);
+                    double tDiff = (noABHitTime(&sortedEvt,gateNoABHitInd) - projAddbackT[projABHitInd]);
                     //printf("tDiff: %0.3f\n",tDiff);
                     //check flags
                     uint8_t hitPrevFilled = 0;
@@ -245,7 +245,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                         }
                     }
                     if(hitPrevFilled == 0){
-                        if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                        if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                             //fill spectrum with hit
                             int eGamma = (int)(projAddbackE[projABHitInd]/keVPerBin);
                             if(eGamma>=0 && eGamma<S32K){
@@ -285,21 +285,21 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                     for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
                                         if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                             if(((!(projABHitBuildFlags & (1UL << noABHitInd2))) || (projABHitMapping[noABHitInd2] != projABHitInd))&&(noABHitInd2 != gateNoABHitInd)){
-                                                if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
+                                                if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
                                                     double eGamma = projAddbackE[projABHitInd]/keVPerBin;
                                                     double eGamma2 = 0;
-                                                    double tDiffSum = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
+                                                    double tDiffSum = SUM_TIMING_GATE_MAX + 1000.0; //default value, outside the gate
                                                     if(projABHitBuildFlags & (1UL << noABHitInd2)){
                                                         //opposing hit was part of a different projection hit
                                                         eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
-                                                        tDiffSum = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
+                                                        tDiffSum = (projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
                                                     }else{
                                                         //opposing hit was a single non-addback hit
                                                         eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
-                                                        tDiffSum = fabs(noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
+                                                        tDiffSum = (noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
                                                     }
-                                                    if(tDiffSum<= SUM_TIMING_GATE){ //timing condition
-                                                        if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                                                    if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition
+                                                        if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                                                             //set flags
                                                             for(int noABHitIndS = 0; noABHitIndS < sortedEvt.header.numNoABHits; noABHitIndS++){
                                                                 if(projABHitMapping[noABHitIndS] == projABHitInd){
@@ -353,10 +353,10 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                 //add in any remaining hits that weren't addback'd
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
                     if(noABHitInd != gateNoABHitInd){
-                        double tDiff = fabs(noABHitTime(&sortedEvt,gateNoABHitInd) - noABHitTime(&sortedEvt,noABHitInd));
+                        double tDiff = (noABHitTime(&sortedEvt,gateNoABHitInd) - noABHitTime(&sortedEvt,noABHitInd));
                         //printf("tDiff: %0.3f\n",tDiff);
                         if(!(specFillFlags[0] & (1UL << noABHitInd))){
-                            if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                            if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                                 //fill spectrum with hit
                                 int eGamma = (int)(sortedEvt.noABHit[noABHitInd].energy/keVPerBin);
                                 if(eGamma>=0 && eGamma<S32K){
@@ -378,21 +378,21 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                             for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
                                 if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                     if((noABHitInd2 != noABHitInd)&&(noABHitInd2 != gateNoABHitInd)){
-                                        if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
+                                        if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
                                             double eGamma = sortedEvt.noABHit[noABHitInd].energy/keVPerBin;
                                             double eGamma2 = 0;
-                                            double tDiffSum = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
+                                            double tDiffSum = SUM_TIMING_GATE_MAX + 1000.0; //default value, outside the gate
                                             if(projABHitBuildFlags & (1UL << noABHitInd2)){
                                                 //opposing hit was part of a different projection hit
                                                 eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
-                                                tDiffSum = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - noABHitTime(&sortedEvt,noABHitInd));
+                                                tDiffSum = (projAddbackT[projABHitMapping[noABHitInd2]] - noABHitTime(&sortedEvt,noABHitInd));
                                             }else{
                                                 //opposing hit was a single non-addback hit
                                                 eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
-                                                tDiffSum = fabs(noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
+                                                tDiffSum = (noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
                                             }
-                                            if(tDiffSum<= SUM_TIMING_GATE){ //timing condition
-                                                if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                                            if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition
+                                                if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                                                     //set flags
                                                     specFillFlags[1] |= (1UL << noABHitInd);
                                                     if(projABHitBuildFlags & (1UL << noABHitInd2)){
@@ -470,9 +470,9 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                 if(noABHitInd2 < 64){
                                     if((!(usedGateHitBuildFlags & (1UL << noABHitInd2)))&&(noABHitInd2 != noABHitInd)){
                                         //check if hits are in neighbouring crystals
-                                        if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core,0,sortedEvt.noABHit[noABHitInd2].core,0,1) < projABRad){ //FORWARD POSITION (11 cm)
-                                            double tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-                                            if(tDiff <= ADDBACK_TIMING_GATE){ //timing condition
+                                        if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < projABRad){ //FORWARD POSITION (11 cm)
+                                            double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
+                                            if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                                 if(!(projABHitBuildFlags & (1UL << noABHitInd))){
                                                     //first hit not yet flagged
                                                     if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
@@ -529,7 +529,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                 //projection addback hits built, now add them to the spectrum
                 //printf("  numProjHits: %u\n",numProjABHitsBuilt);
                 for(uint8_t projABHitInd=0; projABHitInd < numProjABHitsBuilt; projABHitInd++){
-                    double tDiff = fabs(gateAddbackT[gateABHitInd] - projAddbackT[projABHitInd]);
+                    double tDiff = (gateAddbackT[gateABHitInd] - projAddbackT[projABHitInd]);
                     //printf("tDiff: %0.3f\n",tDiff);
                     //check flags
                     uint8_t hitPrevFilled = 0;
@@ -542,7 +542,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                         }
                     }
                     if(hitPrevFilled == 0){
-                        if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                        if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                             //fill spectrum with hit
                             int eGamma = (int)(projAddbackE[projABHitInd]/keVPerBin);
                             if(eGamma>=0 && eGamma<S32K){
@@ -582,21 +582,21 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                         for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
                                             if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                                 if(((!(projABHitBuildFlags & (1UL << noABHitInd2))) || (projABHitMapping[noABHitInd2] != projABHitInd))&&(!(usedGateHitBuildFlags & (1UL << noABHitInd2)))){
-                                                    if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
+                                                    if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
                                                         double eGamma = projAddbackE[projABHitInd]/keVPerBin;
                                                         double eGamma2 = 0;
-                                                        double tDiffSum = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
+                                                        double tDiffSum = SUM_TIMING_GATE_MAX + 1000.0; //default value, outside the gate
                                                         if(projABHitBuildFlags & (1UL << noABHitInd2)){
                                                             //opposing hit was part of a different projection hit
                                                             eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
-                                                            tDiffSum = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
+                                                            tDiffSum = (projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
                                                         }else{
                                                             //opposing hit was a single non-addback hit
                                                             eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
-                                                            tDiffSum = fabs(noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
+                                                            tDiffSum = (noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
                                                         }
-                                                        if(tDiffSum<= SUM_TIMING_GATE){ //timing condition
-                                                            if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                                                        if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition
+                                                            if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                                                                 //set flags
                                                                 for(int noABHitIndS = 0; noABHitIndS < sortedEvt.header.numNoABHits; noABHitIndS++){
                                                                     if(projABHitMapping[noABHitIndS] == projABHitInd){
@@ -647,10 +647,10 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                 //add in any remaining hits that weren't addback'd
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){ //double filling is not in this loop
                     if(!(usedGateHitBuildFlags & (1UL << noABHitInd))){
-                        double tDiff = fabs(gateAddbackT[gateABHitInd] - noABHitTime(&sortedEvt,noABHitInd));
+                        double tDiff = (gateAddbackT[gateABHitInd] - noABHitTime(&sortedEvt,noABHitInd));
                         //printf("tDiff: %0.3f\n",tDiff);
                         if(!(specFillFlags[0] & (1UL << noABHitInd))){
-                            if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                            if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                                 //fill spectrum with hit
                                 int eGamma = (int)(sortedEvt.noABHit[noABHitInd].energy/keVPerBin);
                                 if(eGamma>=0 && eGamma<S32K){
@@ -674,21 +674,21 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                 for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
                                     if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                         if(!(usedGateHitBuildFlags & (1UL << noABHitInd2))){
-                                            if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
+                                            if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
                                                 double eGamma = sortedEvt.noABHit[noABHitInd].energy/keVPerBin;
                                                 double eGamma2 = 0;
-                                                double tDiffSum = SUM_TIMING_GATE + 1000.0; //default value, outside the gate
+                                                double tDiffSum = SUM_TIMING_GATE_MAX + 1000.0; //default value, outside the gate
                                                 if(projABHitBuildFlags & (1UL << noABHitInd2)){
                                                     //opposing hit was part of a different projection hit
                                                     eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
-                                                    tDiffSum = fabs(projAddbackT[projABHitMapping[noABHitInd2]] - noABHitTime(&sortedEvt,noABHitInd));
+                                                    tDiffSum = (projAddbackT[projABHitMapping[noABHitInd2]] - noABHitTime(&sortedEvt,noABHitInd));
                                                 }else{
                                                     //opposing hit was a single non-addback hit
                                                     eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
-                                                    tDiffSum = fabs(noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
+                                                    tDiffSum = (noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
                                                 }
-                                                if(tDiffSum <= SUM_TIMING_GATE){ //timing condition
-                                                    if(tDiff <= COINC_TIMING_GATE){ //timing condition
+                                                if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition
+                                                    if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                                                         //set flags
                                                         specFillFlags[1] |= (1UL << noABHitInd);
                                                         if(projABHitBuildFlags & (1UL << noABHitInd2)){

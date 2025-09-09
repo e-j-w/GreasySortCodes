@@ -96,14 +96,14 @@ uint64_t EEGamma_noAB_sumEgate_mca_SMOL::SortData(const char *sfile, const doubl
                                     /*if(fabs( sortedEvt.noABHit[noABHitInd].energy - sortedEvt.noABHit[noABHitInd2].energy) < 15.0f){
                                         printf("\ninds: %i %i, tDiff: %0.3f\n",noABHitInd,noABHitInd2,tDiff);
                                         for(int noABHitInd3 = 0; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
-                                            printf(" Gamma %i, E: %0.3f, core: %u, hit flag: %u\n",noABHitInd3,sortedEvt.noABHit[noABHitInd3].energy,sortedEvt.noABHit[noABHitInd3].core,hitFlags & (1U << noABHitInd3));
+                                            printf(" Gamma %i, E: %0.3f, core: %u, hit flag: %u\n",noABHitInd3,sortedEvt.noABHit[noABHitInd3].energy,sortedEvt.noABHit[noABHitInd3].core & 63U,hitFlags & (1U << noABHitInd3));
                                         }
                                     }*/
                                     for(int noABHitInd3 = 0; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
                                         if((noABHitInd3 != noABHitInd)&&((noABHitInd3 != noABHitInd2))){
-                                            if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core][sortedEvt.noABHit[noABHitInd2].core] != 0){
-                                                tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd3) - noABHitTime(&sortedEvt,noABHitInd2));
-                                                if(tDiff<= SUM_TIMING_GATE){ //timing condition
+                                            if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
+                                                tDiff = (noABHitTime(&sortedEvt,noABHitInd3) - noABHitTime(&sortedEvt,noABHitInd2));
+                                                if((tDiff >= SUM_TIMING_GATE_MIN)&&(tDiff <= SUM_TIMING_GATE_MAX)){ //timing condition
                                                     int eGamma3 = (int)(sortedEvt.noABHit[noABHitInd3].energy/keVPerBin);
                                                     int eGammaSum = (int)((sortedEvt.noABHit[noABHitInd3].energy + sortedEvt.noABHit[noABHitInd2].energy)/keVPerBin);
                                                     if(eGammaSum>=0 && eGammaSum<S32K){

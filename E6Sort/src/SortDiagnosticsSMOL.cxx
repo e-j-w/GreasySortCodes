@@ -6,7 +6,6 @@
 
 using namespace std;
 
-sorted_evt sortedEvt;
 
 void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
 {
@@ -20,7 +19,23 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
   printf("File %s opened\n", sfile);
   
   uint64_t sentries = 0U;
+  uint64_t pileupCtrs[16];
   fread(&sentries,sizeof(uint64_t),1,inp);
+  uint64_t smolVersion = (uint64_t)(sentries >> 48);
+  if(smolVersion > 0){
+    fread(&pileupCtrs,sizeof(pileupCtrs),1,inp);
+    printf("\nNumber of hits of each pileup type:\n");
+    uint64_t totalHits = 0;
+    for(uint8_t i=0; i<16; i++){
+      printf("Pileup type %2u: %Lu\n",i,pileupCtrs[i]);
+      totalHits += pileupCtrs[i];
+    }
+    printf("Total hits:     %Lu\n",totalHits);
+    long double frac = (long double)(pileupCtrs[1])/((long double)(totalHits));
+    printf("Fraction of hits with type 1 (no pileup): %Lf\n",frac);
+  }
+  sentries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
+  sorted_evt sortedEvt;
   
   uint8_t footerVal;
 
@@ -41,12 +56,18 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
       exit(-1);
     }
 
+    /*if(jentry < 1008000000){
+      if (jentry % 9713 == 0)
+        cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / sentries << "% complete" << "\r" << flush;
+      continue;
+    }*/
+
     /*if(jentry >= 5052150){
       printf("\n\n\n  event %Lu\n  metadata: %u\n",jentry,sortedEvt.header.metadata);
 			printf("  event time: %f\n",sortedEvt.header.evtTimeNs);
 			printf("  num hits: %u\n",sortedEvt.header.numNoABHits);
 			for(int i = 0; i<sortedEvt.header.numNoABHits;i++){
-				printf("    hit %u - time offset: %f, energy: %f, core: %u\n",i,sortedEvt.noABHit[i].timeOffsetNs,sortedEvt.noABHit[i].energy,sortedEvt.noABHit[i].core);
+				printf("    hit %u - time offset: %f, energy: %f, core: %u\n",i,sortedEvt.noABHit[i].timeOffsetNs,sortedEvt.noABHit[i].energy,sortedEvt.noABHit[i].core & 63U);
 			}
     }*/
 
@@ -55,13 +76,15 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
     for (int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
       if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
         hpgeE->Fill(sortedEvt.noABHit[noABHitInd].energy);
-        hpgeE_ANum->Fill(sortedEvt.noABHit[noABHitInd].core, sortedEvt.noABHit[noABHitInd].energy);
+        hpgeE_ANum->Fill(sortedEvt.noABHit[noABHitInd].core & 63U, sortedEvt.noABHit[noABHitInd].energy);
       }
     }
 
-    //check for events with 1477 keV gate condition
+    //check for events with gate conditions
     int gate1477 = 0;
     int gate1477HitInd = 0;
+    int gate685 = 0;
+    int gate685HitInd = 0;
     for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
       if((sortedEvt.noABHit[noABHitInd].energy >= 1470)&&(sortedEvt.noABHit[noABHitInd].energy < 1484)){
         gate1477 = 1;
@@ -69,8 +92,16 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
         break;
       }
     }
+    for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+      if((sortedEvt.noABHit[noABHitInd].energy >= 680)&&(sortedEvt.noABHit[noABHitInd].energy < 690)){
+        gate685 = 1;
+        gate685HitInd = noABHitInd;
+        break;
+      }
+    }
 
     //evaluate non-addback timing conditions
+    uint8_t sameEvtCtr = 0;
     for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
 
       if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
@@ -79,18 +110,41 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
         for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
           if(sortedEvt.noABHit[noABHitInd2].energy > MIN_HPGE_EAB){
             Double_t tDiff = noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2);
+            /*if(tDiff >= 0.0f && tDiff <= 1.0f){
+              sameEvtCtr++;
+              if(sameEvtCtr > 2){
+                printf("tDiff: %f, event %li hits %i and %i\n",tDiff,jentry,noABHitInd,noABHitInd2);
+                for(int noABHitInd3 = 0; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
+                  printf(" hit %i - time: %f, evt time: %f offset: %f, energy: %f, core: %u\n",noABHitInd3,noABHitTime(&sortedEvt,noABHitInd3),sortedEvt.header.evtTimeNs,sortedEvt.noABHit[noABHitInd3].timeOffsetNs,sortedEvt.noABHit[noABHitInd3].energy,sortedEvt.noABHit[noABHitInd3].core & 63U);
+                  if(noABHitTime(&sortedEvt,noABHitInd3) > 1.0E19){
+                    getc(stdin);
+                  }
+                }
+              }
+            }*/
+            
             hpgeT_hpgeT->Fill(tDiff);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
-            hpgePos_hpgePos->Fill(sortedEvt.noABHit[noABHitInd].core,sortedEvt.noABHit[noABHitInd2].core);
+            hpgePos_hpgePos->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U);
             if(fabs(sortedEvt.noABHit[noABHitInd2].energy - sortedEvt.noABHit[noABHitInd].energy) < 0.1){
-              hpgePos_hpgePos_lowEDiff->Fill(sortedEvt.noABHit[noABHitInd].core,sortedEvt.noABHit[noABHitInd2].core);
+              hpgePos_hpgePos_lowEDiff->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U);
             }
-            hpge_hpge_dist->Fill(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core,0,sortedEvt.noABHit[noABHitInd2].core,0,1)); //FORWARD POSITION (11 cm)
-            hpge_hpge_angle->Fill(getGeVector(sortedEvt.noABHit[noABHitInd].core,0,1).Angle(getGeVector(sortedEvt.noABHit[noABHitInd2].core,0,1))*180.0/PI); //FORWARD POSITION (11 cm)
+            hpge_hpge_dist->Fill(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1)); //FORWARD POSITION (11 cm)
+            hpge_hpge_angle->Fill(getGeVector(sortedEvt.noABHit[noABHitInd].core & 63U,0,1).Angle(getGeVector(sortedEvt.noABHit[noABHitInd2].core & 63U,0,1))*180.0/PI); //FORWARD POSITION (11 cm)
             hpgeT_hpgeT_EDiff->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy - sortedEvt.noABHit[noABHitInd].energy);
             hpgeT_hpgeT_hpgeE->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy);
             hpgeT_hpgeT_hpgeE->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy);
+            if((sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6))){
+              hpgeT_hpgeT_hpgeE_2CFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy);
+              hpgeT_hpgeT_hpgeE_2CFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy);
+            }else if((sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)) || (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6))){
+              hpgeT_hpgeT_hpgeE_1CFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy);
+              hpgeT_hpgeT_hpgeE_1CFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy);
+            }else{
+              hpgeT_hpgeT_hpgeE_NoCFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy);
+              hpgeT_hpgeT_hpgeE_NoCFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy);
+            }
             if((tDiff >= hpgehpgeTGate[0])&&(tDiff <= hpgehpgeTGate[1])){
               hpgeT_hpgeT_tsep->Fill(tDiff);
               hpgeE_hpgeE_tsep->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
@@ -101,14 +155,19 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
                 hpgeE_hpgeE_tsepmult2->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
               }
             }
-            if(getGeVector(sortedEvt.noABHit[noABHitInd].core,0,1).Angle(getGeVector(sortedEvt.noABHit[noABHitInd2].core,0,1))*180.0/PI > 175.0){
+            if(getGeVector(sortedEvt.noABHit[noABHitInd].core & 63U,0,1).Angle(getGeVector(sortedEvt.noABHit[noABHitInd2].core & 63U,0,1))*180.0/PI > 175.0){
               if((tDiff >= hpgehpgeTGate[0])&&(tDiff <= hpgehpgeTGate[1])){
                 hpgeE_hpgeE_180deg->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
                 hpgeE_hpgeE_180deg->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
                 if(gate1477 != 0){
                   if((gate1477HitInd != noABHitInd) && (gate1477HitInd != noABHitInd2)){
-                    hpgeE_hpgeE_180deg_1477gate->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
-                    hpgeE_hpgeE_180deg_1477gate->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
+                    Double_t tDiffCoinc = noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,gate1477HitInd);
+                    Double_t tDiffCoinc2 = noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,gate1477HitInd);
+                    if(((tDiffCoinc >= hpgehpgeTGate[0])&&(tDiffCoinc <= hpgehpgeTGate[1])) || ((tDiffCoinc2 >= hpgehpgeTGate[0])&&(tDiffCoinc2 <= hpgehpgeTGate[1]))){
+                      hpgeE_hpgeE_180deg_1477gate->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
+                      hpgeE_hpgeE_180deg_1477gate->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
+                      hpgeE_hpgeE_180deg_sum_1477gate->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy);
+                    }
                   }
                 }
                 hpgeE_hpgeE_180deg_proj->Fill(sortedEvt.noABHit[noABHitInd].energy);
@@ -116,6 +175,24 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
                 hpgeE_hpgeE_180deg_sum->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy);
               }
               hpgeE_hpgeE_180deg_sum_tDiff->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy,tDiff);
+              if(gate1477 != 0){
+                if((gate1477HitInd != noABHitInd) && (gate1477HitInd != noABHitInd2)){
+                  Double_t tDiffCoinc = noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,gate1477HitInd);
+                  Double_t tDiffCoinc2 = noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,gate1477HitInd);
+                  if(((tDiffCoinc >= hpgehpgeTGate[0])&&(tDiffCoinc <= hpgehpgeTGate[1])) || ((tDiffCoinc2 >= hpgehpgeTGate[0])&&(tDiffCoinc2 <= hpgehpgeTGate[1]))){
+                    hpgeE_hpgeE_180deg_sum_tDiff_1477gate->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy,tDiff);
+                  }
+                }
+              }
+              if(gate685 != 0){
+                if((gate685HitInd != noABHitInd) && (gate685HitInd != noABHitInd2)){
+                  Double_t tDiffCoinc = noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,gate685HitInd);
+                  Double_t tDiffCoinc2 = noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,gate685HitInd);
+                  if(((tDiffCoinc >= hpgehpgeTGate[0])&&(tDiffCoinc <= hpgehpgeTGate[1])) || ((tDiffCoinc2 >= hpgehpgeTGate[0])&&(tDiffCoinc2 <= hpgehpgeTGate[1]))){
+                    hpgeE_hpgeE_180deg_sum_tDiff_685gate->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy,tDiff);
+                  }
+                }
+              }
             }
             
             if((tDiff >= hpgehpgeTRandGate[0])&&(tDiff <= hpgehpgeTRandGate[1])){

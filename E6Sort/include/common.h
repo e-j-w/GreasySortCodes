@@ -12,7 +12,7 @@ using namespace std;
 
 #define NHPGERING 6 //number of TIGRESS rings
 #define NTIGSEGRING 13 //number of TIGRESS segment rings (last ring contains hits with no segments)
-#define NTIGPOS 16 //number of TIGRESS positions (clovers)
+#define NGRIFPOS 16 //number of GRIFFIN positions (clovers)
 
 #define MAX_NUM_PARTICLE 4 //maximum particle multiplicity
 
@@ -26,11 +26,15 @@ using namespace std;
 
 #define PI 3.14159265359
 
-#define ADDBACK_TIMING_GATE 50.0 //maximum time (in ns) that can separate events which will be summed in addback
-#define COINC_TIMING_GATE   50.0 //maximum time (in ns) that can separate sorted coincidences (following addback)
-#define SUM_TIMING_GATE     1000.0 //maximum time (in ns) that can separate sorted coincidences (following addback), affects summing histograms (should reflect the maximum amount of time between hits where they would be read out as a sum, ie. the prg_ddtm MIDAS template parameter)
-#define TRANDOM_GATE_MIN    950.0
-#define TRANDOM_GATE_MAX    1750.0
+#define ADDBACK_TIMING_GATE            40.0 //maximum time (in ns) that can separate events which will be summed in addback
+#define COINC_TIMING_GATE_MIN         -50.0 //minimum time (in ns) that can separate sorted coincidences (following addback)
+#define COINC_TIMING_GATE_MAX          50.0 //maximum time (in ns) that can separate sorted coincidences (following addback)
+#define COINC_TIMING_GATE_CFDFAIL_MIN  840.0
+#define COINC_TIMING_GATE_CFDFAIL_MAX  960.0
+#define SUM_TIMING_GATE_MIN            0.0 //minimum time (in ns) that can separate sorted coincidences (following addback), affects summing histograms (should reflect the maximum amount of time between hits where they would be read out as a sum, ie. the prg_ddtm MIDAS template parameter)
+#define SUM_TIMING_GATE_MAX            1000.0 //maximum time (in ns) that can separate sorted coincidences (following addback), affects summing histograms (should reflect the maximum amount of time between hits where they would be read out as a sum, ie. the prg_ddtm MIDAS template parameter)
+#define TRANDOM_GATE_MIN               -1800.0
+#define TRANDOM_GATE_MAX               -1000.0
 
 //GLOBAL VARIABLES
 //(static to avoid multiple declaration when linking)
@@ -38,7 +42,7 @@ static Int_t noPileupKValue = 379; //should be modified for the specific dataset
 
 //timing windows
 //static Double_t tigtigTGate[2] = {-15, 5}; // super narrow TIGRESS - TIGRESS timing window (ns)
-static Double_t hpgehpgeTGate[2] = {-100, 100}; // narrow HPGe - HPGe timing window (ns)
+static Double_t hpgehpgeTGate[2] = {-30, 30}; // narrow HPGe - HPGe timing window (ns)
 static Double_t hpgehpgeABGate[2] = {-200, 50}; // addback HPGe - HPGe timing window (ns)
 static Double_t hpgehpgeTRandGate[2] = {-2000, -1300}; // time-random HPGe - HPGe timing window (ns)
 static Double_t tigBGOTGate[2] = {0, 380}; // TIGRESS - BGO timing window (ns)
