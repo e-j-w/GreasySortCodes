@@ -109,7 +109,7 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
         //TIG-TIG timing, position, and energy
         for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
           if(sortedEvt.noABHit[noABHitInd2].energy > MIN_HPGE_EAB){
-            Double_t tDiff = noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2);
+            Double_t tDiff = noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd);
             /*if(tDiff >= 0.0f && tDiff <= 1.0f){
               sameEvtCtr++;
               if(sameEvtCtr > 2){
@@ -123,6 +123,7 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
               }
             }*/
             
+            hpgeT_hpgeT_le->Fill(sortedEvt.noABHit[noABHitInd2].tsDiff - sortedEvt.noABHit[noABHitInd].tsDiff);
             hpgeT_hpgeT->Fill(tDiff);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized

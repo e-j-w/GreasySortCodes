@@ -68,7 +68,7 @@ int main(int argc, char **argv)
   printf("Starting GainCurveSMOL\n");
 
   if(argc == 1){
-    cout << "Code sorts diagnostic histograms for online HPGe data" << endl;
+    cout << "Code sorts gain curve data." << endl;
     cout << "Arguments: GainCurveSMOL list_file output_file" << endl;
     cout << "The list file should contain two columns (space-delimited) with the SMOL tree filenames and the times (in seconds) at the start of each run." << endl;
     return 0;

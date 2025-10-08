@@ -23,7 +23,7 @@ class EEGamma_noAB_mca_SMOL_splitruns{
 	public :
 
 		EEGamma_noAB_mca_SMOL_splitruns(){;}
-		uint64_t SortData(const char*, const char*, const double, const double, const double, const uint8_t, const uint64_t);
+		uint64_t SortData(const char*, const char*, const double, const double, const double, const uint8_t, const uint64_t, const double, const double, const double);
 
 };
 

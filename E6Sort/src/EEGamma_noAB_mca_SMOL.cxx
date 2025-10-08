@@ -187,7 +187,7 @@ uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, c
           for(int noABHitInd3 = 0; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
             if(noABHitInd3 != noABHitInd){
               if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd].core & 63U] != 0){
-                Double_t tDiffSum = noABHitTime(&sortedEvt,noABHitInd3) - noABHitTime(&sortedEvt,noABHitInd);
+                Double_t tDiffSum = (sortedEvt.noABHit[noABHitInd3].tsDiff - sortedEvt.noABHit[noABHitInd].tsDiff)*10.0;
                 if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition (sum)
                   int eGamma = (int)(sortedEvt.noABHit[noABHitInd].energy/keVPerBin);
                   int eGamma3 = (int)(sortedEvt.noABHit[noABHitInd3].energy/keVPerBin);
@@ -223,8 +223,15 @@ uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, c
           for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
             //if(noABHitInd != noABHitInd2){
             if(((sortedEvt.noABHit[noABHitInd].core & 63U)/4)!=((sortedEvt.noABHit[noABHitInd2].core & 63U)/4)){ //try to reduce crosstalk... doesn't seem to do anything regarding sum peak shapes, but seems to align time-random with singles data
-              Double_t tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-              if(((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((tDiff >= COINC_TIMING_GATE_CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_CFDFAIL_MAX))){
+              Double_t tDiff = (noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
+              uint8_t numCFDFail = 0;
+              if(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)){
+                numCFDFail++;
+              }
+              if(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6)){
+                numCFDFail++;
+              }
+              if(((numCFDFail == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail == 1)&&(tDiff >= COINC_TIMING_GATE_1CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_1CFDFAIL_MAX))||((numCFDFail == 2)&&(tDiff >= COINC_TIMING_GATE_2CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_2CFDFAIL_MAX))){
                 if(!(hitsFilled[0] & ((uint64_t)(1) << noABHitInd2))){
                   int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
                   if(eGamma>=0 && eGamma<S32K){
@@ -248,10 +255,9 @@ uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, c
                 //if(noABHitInd3 != noABHitInd){
                 if(((sortedEvt.noABHit[noABHitInd].core & 63U)/4)!=((sortedEvt.noABHit[noABHitInd3].core & 63U)/4)){
                   if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
-                    Double_t tDiffSum = (noABHitTime(&sortedEvt,noABHitInd3) - noABHitTime(&sortedEvt,noABHitInd2));
+                    Double_t tDiffSum = (sortedEvt.noABHit[noABHitInd3].tsDiff - sortedEvt.noABHit[noABHitInd2].tsDiff)*10.0;
                     if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition (sum)
-                      Double_t tDiffFirstSumHit = (noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
-                      if(((tDiffFirstSumHit >= COINC_TIMING_GATE_MIN)&&(tDiffFirstSumHit <= COINC_TIMING_GATE_MAX))||((tDiffFirstSumHit >= COINC_TIMING_GATE_CFDFAIL_MIN)&&(tDiffFirstSumHit <= COINC_TIMING_GATE_CFDFAIL_MAX))){ //timing condition (original energy gate)
+                      if(((numCFDFail == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail == 1)&&(tDiff >= COINC_TIMING_GATE_1CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_1CFDFAIL_MAX))||((numCFDFail == 2)&&(tDiff >= COINC_TIMING_GATE_2CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_2CFDFAIL_MAX))){ //timing condition (original energy gate)
                         //printf("tDiffSum: %f\n",tDiffSum);
                         int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
                         int eGamma3 = (int)(sortedEvt.noABHit[noABHitInd3].energy/keVPerBin);
@@ -278,7 +284,7 @@ uint64_t EEGamma_noAB_mca_SMOL::SortData(const char *sfile, const double eLow, c
                             mcaOut[1][eGamma]++; //fill 180 degree projection histogram
                           }
                         }
-                      }else if((tDiffFirstSumHit >= TRANDOM_GATE_MIN)&&(tDiffFirstSumHit <= TRANDOM_GATE_MAX)){
+                      }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
                         double eGamma = ( (sortedEvt.noABHit[noABHitInd2].energy)/keVPerBin );
                         double eGamma3 = ( (sortedEvt.noABHit[noABHitInd3].energy)/keVPerBin );
                         int eGammaSum = (int)((sortedEvt.noABHit[noABHitInd2].energy + sortedEvt.noABHit[noABHitInd3].energy)/keVPerBin);

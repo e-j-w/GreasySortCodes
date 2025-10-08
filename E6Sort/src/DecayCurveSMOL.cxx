@@ -59,10 +59,11 @@ void DecayCurveS::SortData(const char *sfile, const uint64_t startNumSec)
         tSec = ((sortedEvt.header.evtTimeNs + (double)(sortedEvt.noABHit[noABHitInd].timeOffsetNs))/(1.0E9)) + (double)startNumSec;
         //if((jentry % 10000)==0) printf("evtTimeNs: %f, tSec: %f\n",sortedEvt.header.evtTimeNs,tSec);
         hpgeE_time->Fill(sortedEvt.noABHit[noABHitInd].energy, tSec/60.0);
+        counts_time->Fill(tSec/60.0);
       }
     }
 
-    if (jentry % 10000 == 0){
+    if (jentry % 90713 == 0){
       //cout << "tNs: " << sortedEvt.header.evtTimeNs << ", tSec: " << tSec << endl;
       cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / sentries << "% complete" << "\r" << flush;
     }
@@ -84,7 +85,7 @@ int main(int argc, char **argv)
   printf("Starting DecayCurveSMOL\n");
 
   if(argc == 1){
-    cout << "Code sorts a bunch of diagnostic histograms for online HPGe data" << endl;
+    cout << "Code sorts decay curve data." << endl;
     cout << "Arguments: DecayCurveSMOL list_file output_file" << endl;
     cout << "The list file should contain two columns (space-delimited) with the SMOL tree filenames and the times (in seconds) at the start of each run." << endl;
     return 0;

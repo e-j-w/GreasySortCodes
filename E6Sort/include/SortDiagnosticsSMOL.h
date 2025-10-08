@@ -28,6 +28,7 @@ TH2D *hpgeE_ANum;
 TH1I *hpgeMult;
 
 //Timing
+TH1I *hpgeT_hpgeT_le;
 TH1D *hpgeT_hpgeT;
 TH1D *hpgeT_hpgeT_tsep;
 TH1D *hpgeT_hpgeT_tsepmult2;
@@ -79,6 +80,9 @@ void SortDiagnosticsS::Initialise() {
   hpgeList->Add(hpgeMult);
 
   //Timing spectra
+  hpgeT_hpgeT_le = new TH1I("HPGe_HPGe_tstime","HPGe - HPGe leading edge (timestamp) time",512,-256,256); 
+  hpgeT_hpgeT_le->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (timestamp units)");
+  timingList->Add(hpgeT_hpgeT_le);
   hpgeT_hpgeT = new TH1D("HPGe_HPGe_time","HPGe - HPGe time",4096,-2048,2048); 
   hpgeT_hpgeT->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
   timingList->Add(hpgeT_hpgeT);

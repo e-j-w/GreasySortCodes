@@ -28,7 +28,7 @@ void WriteData(const char* outName){
 
 }
 
-uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char *outfile, const double eLow, const double eHigh, const double keVPerBin, const uint8_t discardPileup, const uint64_t entriesPerFile){
+uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char *outfile, const double eLow, const double eHigh, const double keVPerBin, const uint8_t discardPileup, const uint64_t entriesPerFile, const double offset, const double gain, const double quad){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -82,9 +82,11 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
           continue; //skip pileup hit
         }
 
+        const double hit1E = offset + sortedEvt.noABHit[noABHitInd].energy*gain + sortedEvt.noABHit[noABHitInd].energy*sortedEvt.noABHit[noABHitInd].energy*quad;
+
         //fill singles spectra
-        //int singlesE = (int)( (timeRandomOffsetFactor*sortedEvt.noABHit[noABHitInd].energy*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
-        int singlesE = (int)(sortedEvt.noABHit[noABHitInd].energy/keVPerBin);
+        //int singlesE = (int)( (timeRandomOffsetFactor*hit1E*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
+        int singlesE = (int)(hit1E/keVPerBin);
         if((singlesE>=0) && (singlesE<S32K)){
           mcaOut[6][singlesE]++;
         }
@@ -95,12 +97,17 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
               continue; //skip pileup hit
             }
             if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd].core & 63U] != 0){
-              Double_t tDiffSum = noABHitTime(&sortedEvt,noABHitInd3) - noABHitTime(&sortedEvt,noABHitInd);
+              Double_t tDiffSum = (sortedEvt.noABHit[noABHitInd3].tsDiff - sortedEvt.noABHit[noABHitInd].tsDiff)*10.0;
+              //printf("tDiffSum: %f\n",tDiffSum);
               if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition (sum)
-                int eGamma = (int)(sortedEvt.noABHit[noABHitInd].energy/keVPerBin);
-                int eGamma3 = (int)(sortedEvt.noABHit[noABHitInd3].energy/keVPerBin);
-                int eGammaSum = (int)((sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd3].energy)/keVPerBin);
-                //int eGammaSum = (int)(correctSumE(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd3].energy,tDiffSum)/keVPerBin);
+                //printf("Passed timing condition.\n");
+
+                const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
+
+                int eGamma = (int)(hit1E/keVPerBin);
+                int eGamma3 = (int)(hit3E/keVPerBin);
+                int eGammaSum = (int)((hit1E + hit3E)/keVPerBin);
+                //int eGammaSum = (int)(correctSumE(hit1E,hit3E,tDiffSum)/keVPerBin);
                 if(eGammaSum>=0 && eGammaSum<S32K){
                   if(!(hitsFilled[8] & ((uint64_t)(1) << noABHitInd))){
                     if(!(hitsFilled[8] & ((uint64_t)(1) << noABHitInd3))){
@@ -127,14 +134,17 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
           }
         }
         
-        if((sortedEvt.noABHit[noABHitInd].energy >= eLow)&&(sortedEvt.noABHit[noABHitInd].energy <= eHigh)){
+        if((hit1E >= eLow)&&(hit1E <= eHigh)){
           for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
             if(discardPileup && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
               continue; //skip pileup hit
             }
+
+            const double hit2E = offset + sortedEvt.noABHit[noABHitInd2].energy*gain + sortedEvt.noABHit[noABHitInd2].energy*sortedEvt.noABHit[noABHitInd2].energy*quad;
+
             //if(noABHitInd != noABHitInd2){
             if(((sortedEvt.noABHit[noABHitInd].core & 63U)/4)!=((sortedEvt.noABHit[noABHitInd2].core & 63U)/4)){ //try to reduce crosstalk... doesn't seem to do anything regarding sum peak shapes, but seems to align time-random with singles data
-              Double_t tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
+              Double_t tDiff = (noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
               uint8_t numCFDFail = 0;
               if(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)){
                 numCFDFail++;
@@ -142,9 +152,9 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
               if(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6)){
                 numCFDFail++;
               }
-              if(((numCFDFail % 2 == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail % 2 == 0)&&(tDiff >= COINC_TIMING_GATE_CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_CFDFAIL_MAX))){
+              if(((numCFDFail == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail == 1)&&(tDiff >= COINC_TIMING_GATE_1CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_1CFDFAIL_MAX))||((numCFDFail == 2)&&(tDiff >= COINC_TIMING_GATE_2CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_2CFDFAIL_MAX))){
                 if(!(hitsFilled[0] & ((uint64_t)(1) << noABHitInd2))){
-                  int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
+                  int eGamma = (int)(hit2E/keVPerBin);
                   if(eGamma>=0 && eGamma<S32K){
                     hitsFilled[0] |= ((uint64_t)(1) << noABHitInd2);
                     mcaOut[0][eGamma]++; //fill true coincidence histogram
@@ -153,8 +163,8 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
               }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
                 //time random
                 if(!(hitsFilled[3] & ((uint64_t)(1) << noABHitInd2))){
-                  int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
-                  //double eGamma = ( (timeRandomOffsetFactor*sortedEvt.noABHit[noABHitInd2].energy*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
+                  int eGamma = (int)(hit2E/keVPerBin);
+                  //double eGamma = ( (timeRandomOffsetFactor*hit2E*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
                   if(((int)eGamma)>=0 && ((int)eGamma)<S32K){
                     hitsFilled[3] |= ((uint64_t)(1) << noABHitInd2);
                     mcaOut[3][((int)eGamma)]++; //fill time-random 'coincidence' histogram
@@ -169,22 +179,17 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
                 //if(noABHitInd3 != noABHitInd){
                 if(((sortedEvt.noABHit[noABHitInd].core & 63U)/4)!=((sortedEvt.noABHit[noABHitInd3].core & 63U)/4)){
                   if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
-                    Double_t tDiffSum = (noABHitTime(&sortedEvt,noABHitInd3) - noABHitTime(&sortedEvt,noABHitInd2));
+                    Double_t tDiffSum = (sortedEvt.noABHit[noABHitInd3].tsDiff - sortedEvt.noABHit[noABHitInd2].tsDiff)*10.0;
                     if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition (sum)
-                      Double_t tDiffFirstSumHit = (noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
-                      uint8_t numCFDFail = 0;
-                      if(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)){
-                        numCFDFail++;
-                      }
-                      if(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6)){
-                        numCFDFail++;
-                      }
-                      if(((numCFDFail % 2 == 0)&&(tDiffFirstSumHit >= COINC_TIMING_GATE_MIN)&&(tDiffFirstSumHit <= COINC_TIMING_GATE_MAX))||((numCFDFail % 2 == 1)&&(tDiffFirstSumHit >= COINC_TIMING_GATE_CFDFAIL_MIN)&&(tDiffFirstSumHit <= COINC_TIMING_GATE_CFDFAIL_MAX))){ //timing condition (original energy gate)
+                      if(((numCFDFail == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail == 1)&&(tDiff >= COINC_TIMING_GATE_1CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_1CFDFAIL_MAX))||((numCFDFail == 2)&&(tDiff >= COINC_TIMING_GATE_2CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_2CFDFAIL_MAX))){ //timing condition (original energy gate)
                         //printf("tDiffSum: %f\n",tDiffSum);
-                        int eGamma = (int)(sortedEvt.noABHit[noABHitInd2].energy/keVPerBin);
-                        int eGamma3 = (int)(sortedEvt.noABHit[noABHitInd3].energy/keVPerBin);
-                        int eGammaSum = (int)((sortedEvt.noABHit[noABHitInd2].energy + sortedEvt.noABHit[noABHitInd3].energy)/keVPerBin);
-                        //int eGammaSum = (int)(correctSumE(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd3].energy,tDiffSum)/keVPerBin);
+
+                        const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
+
+                        int eGamma = (int)(hit2E/keVPerBin);
+                        int eGamma3 = (int)(hit3E/keVPerBin);
+                        int eGammaSum = (int)((hit2E + hit3E)/keVPerBin);
+                        //int eGammaSum = (int)(correctSumE(hit2E,hit3E,tDiffSum)/keVPerBin);
                         if(eGammaSum>=0 && eGammaSum<S32K){
                           if(!(hitsFilled[2] & ((uint64_t)(1) << noABHitInd2))){
                             if(!(hitsFilled[2] & ((uint64_t)(1) << noABHitInd3))){
@@ -206,13 +211,16 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
                             mcaOut[1][eGamma]++; //fill 180 degree projection histogram
                           }
                         }
-                      }else if((tDiffFirstSumHit >= TRANDOM_GATE_MIN)&&(tDiffFirstSumHit <= TRANDOM_GATE_MAX)){
-                        double eGamma = ( (sortedEvt.noABHit[noABHitInd2].energy)/keVPerBin );
-                        double eGamma3 = ( (sortedEvt.noABHit[noABHitInd3].energy)/keVPerBin );
-                        int eGammaSum = (int)((sortedEvt.noABHit[noABHitInd2].energy + sortedEvt.noABHit[noABHitInd3].energy)/keVPerBin);
-                        //double eGamma = ( (timeRandomOffsetFactor*sortedEvt.noABHit[noABHitInd2].energy*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
-                        //double eGamma3 = ( (timeRandomOffsetFactor*sortedEvt.noABHit[noABHitInd3].energy*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
-                        //double eGammaSum = (correctSumE(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd3].energy,tDiffSum)*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin;
+                      }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
+
+                        const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
+
+                        double eGamma = ( (hit2E)/keVPerBin );
+                        double eGamma3 = ( (hit3E)/keVPerBin );
+                        int eGammaSum = (int)((hit2E + hit3E)/keVPerBin);
+                        //double eGamma = ( (timeRandomOffsetFactor*hit2E*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
+                        //double eGamma3 = ( (timeRandomOffsetFactor*hit3E*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
+                        //double eGammaSum = (correctSumE(hit2E,hit3E,tDiffSum)*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin;
                         if(((int)eGammaSum)>=0 && ((int)eGammaSum)<S32K){
                           if(!(hitsFilled[5] & ((uint64_t)(1) << noABHitInd2))){
                             if(!(hitsFilled[5] & ((uint64_t)(1) << noABHitInd3))){
@@ -284,14 +292,18 @@ int main(int argc, char **argv){
   double keVPerBin = 1.0;
   double eLow, eHigh;
   uint64_t entriesPerFile = 0;
+  double offset = 0.0;
+  double gain = 1.0;
+  double quad = 0.0;
   printf("Starting EEGamma_noAB_mca_SMOL_splitruns\n");
 
-  if((argc != 6)&&(argc != 7)&&(argc != 8)){
+  if((argc < 6)||(argc > 11)){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
-    cout << "Arguments: EEGamma_noAB_mca_SMOL_splitruns smol_file_list EGateLow EGateHigh output_dmca_file_prefix events_per_split keV_per_bin discard_pileup" << endl;
+    cout << "Arguments: EEGamma_noAB_mca_SMOL_splitruns smol_file_list EGateLow EGateHigh output_dmca_file_prefix events_per_split keV_per_bin discard_pileup offset gain quad" << endl;
     cout << "  *smol_file* can be a single SMOL tree (extension .smole6), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     cout << "  *discard_pileup* can be either 0 (false, default if not specified) or 1 (true)." << endl;
+    cout << "  *offset*, *gain*, and *quad* are parameters to (re)calibrate the SMOL tree data by. If not specified, these will default to values of 0, 1, and 0 (ie. no change in calibration)." << endl;
     return 0;
   }else{
     sfile = argv[1];
@@ -304,6 +316,11 @@ int main(int argc, char **argv){
       if(argc > 7){
         if(atoi(argv[7]) != 0){
           discardPileup = 1;
+        }
+        if(argc == 11){
+          offset = atof(argv[8]);
+          gain = atof(argv[9]);
+          quad = atof(argv[10]);
         }
       }
 
@@ -339,6 +356,9 @@ int main(int argc, char **argv){
     if(discardPileup == 1){
       printf("Discarding pileup hits.\n");
     }
+    if(argc == 11){
+      printf("Recalibrating with offset = %f, gain = %f, quad = %.15f\n",offset,gain,quad);
+    }
 
     //construct 180 degree summing hit map
     memset(hitMap180deg,0,sizeof(hitMap180deg));
@@ -363,7 +383,7 @@ int main(int argc, char **argv){
       while(!(feof(listfile))){//go until the end of file is reached
         if(fgets(str,256,listfile)!=NULL){ //get an entire line
           str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          numSepEvts += mysort->SortData(str, outfile, eLow, eHigh, keVPerBin, discardPileup, entriesPerFile);
+          numSepEvts += mysort->SortData(str, outfile, eLow, eHigh, keVPerBin, discardPileup, entriesPerFile, offset, gain, quad);
         }
       }
     }

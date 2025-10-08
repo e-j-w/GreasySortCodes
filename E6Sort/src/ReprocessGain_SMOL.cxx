@@ -10,9 +10,9 @@ using namespace std;
 
 FILE *inp, *out;
 double actualEnergy[MAX_INPUT_E];
-double corrCoeff[MAX_INPUT_E][NGRIFPOS*4][MAX_TIME_WINDOWS_PER_TREE];
-double enWindowAvg[MAX_INPUT_E][NGRIFPOS*4][MAX_TIME_WINDOWS_PER_TREE];
-uint64_t enWindowNumHits[MAX_INPUT_E][NGRIFPOS*4][MAX_TIME_WINDOWS_PER_TREE];
+double corrCoeff[MAX_INPUT_E][NGRIFPOS*4][MAX_EVT_WINDOWS_PER_TREE];
+double enWindowAvg[MAX_INPUT_E][NGRIFPOS*4][MAX_EVT_WINDOWS_PER_TREE];
+uint64_t enWindowNumHits[MAX_INPUT_E][NGRIFPOS*4][MAX_EVT_WINDOWS_PER_TREE];
 uint8_t actualEnDetermined;
 
 //fitter
@@ -20,7 +20,7 @@ long double xpowsum[5];//sums of (x1)^0, (x1)^1, (x1)^2, etc. indexed  by power 
 long double mxpowsum[3];//sums of m*(x1)^0, m*(x1)^1, m*(x1)^2, etc. indexed by power #
   
 
-void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const char *outfile, const double evalWindowSize, const double tWindowSize, const double en[MAX_INPUT_E], const int numEnVals){
+void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const char *outfile, const uint64_t evalWindowSize, const uint64_t evtWindowSize, const double en[MAX_INPUT_E], const int numEnVals){
 
     if((numEnVals > MAX_INPUT_E)||(numEnVals < 1)){
         cout << "ERROR: invalid number of input energy values." << endl;
@@ -60,8 +60,7 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
                 exit(-1);
             }
 
-            Double_t tSec = ((sortedEvt.header.evtTimeNs)/(1.0E9));
-            if((tSec > 0.0)&&(tSec < evalWindowSize)){
+            if(jentry < evalWindowSize){
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
                     for(uint8_t i=0;i<numEnVals;i++){
                         if(fabs(sortedEvt.noABHit[noABHitInd].energy - en[i]) < EN_WINDOW_WIDTH){
@@ -70,10 +69,12 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
                         }
                     }
                 }
+            }else{
+                break;
             }
 
             if(jentry % 9713 == 0)
-                cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / sentries << "% complete" << "\r" << flush;
+                cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / evalWindowSize << "% complete" << "\r" << flush;
             
         }
         //calculate actual gain correction energies
@@ -135,23 +136,25 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
 
         Double_t tSec = ((sortedEvt.header.evtTimeNs)/(1.0E9));
 
-        //get rid of zero-time empty events
-        if(tSec <= 0.0){
-            if(sortedEvt.header.numNoABHits == 0){
-                continue;
-            }else{
-                printf("ERROR: zero time for event with hit data:\n");
+        //discard bad timing events
+        if((tSec <= 0.0)||(tSec > MAX_RUN_TIME_SEC)){
+            /*if(sortedEvt.header.numNoABHits > 0){
+                printf("ERROR: zero time for event %li with hit data:\n",jentry);
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
                     printf("Hit %i, core: %u, energy: %f\n",noABHitInd,sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd].energy);
-                    exit(-1);
+                    printf("tSec: %f\n",tSec);
+                    //exit(-1);
                 }
-            }
+            }*/
+            continue;
         }
+        //printf("tSec: %f\n");
 
-        int windowNum = (int)(floor((tSec)/(1.0*tWindowSize)));
-        if(windowNum >= MAX_TIME_WINDOWS_PER_TREE){
+        //figure out what event window we're in
+        int windowNum = (int)(floor(jentry/(1.0*evtWindowSize)));
+        if(windowNum >= MAX_EVT_WINDOWS_PER_TREE){
             printf("WARNING: entry %li has invalid window number %i",jentry,windowNum);
-            windowNum = MAX_TIME_WINDOWS_PER_TREE-1;
+            windowNum = MAX_EVT_WINDOWS_PER_TREE-1;
         }else if(windowNum < 0){
             printf("WARNING: entry %li has invalid window number %i",jentry,windowNum);
             windowNum = 0;
@@ -168,6 +171,8 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
                         enWindowNumHits[i][sortedEvt.noABHit[noABHitInd].core & 63U][windowNum]++;
                     }
                 }
+            }else{
+                printf("Invalid core for event %li hit %i: %u\n",jentry,noABHitInd,sortedEvt.noABHit[noABHitInd].core & 63U);
             }
         }
 
@@ -175,7 +180,7 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
             cout << setiosflags(ios::fixed) << "Entry " << jentry << " of " << sentries << ", " << 100 * jentry / sentries << "% complete" << "\r" << flush;
     }
     cout << "Entry " << sentries << " of " << sentries << ", 100% complete, " << numWindows << " gain correction windows processed." << endl;
-    cout << endl << "Fitting..." << endl;
+    printf("Fitting...\n");
     for(int window = 0; window < numWindows; window++){
         //fit gain correction coefficients and copy them
         for(uint8_t coreNum=0; coreNum<(NGRIFPOS*4); coreNum++){
@@ -228,20 +233,22 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
                 exit(-1);
             }
             
-            //save fit parameters  
+            //save fit parameters
             for(i=0;i<3;i++){
                 corrCoeff[2-i][coreNum][window]=linEq.solution[i];
             }
 
             //if fit fails, set default values
-            if(corrCoeff[0][coreNum][window] != corrCoeff[0][coreNum][window]){
+            if((corrCoeff[0][coreNum][window] != corrCoeff[0][coreNum][window])||(corrCoeff[1][coreNum][window] != corrCoeff[1][coreNum][window])||(corrCoeff[2][coreNum][window] != corrCoeff[2][coreNum][window])){
+                /*printf("Failed fit (core %u, window %u).\nEnergy values:\n",coreNum,window);
+                for(uint8_t i=0;i<numEnVals;i++){
+                    printf("%f %lu %f\n",enWindowAvg[i][coreNum][window],enWindowNumHits[i][coreNum][window],(enWindowAvg[i][coreNum][window])/(1.0*enWindowNumHits[i][coreNum][window]));
+                }
+                getc(stdin);*/
                 corrCoeff[0][coreNum][window] = 0.0;
-            }
-            if(corrCoeff[1][coreNum][window] != corrCoeff[1][coreNum][window]){
-                corrCoeff[1][coreNum][window] = 1.0;
-            }
-            if(corrCoeff[2][coreNum][window] != corrCoeff[2][coreNum][window]){
+                corrCoeff[1][coreNum][window] = 0.0;
                 corrCoeff[2][coreNum][window] = 0.0;
+                
             }
 
         }
@@ -250,7 +257,9 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
     printf("\nCorrection coefficients:\n");
     for(int i=0; i<numWindows; i++){
         for(int j=0; j<(NGRIFPOS*4); j++){
-            printf("Window %i, crystal %i: %0.4f %0.4f %0.4f\n",i,j,corrCoeff[0][j][i],corrCoeff[1][j][i],corrCoeff[2][j][i]);
+            if((corrCoeff[0][j][i] != 0.0)&&(corrCoeff[1][j][i] != 0.0)){
+                printf("Window %i, crystal %i: %0.4f %0.4f %0.4f\n",i,j,corrCoeff[0][j][i],corrCoeff[1][j][i],corrCoeff[2][j][i]);
+            }
         }
     }
 
@@ -290,12 +299,14 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
             exit(-1);
         }
 
-        //figure out what time window we're in
+        //discard bad timing events
         Double_t tSec = ((sortedEvt.header.evtTimeNs)/(1.0E9));
-        if(tSec <= 0.0){
+        if((tSec <= 0.0)||(tSec > MAX_RUN_TIME_SEC)){
             continue;
         }
-        int windowNum = (int)(floor((tSec)/(1.0*tWindowSize)));
+
+        //figure out what event window we're in
+        int windowNum = (int)(floor(jentry/(1.0*evtWindowSize)));
         if(windowNum >= numWindows){
             windowNum = numWindows-1;
         }else if(windowNum < 0){
@@ -331,8 +342,11 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
 
     //write the number of separated events to the beginning of the file
     fseek(out,0,SEEK_SET);
+    actualSepEntries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
+    uint64_t smolFormatVersion = 1;
+    actualSepEntries |= (smolFormatVersion << 48);
     fwrite(&actualSepEntries,sizeof(uint64_t),1,out);
-    cout << "Wrote " << actualSepEntries << " separated events to: " << outfile << endl;
+    printf("Wrote %lu separated events to: %s",actualSepEntries & 0xFFFFFFFFFFFF,outfile);
     fclose(out);
 
     fclose(inp);
@@ -346,9 +360,9 @@ int main(int argc, char **argv){
 
     char const *sfile, *efile;
     char const *soutfile;
-    char outName[64];
+    char outName[256];
     double corrEnergy[MAX_INPUT_E];
-    double evalWindow, tWindow;
+    uint64_t evalWindow, evtWindow;
     int numEnVals = 0;
 
     if(argc <= 1){
@@ -356,17 +370,15 @@ int main(int argc, char **argv){
         cout << "A code for re-aligning gains in SMOL trees." << endl;
         cout << "  *smol_file* can be a single SMOL tree (extension .smol), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
         cout << "  *eval_smol_file* is a single SMOL tree (extension .smol) which is used to evaluate the correct gain." << endl;
-        cout << "  *eval_time_window* is the size of the window at the start of the data in *eval_smol_file* that is used to evaluate the correct gain, in seconds.  This should be the longest time period where gain shift is not observed." << endl;
-        cout << "    - If a list of SMOL trees is used, the correct gains will be evaluated using the first SMOL tree in the list." << endl;
-        cout << "  *corr_time_window* is the size of the window used to evaluate gain shift, in seconds." << endl;
+        cout << "  *eval_event_window* is the size of the window at the start of the data in *eval_smol_file* that is used to evaluate the correct gain, in events.  This should correspond to the longest time period where gain shift is not observed." << endl;
+        cout << "  *corr_event_window* is the size of the window used to evaluate gain shift, in events." << endl;
         cout << "  *energy1*, *energy2*, etc are up to " << MAX_INPUT_E << " approximate energies (in keV) corresponding to peaks used to the fit. At least 3 energies must be specified (we are doing a quadratic fit)." << endl;
-        cout << "Default values will be used if arguments (other than analysis_tree) are omitted." << endl;
         return 0;
     }else if((argc >= 9)&&(argc < (6+MAX_INPUT_E))){
         sfile = argv[1];
         efile = argv[2];
-        evalWindow = atof(argv[3]);
-        tWindow = atof(argv[4]);
+        evalWindow = atoll(argv[3]);
+        evtWindow = atoll(argv[4]);
         soutfile = argv[5];
         for(int arg=6; arg<argc; arg++){
             corrEnergy[arg-6] = atof(argv[arg]);
@@ -409,8 +421,8 @@ int main(int argc, char **argv){
         corrEnergy[0] = swap;
     }
 
-    cout << "Gain evaluation time window: " << evalWindow << " sec" << endl;
-    cout << "Gain correction time window: " << tWindow << " sec" << endl;
+    cout << "Gain evaluation window: " << evalWindow << " events" << endl;
+    cout << "Gain correction window: " << evtWindow << " events" << endl;
     printf("Gain correction energies: ");
     for(int i=0;i<(numEnVals-1);i++){
         printf("%0.3f, ",corrEnergy[i]);
@@ -440,8 +452,9 @@ int main(int argc, char **argv){
             strncpy(filePrefix,sfile,256);
             const char *tok = strtok(filePrefix,"."); //get the filename without the extension
             if(tok!=NULL){
-                snprintf(outName,63,"%s_%s.smol",tok,soutfile);
-                mysort->SortData(sfile, efile, outName, evalWindow, tWindow, corrEnergy, numEnVals);
+                snprintf(outName,255,"%s_%s.smol",basename(tok),soutfile);
+                //printf("Will write to file: %s\n",outName);
+                mysort->SortData(sfile, efile, outName, evalWindow, evtWindow, corrEnergy, numEnVals);
             }else{
                 cout << "ERROR: improperly formatted filename: " << sfile << endl;
                 return 0;
@@ -462,8 +475,9 @@ int main(int argc, char **argv){
                         strncpy(filePrefix,str,256);
                         const char *tok = strtok(filePrefix,"."); //get the filename without the extension
                         if(tok!=NULL){
-                            snprintf(outName,63,"%s_%s.smol",tok,soutfile);
-                            mysort->SortData(str, efile, outName, evalWindow, tWindow, corrEnergy, numEnVals);
+                            snprintf(outName,255,"%s_%s.smol",basename(tok),soutfile);
+                            //printf("Will write to file: %s\n",outName);
+                            mysort->SortData(str, efile, outName, evalWindow, evtWindow, corrEnergy, numEnVals);
                         }else{
                             cout << "ERROR: improperly formatted filename: " << str << endl;
                             return 0;

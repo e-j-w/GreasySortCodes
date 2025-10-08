@@ -1,16 +1,9 @@
 #ifndef evtfmt_h
 #define evtfmt_h
 
-//structs defining the intermediate tree format used for sorting TIP data
+//structs defining the intermediate tree format used for sorting GRIFFIN data
 //
-//Data written to disk has the format:
-//-64-bit number containing number of events
-//-Individual event data, containing:
-//  -evt_header struct
-//  -one tigab_hit struct for each addback hit
-//  -one csi_hit struct for each csi hit
-//  -one rf_hit struct for each rf hit
-//  -footer containing magic uint8_t value (227U), used for data validation
+//see smol-format.h in midas2smol
 
 #include <stdint.h> //allows uint8_t and similiar types
 
@@ -27,6 +20,7 @@ typedef struct
 {
 	float timeOffsetNs; //relative to evtTimeNs
 	float energy;
+	uint8_t tsDiff;
 	uint8_t core; //0-indexed
 }hpge_hit;
 
@@ -50,6 +44,7 @@ static int readSMOLEvent(FILE *inp, sorted_evt *sortedEvt){
 	for(uint8_t i = 0; i<sortedEvt->header.numNoABHits;i++){
 		fread(&sortedEvt->noABHit[i].timeOffsetNs,sizeof(float),1,inp);
 		fread(&sortedEvt->noABHit[i].energy,sizeof(float),1,inp);
+		fread(&sortedEvt->noABHit[i].tsDiff,sizeof(uint8_t),1,inp);
 		fread(&sortedEvt->noABHit[i].core,sizeof(uint8_t),1,inp);
 	}
 	if(!(sortedEvt->header.metadata & (1U << 7))){
