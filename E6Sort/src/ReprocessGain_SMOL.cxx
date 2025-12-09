@@ -330,6 +330,7 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
         for(int i = 0; i<sortedEvt.header.numNoABHits;i++){
             fwrite(&sortedEvt.noABHit[i].timeOffsetNs,sizeof(float),1,out);
             fwrite(&sortedEvt.noABHit[i].energy,sizeof(float),1,out);
+            fwrite(&sortedEvt.noABHit[i].tsDiff,sizeof(uint8_t),1,out);
             fwrite(&sortedEvt.noABHit[i].core,sizeof(uint8_t),1,out);
         }
         actualSepEntries++;

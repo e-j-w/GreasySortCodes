@@ -110,6 +110,7 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
         for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
           if(sortedEvt.noABHit[noABHitInd2].energy > MIN_HPGE_EAB){
             Double_t tDiff = noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd);
+            Int_t tDiffTS = (Int_t)(sortedEvt.noABHit[noABHitInd2].tsDiff) - (Int_t)(sortedEvt.noABHit[noABHitInd].tsDiff);
             /*if(tDiff >= 0.0f && tDiff <= 1.0f){
               sameEvtCtr++;
               if(sameEvtCtr > 2){
@@ -123,7 +124,7 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
               }
             }*/
             
-            hpgeT_hpgeT_le->Fill(sortedEvt.noABHit[noABHitInd2].tsDiff - sortedEvt.noABHit[noABHitInd].tsDiff);
+            hpgeT_hpgeT_le->Fill(tDiffTS);
             hpgeT_hpgeT->Fill(tDiff);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
@@ -175,13 +176,13 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
                 hpgeE_hpgeE_180deg_proj->Fill(sortedEvt.noABHit[noABHitInd2].energy);
                 hpgeE_hpgeE_180deg_sum->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy);
               }
-              hpgeE_hpgeE_180deg_sum_tDiff->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy,tDiff);
+              hpgeE_hpgeE_180deg_sum_tDiff->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy,(Double_t)tDiffTS);
               if(gate1477 != 0){
                 if((gate1477HitInd != noABHitInd) && (gate1477HitInd != noABHitInd2)){
                   Double_t tDiffCoinc = noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,gate1477HitInd);
                   Double_t tDiffCoinc2 = noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,gate1477HitInd);
                   if(((tDiffCoinc >= hpgehpgeTGate[0])&&(tDiffCoinc <= hpgehpgeTGate[1])) || ((tDiffCoinc2 >= hpgehpgeTGate[0])&&(tDiffCoinc2 <= hpgehpgeTGate[1]))){
-                    hpgeE_hpgeE_180deg_sum_tDiff_1477gate->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy,tDiff);
+                    hpgeE_hpgeE_180deg_sum_tDiff_1477gate->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy,(Double_t)tDiffTS);
                   }
                 }
               }
@@ -190,7 +191,7 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
                   Double_t tDiffCoinc = noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,gate685HitInd);
                   Double_t tDiffCoinc2 = noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,gate685HitInd);
                   if(((tDiffCoinc >= hpgehpgeTGate[0])&&(tDiffCoinc <= hpgehpgeTGate[1])) || ((tDiffCoinc2 >= hpgehpgeTGate[0])&&(tDiffCoinc2 <= hpgehpgeTGate[1]))){
-                    hpgeE_hpgeE_180deg_sum_tDiff_685gate->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy,tDiff);
+                    hpgeE_hpgeE_180deg_sum_tDiff_685gate->Fill(sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy,(Double_t)tDiffTS);
                   }
                 }
               }

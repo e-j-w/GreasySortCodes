@@ -8,10 +8,18 @@
 
 using namespace std;
 
+enum sp_enum{
+SP_GATED, SP_SUMOUT, SP_SUMIN,
+SP_TR_GATED, SP_TR_SUMOUT, SP_TR_SUMIN,
+SP_SINGLES, SP_SINGLES_SUMOUT, SP_SINGLES_SUMIN,
+SP_ENUM_LENGTH
+};
+
 uint8_t hitMap180deg[64][64]; //1st index = crystal of hit, 2nd index = crystal of 2nd hit, val = 1 indicates 180 degree summing occurs
 uint64_t filehits;
 uint32_t numFilesWritten;
-uint64_t hitsFilled[9]; //bit-pattern desrcibing the hits filled in each spectrum
+
+
 
 void WriteData(const char* outName){
 
@@ -74,12 +82,13 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
     if(sortedEvt.header.numNoABHits <= 64){
 
       //hits can fit in uint64_t bit-pattern
-      memset(hitsFilled,0,sizeof(hitsFilled));
 
       for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
 
-        if(discardPileup && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
           continue; //skip pileup hit
+        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+          continue; //skip non-pileup hit
         }
 
         const double hit1E = offset + sortedEvt.noABHit[noABHitInd].energy*gain + sortedEvt.noABHit[noABHitInd].energy*sortedEvt.noABHit[noABHitInd].energy*quad;
@@ -88,63 +97,52 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
         //int singlesE = (int)( (timeRandomOffsetFactor*hit1E*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
         int singlesE = (int)(hit1E/keVPerBin);
         if((singlesE>=0) && (singlesE<S32K)){
-          mcaOut[6][singlesE]++;
+          mcaOut[SP_SINGLES][singlesE]++;
+          //filehits++;
         }
         //make summing histograms (for singles)
-        for(int noABHitInd3 = 0; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
-          if(noABHitInd3 != noABHitInd){
-            if(discardPileup && (sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7))){
-              continue; //skip pileup hit
-            }
-            if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd].core & 63U] != 0){
-              Double_t tDiffSum = (sortedEvt.noABHit[noABHitInd3].tsDiff - sortedEvt.noABHit[noABHitInd].tsDiff)*10.0;
-              //printf("tDiffSum: %f\n",tDiffSum);
-              if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition (sum)
-                //printf("Passed timing condition.\n");
+        for(int noABHitInd3 = noABHitInd+1; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
+          if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7))){
+            continue; //skip pileup hit
+          }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7)))){
+            continue; //skip non-pileup hit
+          }
+          if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd].core & 63U] != 0){
+            Double_t tDiffSum = fabs(sortedEvt.noABHit[noABHitInd3].tsDiff - sortedEvt.noABHit[noABHitInd].tsDiff)*10.0;
+            //printf("tDiffSum: %f\n",tDiffSum);
+            if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition (sum)
+              //printf("Passed timing condition.\n");
 
-                const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
+              const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
 
-                int eGamma = (int)(hit1E/keVPerBin);
-                int eGamma3 = (int)(hit3E/keVPerBin);
-                int eGammaSum = (int)((hit1E + hit3E)/keVPerBin);
-                //int eGammaSum = (int)(correctSumE(hit1E,hit3E,tDiffSum)/keVPerBin);
-                if(eGammaSum>=0 && eGammaSum<S32K){
-                  if(!(hitsFilled[8] & ((uint64_t)(1) << noABHitInd))){
-                    if(!(hitsFilled[8] & ((uint64_t)(1) << noABHitInd3))){
-                      hitsFilled[8] |= ((uint64_t)(1) << noABHitInd);
-                      hitsFilled[8] |= ((uint64_t)(1) << noABHitInd3);
-                      mcaOut[8][eGammaSum]++; //fill 180 degree sum histogram
-                    }
-                  }
-                }
-                if(eGamma3>=0 && eGamma3<S32K){
-                  if(!(hitsFilled[7] & ((uint64_t)(1) << noABHitInd3))){
-                    hitsFilled[7] |= ((uint64_t)(1) << noABHitInd3);
-                    mcaOut[7][eGamma3]++; //fill 180 degree projection histogram
-                  }
-                }
-                if(eGamma>=0 && eGamma<S32K){
-                  if(!(hitsFilled[7] & ((uint64_t)(1) << noABHitInd))){
-                    hitsFilled[7] |= ((uint64_t)(1) << noABHitInd);
-                    mcaOut[7][eGamma]++; //fill 180 degree projection histogram
-                  }
-                }
+              int eGamma3 = (int)(hit3E/keVPerBin);
+              int eGammaSum = (int)((offset + (sortedEvt.noABHit[noABHitInd].energy+sortedEvt.noABHit[noABHitInd3].energy)*gain + ((sortedEvt.noABHit[noABHitInd].energy*sortedEvt.noABHit[noABHitInd].energy)+(sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy))*quad)/keVPerBin);
+              //int eGammaSum = (int)(correctSumE(hit1E,hit3E,tDiffSum)/keVPerBin);
+              if(eGammaSum>=0 && eGammaSum<S32K){
+                mcaOut[SP_SINGLES_SUMIN][eGammaSum]++; //fill 180 degree sum histogram
+              }
+              if(eGamma3>=0 && eGamma3<S32K){
+                mcaOut[SP_SINGLES_SUMOUT][eGamma3]++; //fill 180 degree projection histogram
+              }
+              if(singlesE>=0 && singlesE<S32K){
+                mcaOut[SP_SINGLES_SUMOUT][singlesE]++; //fill 180 degree projection histogram
               }
             }
           }
         }
-        
-        if((hit1E >= eLow)&&(hit1E <= eHigh)){
+
+        //custom hit counting condition (1477+685 coinc)
+        if((hit1E >= 1466.0)&&(hit1E <= 1486.0)){
           for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
-            if(discardPileup && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+            if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
               continue; //skip pileup hit
+            }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+              continue; //skip non-pileup hit
             }
-
             const double hit2E = offset + sortedEvt.noABHit[noABHitInd2].energy*gain + sortedEvt.noABHit[noABHitInd2].energy*sortedEvt.noABHit[noABHitInd2].energy*quad;
-
-            //if(noABHitInd != noABHitInd2){
-            if(((sortedEvt.noABHit[noABHitInd].core & 63U)/4)!=((sortedEvt.noABHit[noABHitInd2].core & 63U)/4)){ //try to reduce crosstalk... doesn't seem to do anything regarding sum peak shapes, but seems to align time-random with singles data
-              Double_t tDiff = (noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
+            if((hit2E >= 674.0)&&(hit2E <= 696.0)){
+              //if(((sortedEvt.noABHit[noABHitInd].core & 63U)/4)!=((sortedEvt.noABHit[noABHitInd2].core & 63U)/4)){ //try to reduce crosstalk... doesn't seem to do anything regarding sum peak shapes, but seems to align time-random with singles data
+              Double_t tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
               uint8_t numCFDFail = 0;
               if(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)){
                 numCFDFail++;
@@ -153,102 +151,49 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
                 numCFDFail++;
               }
               if(((numCFDFail == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail == 1)&&(tDiff >= COINC_TIMING_GATE_1CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_1CFDFAIL_MAX))||((numCFDFail == 2)&&(tDiff >= COINC_TIMING_GATE_2CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_2CFDFAIL_MAX))){
-                if(!(hitsFilled[0] & ((uint64_t)(1) << noABHitInd2))){
-                  int eGamma = (int)(hit2E/keVPerBin);
-                  if(eGamma>=0 && eGamma<S32K){
-                    hitsFilled[0] |= ((uint64_t)(1) << noABHitInd2);
-                    mcaOut[0][eGamma]++; //fill true coincidence histogram
-                  }
+                filehits++;
+                //if (filehits % 1000 == 0)
+                //  cout << "Coincident hit " << filehits << " of " << entriesPerFile << ", " << 100 * filehits / entriesPerFile << "% complete" << endl;
+              }
+            }
+          }
+        }
+        
+        if((hit1E >= eLow)&&(hit1E <= eHigh)){
+          for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+            if(noABHitInd2 != noABHitInd){
+              if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                continue; //skip pileup hit
+              }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                continue; //skip non-pileup hit
+              }
+
+              const double hit2E = offset + sortedEvt.noABHit[noABHitInd2].energy*gain + sortedEvt.noABHit[noABHitInd2].energy*sortedEvt.noABHit[noABHitInd2].energy*quad;
+
+              //if(((sortedEvt.noABHit[noABHitInd].core & 63U)/4)!=((sortedEvt.noABHit[noABHitInd2].core & 63U)/4)){ //try to reduce crosstalk... doesn't seem to do anything regarding sum peak shapes, but seems to align time-random with singles data
+              Double_t tDiff = fabs(noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
+              uint8_t numCFDFail = 0;
+              if(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)){
+                numCFDFail++;
+              }
+              if(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6)){
+                numCFDFail++;
+              }
+              if(((numCFDFail == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail == 1)&&(tDiff >= COINC_TIMING_GATE_1CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_1CFDFAIL_MAX))||((numCFDFail == 2)&&(tDiff >= COINC_TIMING_GATE_2CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_2CFDFAIL_MAX))){
+                int eGamma2 = (int)(hit2E/keVPerBin);
+                if(eGamma2>=0 && eGamma2<S32K){
+                  mcaOut[SP_GATED][eGamma2]++; //fill true coincidence histogram
                 }
               }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
                 //time random
-                if(!(hitsFilled[3] & ((uint64_t)(1) << noABHitInd2))){
-                  int eGamma = (int)(hit2E/keVPerBin);
-                  //double eGamma = ( (timeRandomOffsetFactor*hit2E*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
-                  if(((int)eGamma)>=0 && ((int)eGamma)<S32K){
-                    hitsFilled[3] |= ((uint64_t)(1) << noABHitInd2);
-                    mcaOut[3][((int)eGamma)]++; //fill time-random 'coincidence' histogram
-                  }
+                int eGamma2 = (int)(hit2E/keVPerBin);
+                //double eGamma2 = ( (timeRandomOffsetFactor*hit2E*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
+                if(((int)eGamma2)>=0 && ((int)eGamma2)<S32K){
+                  mcaOut[SP_TR_GATED][((int)eGamma2)]++; //fill time-random 'coincidence' histogram
                 }
               }
-              //make summing histograms
-              for(int noABHitInd3 = 0; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
-                if(discardPileup && (sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7))){
-                  continue; //skip pileup hit
-                }
-                //if(noABHitInd3 != noABHitInd){
-                if(((sortedEvt.noABHit[noABHitInd].core & 63U)/4)!=((sortedEvt.noABHit[noABHitInd3].core & 63U)/4)){
-                  if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
-                    Double_t tDiffSum = (sortedEvt.noABHit[noABHitInd3].tsDiff - sortedEvt.noABHit[noABHitInd2].tsDiff)*10.0;
-                    if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition (sum)
-                      if(((numCFDFail == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail == 1)&&(tDiff >= COINC_TIMING_GATE_1CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_1CFDFAIL_MAX))||((numCFDFail == 2)&&(tDiff >= COINC_TIMING_GATE_2CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_2CFDFAIL_MAX))){ //timing condition (original energy gate)
-                        //printf("tDiffSum: %f\n",tDiffSum);
-
-                        const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
-
-                        int eGamma = (int)(hit2E/keVPerBin);
-                        int eGamma3 = (int)(hit3E/keVPerBin);
-                        int eGammaSum = (int)((hit2E + hit3E)/keVPerBin);
-                        //int eGammaSum = (int)(correctSumE(hit2E,hit3E,tDiffSum)/keVPerBin);
-                        if(eGammaSum>=0 && eGammaSum<S32K){
-                          if(!(hitsFilled[2] & ((uint64_t)(1) << noABHitInd2))){
-                            if(!(hitsFilled[2] & ((uint64_t)(1) << noABHitInd3))){
-                              hitsFilled[2] |= ((uint64_t)(1) << noABHitInd2);
-                              hitsFilled[2] |= ((uint64_t)(1) << noABHitInd3);
-                              mcaOut[2][eGammaSum]++; //fill 180 degree sum histogram
-                            }
-                          }
-                        }
-                        if(eGamma3>=0 && eGamma3<S32K){
-                          if(!(hitsFilled[1] & ((uint64_t)(1) << noABHitInd3))){
-                            hitsFilled[1] |= ((uint64_t)(1) << noABHitInd3);
-                            mcaOut[1][eGamma3]++; //fill 180 degree projection histogram
-                          }
-                        }
-                        if(eGamma>=0 && eGamma<S32K){
-                          if(!(hitsFilled[1] & ((uint64_t)(1) << noABHitInd2))){
-                            hitsFilled[1] |= ((uint64_t)(1) << noABHitInd2);
-                            mcaOut[1][eGamma]++; //fill 180 degree projection histogram
-                          }
-                        }
-                      }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
-
-                        const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
-
-                        double eGamma = ( (hit2E)/keVPerBin );
-                        double eGamma3 = ( (hit3E)/keVPerBin );
-                        int eGammaSum = (int)((hit2E + hit3E)/keVPerBin);
-                        //double eGamma = ( (timeRandomOffsetFactor*hit2E*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
-                        //double eGamma3 = ( (timeRandomOffsetFactor*hit3E*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
-                        //double eGammaSum = (correctSumE(hit2E,hit3E,tDiffSum)*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin;
-                        if(((int)eGammaSum)>=0 && ((int)eGammaSum)<S32K){
-                          if(!(hitsFilled[5] & ((uint64_t)(1) << noABHitInd2))){
-                            if(!(hitsFilled[5] & ((uint64_t)(1) << noABHitInd3))){
-                              hitsFilled[5] |= ((uint64_t)(1) << noABHitInd2);
-                              hitsFilled[5] |= ((uint64_t)(1) << noABHitInd3);
-                              mcaOut[5][((int)eGammaSum)]++; //fill 180 degree sum histogram (time random)
-                            }
-                          }
-                        }
-                        if(((int)eGamma3)>=0 && ((int)eGamma3)<S32K){
-                          if(!(hitsFilled[4] & ((uint64_t)(1) << noABHitInd3))){
-                            hitsFilled[4] |= ((uint64_t)(1) << noABHitInd3);
-                            mcaOut[4][((int)eGamma3)]++; //fill 180 degree projection histogram (time random)
-                          }
-                        }
-                        if(((int)eGamma)>=0 && ((int)eGamma)<S32K){
-                          if(!(hitsFilled[4] & ((uint64_t)(1) << noABHitInd2))){
-                            hitsFilled[4] |= ((uint64_t)(1) << noABHitInd2);
-                            mcaOut[4][((int)eGamma)]++; //fill 180 degree projection histogram (time random)
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-              //}
             }
+            //}
           }
           //shouldn't break, what if there are 2 gammas in the gate?
           //break;
@@ -256,7 +201,118 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
         }
       }
 
-      filehits+=sortedEvt.header.numNoABHits;
+      //make gated summing histograms
+      //here we need a triple coincidence, so for each unique set of 3 gammas (A,B,C)
+      //we need to determine if any fall within the energy gate, and if they do, whether the other
+      //2 gammas are at 180 degrees
+      for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+          continue; //skip pileup hit
+        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+          continue; //skip non-pileup hit
+        }
+        const double hit1E = offset + sortedEvt.noABHit[noABHitInd].energy*gain + sortedEvt.noABHit[noABHitInd].energy*sortedEvt.noABHit[noABHitInd].energy*quad;
+
+        if((hit1E >= eLow)&&(hit1E <= eHigh)){
+          for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+
+            if(noABHitInd2 != noABHitInd){
+              if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                continue; //skip pileup hit
+              }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                continue; //skip non-pileup hit
+              }
+
+              uint8_t numCFDFail = 0;
+              if(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)){
+                numCFDFail++;
+              }
+              if(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6)){
+                numCFDFail++;
+              }
+
+              const double hit2E = offset + sortedEvt.noABHit[noABHitInd2].energy*gain + sortedEvt.noABHit[noABHitInd2].energy*sortedEvt.noABHit[noABHitInd2].energy*quad;
+
+              for(int noABHitInd3 = noABHitInd2+1; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
+                if(noABHitInd3 == noABHitInd){
+                  continue;
+                }
+                if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7))){
+                  continue; //skip pileup hit
+                }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7)))){
+                  continue; //skip non-pileup hit
+                }
+
+                if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
+                  //2nd hit and 3rd hit are a unique pair that are 180 degrees apart
+                  //now we need to know which of these hits comes first in time
+
+                  int firstSumHitInd = noABHitInd2;
+                  int secondSumHitInd = noABHitInd3;
+                  if(sortedEvt.noABHit[noABHitInd3].tsDiff < sortedEvt.noABHit[noABHitInd2].tsDiff){
+                    firstSumHitInd = noABHitInd3;
+                    secondSumHitInd = noABHitInd2;
+                  }
+
+                  //Now check the sum timing condition
+                  Double_t tDiffSum = (sortedEvt.noABHit[secondSumHitInd].tsDiff - sortedEvt.noABHit[firstSumHitInd].tsDiff)*10.0;
+                  if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition (sum)
+
+                    const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
+
+                    //In a true sum event in the DAQ, only the time of the first sum hit matters for evaluating coincidences,
+                    //because the 2nd sum hit falls within the programmable deadtime of the first sum
+                    //hit and just adds to the energy of the first sum hit. So all coincidences with a gated gamma 
+                    //should be evaluated using the time of the first sum hit only
+
+                    const Double_t tDiff = fabs(noABHitTime(&sortedEvt,firstSumHitInd) - noABHitTime(&sortedEvt,noABHitInd));
+                    
+                    if(((numCFDFail == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail == 1)&&(tDiff >= COINC_TIMING_GATE_1CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_1CFDFAIL_MAX))||((numCFDFail == 2)&&(tDiff >= COINC_TIMING_GATE_2CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_2CFDFAIL_MAX))){
+                      //time coincident summing
+                      const int eSumGamma1 = (int)(hit2E/keVPerBin);
+                      const int eSumGamma2 = (int)(hit3E/keVPerBin);
+                      const int eGammaSum = (int)((offset + (sortedEvt.noABHit[noABHitInd2].energy+sortedEvt.noABHit[noABHitInd3].energy)*gain + ((sortedEvt.noABHit[noABHitInd2].energy*sortedEvt.noABHit[noABHitInd2].energy)+(sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy))*quad)/keVPerBin);
+                      //int eGammaSum = (int)(correctSumE(hit2E,hit3E,tDiffSum)/keVPerBin);
+                      if(eGammaSum>=0 && eGammaSum<S32K){
+                        mcaOut[SP_SUMIN][eGammaSum]++; //fill 180 degree sum histogram
+                      }
+                      if(eSumGamma2>=0 && eSumGamma2<S32K){
+                        mcaOut[SP_SUMOUT][eSumGamma2]++; //fill 180 degree projection histogram
+                      }
+                      if(eSumGamma1>=0 && eSumGamma1<S32K){
+                        mcaOut[SP_SUMOUT][eSumGamma1]++; //fill 180 degree projection histogram
+                      }
+                      break;
+                    }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
+                      //time random summing
+                      const int eSumGamma1 = (int)(hit2E/keVPerBin);
+                      const int eSumGamma2 = (int)(hit3E/keVPerBin);
+                      const int eGammaSum = (int)((offset + (sortedEvt.noABHit[noABHitInd2].energy+sortedEvt.noABHit[noABHitInd3].energy)*gain + ((sortedEvt.noABHit[noABHitInd2].energy*sortedEvt.noABHit[noABHitInd2].energy)+(sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy))*quad)/keVPerBin);
+                      //int eGammaSum = (int)(correctSumE(hit2E,hit3E,tDiffSum)/keVPerBin);
+                      if(eGammaSum>=0 && eGammaSum<S32K){
+                        mcaOut[SP_TR_SUMIN][eGammaSum]++; //fill 180 degree sum histogram
+                      }
+                      if(eSumGamma2>=0 && eSumGamma2<S32K){
+                        mcaOut[SP_TR_SUMOUT][eSumGamma2]++; //fill 180 degree projection histogram
+                      }
+                      if(eSumGamma1>=0 && eSumGamma1<S32K){
+                        mcaOut[SP_TR_SUMOUT][eSumGamma1]++; //fill 180 degree projection histogram
+                      }
+                      break;
+                    }
+
+                  }
+
+                }
+
+              }
+              
+            }
+          }
+        }
+      }
+      
 
     }
 
@@ -302,7 +358,7 @@ int main(int argc, char **argv){
     cout << "Arguments: EEGamma_noAB_mca_SMOL_splitruns smol_file_list EGateLow EGateHigh output_dmca_file_prefix events_per_split keV_per_bin discard_pileup offset gain quad" << endl;
     cout << "  *smol_file* can be a single SMOL tree (extension .smole6), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
-    cout << "  *discard_pileup* can be either 0 (false, default if not specified) or 1 (true)." << endl;
+    cout << "  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits)." << endl;
     cout << "  *offset*, *gain*, and *quad* are parameters to (re)calibrate the SMOL tree data by. If not specified, these will default to values of 0, 1, and 0 (ie. no change in calibration)." << endl;
     return 0;
   }else{
@@ -314,10 +370,13 @@ int main(int argc, char **argv){
     if(argc > 6){
       keVPerBin = atof(argv[6]);
       if(argc > 7){
-        if(atoi(argv[7]) != 0){
-          discardPileup = 1;
+        discardPileup = atoi(argv[7]);
+        if(discardPileup > 2){
+          cout << "ERROR: Invalid value for discard_pileup!" << endl;
+          cout << "  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits)." << endl;
+          return 0;
         }
-        if(argc == 11){
+        if(argc >= 11){
           offset = atof(argv[8]);
           gain = atof(argv[9]);
           quad = atof(argv[10]);
@@ -355,6 +414,8 @@ int main(int argc, char **argv){
     printf("SMOL tree list: %s\nEnergy gate: [%0.2f %0.2f]\nOutput file: %s\nEntries per file: %lu\n%0.2f keV per bin\n", sfile, eLow, eHigh, outfile, entriesPerFile, keVPerBin);
     if(discardPileup == 1){
       printf("Discarding pileup hits.\n");
+    }else if(discardPileup == 2){
+      printf("Only taking pileup hits.\n");
     }
     if(argc == 11){
       printf("Recalibrating with offset = %f, gain = %f, quad = %.15f\n",offset,gain,quad);
@@ -363,14 +424,13 @@ int main(int argc, char **argv){
     //construct 180 degree summing hit map
     memset(hitMap180deg,0,sizeof(hitMap180deg));
     for(uint8_t i=0;i<64;i++){ //first core
-        for(uint8_t j=0;j<64;j++){ //coinc core
-            if(i!=j){
-                if(getGeVector(i,0,1).Angle(getGeVector(j,0,1))*180.0/PI > 175.0){ //same effect for any value down to 165 degrees
-                    hitMap180deg[i][j] = 1;
-                    continue; //check the next coinc core
-                }
-            }
+      for(uint8_t j=0;j<64;j++){ //coinc core
+        if(i!=j){
+          if(getGeVector(i,0,1).Angle(getGeVector(j,0,1))*180.0/PI > 175.0){ //same effect for any value down to 165 degrees
+            hitMap180deg[i][j] = 1;
+          }
         }
+      }
     }
     
     FILE *listfile;

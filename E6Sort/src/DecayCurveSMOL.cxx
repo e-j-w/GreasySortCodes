@@ -60,6 +60,12 @@ void DecayCurveS::SortData(const char *sfile, const uint64_t startNumSec)
         //if((jentry % 10000)==0) printf("evtTimeNs: %f, tSec: %f\n",sortedEvt.header.evtTimeNs,tSec);
         hpgeE_time->Fill(sortedEvt.noABHit[noABHitInd].energy, tSec/60.0);
         counts_time->Fill(tSec/60.0);
+        if((sortedEvt.noABHit[noABHitInd].energy >= 676.0)&&(sortedEvt.noABHit[noABHitInd].energy <= 695.0)){
+          counts_time_685->Fill(tSec/60.0);
+        }
+        if((sortedEvt.noABHit[noABHitInd].energy >= 1469.0)&&(sortedEvt.noABHit[noABHitInd].energy <= 1487.0)){
+          counts_time_1477->Fill(tSec/60.0);
+        }
       }
     }
 

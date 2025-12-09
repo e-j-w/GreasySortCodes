@@ -27,18 +27,18 @@ using namespace std;
 #define PI 3.14159265359
 
 #define ADDBACK_TIMING_GATE            40.0 //maximum time (in ns) that can separate events which will be summed in addback
-#define COINC_TIMING_GATE_MIN         -30.0 //minimum time (in ns) that can separate sorted coincidences (following addback)
-#define COINC_TIMING_GATE_MAX          30.0 //maximum time (in ns) that can separate sorted coincidences (following addback)
-#define COINC_TIMING_GATE_1CFDFAIL_MIN  -150.0
-#define COINC_TIMING_GATE_1CFDFAIL_MAX  150.0
-#define COINC_TIMING_GATE_2CFDFAIL_MIN  -80.0
-#define COINC_TIMING_GATE_2CFDFAIL_MAX  80.0
+#define COINC_TIMING_GATE_MIN         -50.0 //minimum time (in ns) that can separate sorted coincidences (following addback), previously -30
+#define COINC_TIMING_GATE_MAX          50.0 //maximum time (in ns) that can separate sorted coincidences (following addback), previously 30
+#define COINC_TIMING_GATE_1CFDFAIL_MIN  -150.0 //previously -150
+#define COINC_TIMING_GATE_1CFDFAIL_MAX  150.0 //previously 150
+#define COINC_TIMING_GATE_2CFDFAIL_MIN  -80.0 //previously -80
+#define COINC_TIMING_GATE_2CFDFAIL_MAX  80.0 //previously 80
 //be permissive for summing spectra (in principle should be [0, 1000.0] based on programmable deadtime), excluding prompt 180 degree coincidences around tDiff=0 gets rid of 1022 and non-sum peaks like 1477
 //if the window is set too wide (eg. [250,2500]), then time-random sum peaks (eg. 685+685) are oversized compared to others, particularly in later runs 
 #define SUM_TIMING_GATE_MIN            0.0 //minimum time (in ns) that can separate sorted coincidences (following addback), affects summing histograms (should reflect the maximum amount of time between hits where they would be read out as a sum, ie. the prg_ddtm MIDAS template parameter)
 #define SUM_TIMING_GATE_MAX            1000.0 //maximum time (in ns) that can separate sorted coincidences (following addback), affects summing histograms (should reflect the maximum amount of time between hits where they would be read out as a sum, ie. the prg_ddtm MIDAS template parameter)
-#define TRANDOM_GATE_MIN               -1800.0
-#define TRANDOM_GATE_MAX               -1000.0
+#define TRANDOM_GATE_MIN               1000.0
+#define TRANDOM_GATE_MAX               1800.0
 
 //GLOBAL VARIABLES
 //(static to avoid multiple declaration when linking)
