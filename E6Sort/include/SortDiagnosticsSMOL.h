@@ -33,7 +33,8 @@ TH1D *hpgeT_hpgeT;
 TH1D *hpgeT_hpgeT_tsep;
 TH1D *hpgeT_hpgeT_tsepmult2;
 TH1D *hpgeT_hpgeT_tseprand;
-TH2D *hpgeT_hpgeT_EDiff, *hpgeT_hpgeT_hpgeE, *hpgeT_hpgeT_hpgeE_NoCFDfail, *hpgeT_hpgeT_hpgeE_1CFDfail, *hpgeT_hpgeT_hpgeE_2CFDfail;
+TH2D *hpgeT_hpgeT_EDiff, *hpgeT_hpgeT_hpgeE, *hpgeT_hpgeT_hpgeE_NoCFDfail, *hpgeT_hpgeT_hpgeE_1CFDfail, *hpgeT_hpgeT_hpgeE_2CFDfail, *hpgeT_hpgeT_hpgeE_NoCFDfail_1477gate;
+TH2D *hpgeT_hpgeT_pos, *hpgeT_hpgeT_pos_NoCFDfail, *hpgeT_hpgeT_pos_1CFDfail, *hpgeT_hpgeT_pos_2CFDfail;
 
 //HPGe-HPGe
 TH1D *hpge_hpge_dist, *hpge_hpge_angle;
@@ -46,6 +47,7 @@ TH2D *hpgeE_hpgeE_180deg, *hpgeE_hpgeE_180deg_1477gate;
 TH1D *hpgeE_hpgeE_180deg_proj;
 TH1D *hpgeE_hpgeE_180deg_sum, *hpgeE_hpgeE_180deg_sum_1477gate;
 TH2D *hpgeE_hpgeE_180deg_sum_tDiff, *hpgeE_hpgeE_180deg_sum_tDiff_1477gate, *hpgeE_hpgeE_180deg_sum_tDiff_685gate;
+TH2D *hpgeE_pos_1477gate_tsep;
 
 class SortDiagnosticsS {
 
@@ -115,6 +117,26 @@ void SortDiagnosticsS::Initialise() {
   hpgeT_hpgeT_hpgeE_2CFDfail->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
   hpgeT_hpgeT_hpgeE_2CFDfail->GetYaxis()->SetTitle("E_{#gamma} (keV)");
   timingList->Add(hpgeT_hpgeT_hpgeE_2CFDfail);
+  hpgeT_hpgeT_hpgeE_NoCFDfail_1477gate = new TH2D("HPGe_HPGe_time_vs_energy_NoCFDfail_1477gate", "HPGe - HPGe time vs. energy (no CFD fail), 1477 keV gate", 4096, -2048, 2048, 2048, 0, 4096);
+  hpgeT_hpgeT_hpgeE_NoCFDfail_1477gate->GetXaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  hpgeT_hpgeT_hpgeE_NoCFDfail_1477gate->GetYaxis()->SetTitle("E_{#gamma} (keV)");
+  timingList->Add(hpgeT_hpgeT_hpgeE_NoCFDfail_1477gate);
+  hpgeT_hpgeT_pos = new TH2D("HPGe_HPGe_time_vs_pos", "HPGe - HPGe time vs. array position", 64, 0, 64, 4096, -2048, 2048);
+  hpgeT_hpgeT_pos->GetXaxis()->SetTitle("Array position of first gamma");
+  hpgeT_hpgeT_pos->GetYaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  timingList->Add(hpgeT_hpgeT_pos);
+  hpgeT_hpgeT_pos_NoCFDfail = new TH2D("HPGe_HPGe_time_vs_pos_NoCFDfail", "HPGe - HPGe time vs. array position (no CFD fail)", 64, 0, 64, 4096, -2048, 2048);
+  hpgeT_hpgeT_pos_NoCFDfail->GetXaxis()->SetTitle("Array position of first gamma");
+  hpgeT_hpgeT_pos_NoCFDfail->GetYaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  timingList->Add(hpgeT_hpgeT_pos_NoCFDfail);
+  hpgeT_hpgeT_pos_1CFDfail = new TH2D("HPGe_HPGe_time_vs_pos_1CFDfail", "HPGe - HPGe time vs. array position (1 CFD fail hit)", 64, 0, 64, 4096, -2048, 2048);
+  hpgeT_hpgeT_pos_1CFDfail->GetXaxis()->SetTitle("Array position of first gamma");
+  hpgeT_hpgeT_pos_1CFDfail->GetYaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  timingList->Add(hpgeT_hpgeT_pos_1CFDfail);
+  hpgeT_hpgeT_pos_2CFDfail = new TH2D("HPGe_HPGe_time_vs_pos_2CFDfail", "HPGe - HPGe time vs. array position (2 CFD fail hits)", 64, 0, 64, 4096, -2048, 2048);
+  hpgeT_hpgeT_pos_2CFDfail->GetXaxis()->SetTitle("Array position of first gamma");
+  hpgeT_hpgeT_pos_2CFDfail->GetYaxis()->SetTitle("t_{HPGe} - t_{HPGe} (ns)");
+  timingList->Add(hpgeT_hpgeT_pos_2CFDfail);
 
   //HPGe-HPGe
   hpge_hpge_dist = new TH1D("HPGe_HPGe_distance","HPGe-HPGe distance",512,0,512);
@@ -176,5 +198,9 @@ void SortDiagnosticsS::Initialise() {
   hpgeE_hpgeE_180deg_sum_tDiff_685gate->GetXaxis()->SetTitle("E_{#gamma } (keV)");
   hpgeE_hpgeE_180deg_sum_tDiff_685gate->GetYaxis()->SetTitle("t_{HPGe} - t_{HPGe} (timestamp units)");
   hpgehpgeList->Add(hpgeE_hpgeE_180deg_sum_tDiff_685gate);
+  hpgeE_pos_1477gate_tsep = new TH2D("hpgeE_pos_1477gate_tsep", "HPGe Energy (1477 keV gate time separated) vs. position", 64, 0, 64, 8192, 0, 4096);
+  hpgeE_pos_1477gate_tsep->GetXaxis()->SetTitle("Array position of 1477 keV gamma");
+  hpgeE_pos_1477gate_tsep->GetYaxis()->SetTitle("E_{#gamma 2} (keV)");
+  hpgehpgeList->Add(hpgeE_pos_1477gate_tsep);
 
 }

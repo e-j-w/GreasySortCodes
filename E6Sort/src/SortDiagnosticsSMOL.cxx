@@ -126,6 +126,7 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
             
             hpgeT_hpgeT_le->Fill(tDiffTS);
             hpgeT_hpgeT->Fill(tDiff);
+            hpgeT_hpgeT_pos->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,tDiff);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
             hpgePos_hpgePos->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U);
@@ -140,12 +141,21 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
             if((sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6))){
               hpgeT_hpgeT_hpgeE_2CFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy);
               hpgeT_hpgeT_hpgeE_2CFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy);
+              hpgeT_hpgeT_pos_2CFDfail->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,tDiff);
             }else if((sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)) || (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6))){
               hpgeT_hpgeT_hpgeE_1CFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy);
               hpgeT_hpgeT_hpgeE_1CFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy);
+              hpgeT_hpgeT_pos_1CFDfail->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,tDiff);
             }else{
               hpgeT_hpgeT_hpgeE_NoCFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy);
               hpgeT_hpgeT_hpgeE_NoCFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy);
+              hpgeT_hpgeT_pos_NoCFDfail->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,tDiff);
+              if(gate1477 != 0){
+                if((gate1477HitInd == noABHitInd) || (gate1477HitInd == noABHitInd2)){
+                  hpgeT_hpgeT_hpgeE_NoCFDfail_1477gate->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy);
+                  hpgeT_hpgeT_hpgeE_NoCFDfail_1477gate->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy);
+                }
+              }
             }
             if((tDiff >= hpgehpgeTGate[0])&&(tDiff <= hpgehpgeTGate[1])){
               hpgeT_hpgeT_tsep->Fill(tDiff);
@@ -156,6 +166,14 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
                 hpgeE_hpgeE_tsepmult2->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
                 hpgeE_hpgeE_tsepmult2->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
               }
+              if(gate1477 != 0){
+                if(gate1477HitInd == noABHitInd){
+                  hpgeE_pos_1477gate_tsep->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].energy);
+                }else if(gate1477HitInd == noABHitInd2){
+                  hpgeE_pos_1477gate_tsep->Fill(sortedEvt.noABHit[noABHitInd2].core & 63U,sortedEvt.noABHit[noABHitInd].energy);
+                }
+              }
+              
             }
             if(getGeVector(sortedEvt.noABHit[noABHitInd].core & 63U,0,1).Angle(getGeVector(sortedEvt.noABHit[noABHitInd2].core & 63U,0,1))*180.0/PI > 175.0){
               if((tDiff >= hpgehpgeTGate[0])&&(tDiff <= hpgehpgeTGate[1])){

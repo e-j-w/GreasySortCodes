@@ -20,7 +20,7 @@ long double xpowsum[5];//sums of (x1)^0, (x1)^1, (x1)^2, etc. indexed  by power 
 long double mxpowsum[3];//sums of m*(x1)^0, m*(x1)^1, m*(x1)^2, etc. indexed by power #
   
 
-void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const char *outfile, const uint64_t evalWindowSize, const uint64_t evtWindowSize, const double en[MAX_INPUT_E], const int numEnVals){
+void SortData(const char *sfile, const char *efile, const char *outfile, const uint64_t evalWindowSize, const uint64_t evtWindowSize, const double en[MAX_INPUT_E], const int numEnVals){
 
     if((numEnVals > MAX_INPUT_E)||(numEnVals < 1)){
         cout << "ERROR: invalid number of input energy values." << endl;
@@ -63,7 +63,7 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
             if(jentry < evalWindowSize){
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
                     for(uint8_t i=0;i<numEnVals;i++){
-                        if(fabs(sortedEvt.noABHit[noABHitInd].energy - en[i]) < EN_WINDOW_WIDTH){
+                        if(fabs((sortedEvt.noABHit[noABHitInd].energy - en[i])/sortedEvt.noABHit[noABHitInd].energy) < EN_WINDOW_FRAC_WIDTH){
                             enWindowAvg[i][0][0] += sortedEvt.noABHit[noABHitInd].energy;
                             enWindowNumHits[i][0][0]++;
                         }
@@ -166,7 +166,7 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
         for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
             if((sortedEvt.noABHit[noABHitInd].core & 63U) < (NGRIFPOS*4)){
                 for(uint8_t i=0;i<numEnVals;i++){
-                    if(fabs(sortedEvt.noABHit[noABHitInd].energy - actualEnergy[i]) < EN_WINDOW_WIDTH){
+                    if(fabs((sortedEvt.noABHit[noABHitInd].energy - actualEnergy[i])/sortedEvt.noABHit[noABHitInd].energy) < EN_WINDOW_FRAC_WIDTH){
                         enWindowAvg[i][sortedEvt.noABHit[noABHitInd].core & 63U][windowNum] += sortedEvt.noABHit[noABHitInd].energy;
                         enWindowNumHits[i][sortedEvt.noABHit[noABHitInd].core & 63U][windowNum]++;
                     }
@@ -357,8 +357,6 @@ void ReprocessGain_SMOL::SortData(const char *sfile, const char *efile, const ch
 }
 int main(int argc, char **argv){
 
-    ReprocessGain_SMOL *mysort = new ReprocessGain_SMOL();
-
     char const *sfile, *efile;
     char const *soutfile;
     char outName[256];
@@ -367,7 +365,7 @@ int main(int argc, char **argv){
     int numEnVals = 0;
 
     if(argc <= 1){
-        cout << "Arguments: ReprocessGain_SMOL smol_file eval_smol_file eval_time_window corr_time_window output_smolfile_suffix energy1 energy2 energy3..." << endl;
+        cout << "Arguments: ReprocessGain_SMOL smol_file eval_smol_file eval_event_window corr_event_window output_smolfile_suffix energy1 energy2 energy3..." << endl;
         cout << "A code for re-aligning gains in SMOL trees." << endl;
         cout << "  *smol_file* can be a single SMOL tree (extension .smol), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
         cout << "  *eval_smol_file* is a single SMOL tree (extension .smol) which is used to evaluate the correct gain." << endl;
@@ -386,7 +384,7 @@ int main(int argc, char **argv){
         }
         numEnVals = argc-6;
     }else{
-        printf("Incorrect arguments\nArguments: ReprocessGain_SMOL smol_file eval_time_window corr_time_window output_smolfile_suffix energy1 energy2 energy3...\n");
+        printf("Incorrect arguments\nArguments: ReprocessGain_SMOL smol_file eval_event_window corr_event_window output_smolfile_suffix energy1 energy2 energy3...\n");
         return 0;
     }
 
@@ -455,7 +453,7 @@ int main(int argc, char **argv){
             if(tok!=NULL){
                 snprintf(outName,255,"%s_%s.smol",basename(tok),soutfile);
                 //printf("Will write to file: %s\n",outName);
-                mysort->SortData(sfile, efile, outName, evalWindow, evtWindow, corrEnergy, numEnVals);
+                SortData(sfile, efile, outName, evalWindow, evtWindow, corrEnergy, numEnVals);
             }else{
                 cout << "ERROR: improperly formatted filename: " << sfile << endl;
                 return 0;
@@ -478,7 +476,7 @@ int main(int argc, char **argv){
                         if(tok!=NULL){
                             snprintf(outName,255,"%s_%s.smol",basename(tok),soutfile);
                             //printf("Will write to file: %s\n",outName);
-                            mysort->SortData(str, efile, outName, evalWindow, evtWindow, corrEnergy, numEnVals);
+                            SortData(str, efile, outName, evalWindow, evtWindow, corrEnergy, numEnVals);
                         }else{
                             cout << "ERROR: improperly formatted filename: " << str << endl;
                             return 0;

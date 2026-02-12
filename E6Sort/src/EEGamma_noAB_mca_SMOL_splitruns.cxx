@@ -8,19 +8,6 @@
 
 using namespace std;
 
-enum sp_enum{
-SP_GATED, SP_SUMOUT, SP_SUMIN,
-SP_TR_GATED, SP_TR_SUMOUT, SP_TR_SUMIN,
-SP_SINGLES, SP_SINGLES_SUMOUT, SP_SINGLES_SUMIN,
-SP_ENUM_LENGTH
-};
-
-uint8_t hitMap180deg[64][64]; //1st index = crystal of hit, 2nd index = crystal of 2nd hit, val = 1 indicates 180 degree summing occurs
-uint64_t filehits;
-uint32_t numFilesWritten;
-
-
-
 void WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
@@ -36,7 +23,14 @@ void WriteData(const char* outName){
 
 }
 
-uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char *outfile, const double eLow, const double eHigh, const double keVPerBin, const uint8_t discardPileup, const uint64_t entriesPerFile, const double offset, const double gain, const double quad){
+uint64_t SortData(const char *sfile, const char *outfile, const double eLow, const double eHigh, 
+                  const double keVPerBin, const uint8_t discardPileup, 
+                  const uint64_t entriesPerFile, const double offset, const double gain, 
+                  const double quad, const double coincGateMin, const double coincGateMax, 
+                  const double coincGate1CFDFailMin, const double coincGate1CFDFailMax, 
+                  const double coincGate2CFDFailMin, const double coincGate2CFDFailMax, 
+                  const double sumGateMin, const double sumGateMax, const double tRandGateMin, 
+                  const double tRandGateMax){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -110,7 +104,7 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
           if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd].core & 63U] != 0){
             Double_t tDiffSum = fabs(sortedEvt.noABHit[noABHitInd3].tsDiff - sortedEvt.noABHit[noABHitInd].tsDiff)*10.0;
             //printf("tDiffSum: %f\n",tDiffSum);
-            if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition (sum)
+            if((tDiffSum >= sumGateMin)&&(tDiffSum <= sumGateMax)){ //timing condition (sum)
               //printf("Passed timing condition.\n");
 
               const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
@@ -150,7 +144,7 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
               if(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6)){
                 numCFDFail++;
               }
-              if(((numCFDFail == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail == 1)&&(tDiff >= COINC_TIMING_GATE_1CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_1CFDFAIL_MAX))||((numCFDFail == 2)&&(tDiff >= COINC_TIMING_GATE_2CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_2CFDFAIL_MAX))){
+              if(((numCFDFail == 0)&&(tDiff >= coincGateMin)&&(tDiff <= coincGateMax))||((numCFDFail == 1)&&(tDiff >= coincGate1CFDFailMin)&&(tDiff <= coincGate1CFDFailMax))||((numCFDFail == 2)&&(tDiff >= coincGate2CFDFailMin)&&(tDiff <= coincGate2CFDFailMax))){
                 filehits++;
                 //if (filehits % 1000 == 0)
                 //  cout << "Coincident hit " << filehits << " of " << entriesPerFile << ", " << 100 * filehits / entriesPerFile << "% complete" << endl;
@@ -179,12 +173,12 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
               if(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6)){
                 numCFDFail++;
               }
-              if(((numCFDFail == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail == 1)&&(tDiff >= COINC_TIMING_GATE_1CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_1CFDFAIL_MAX))||((numCFDFail == 2)&&(tDiff >= COINC_TIMING_GATE_2CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_2CFDFAIL_MAX))){
+              if(((numCFDFail == 0)&&(tDiff >= coincGateMin)&&(tDiff <= coincGateMax))||((numCFDFail == 1)&&(tDiff >= coincGate1CFDFailMin)&&(tDiff <= coincGate1CFDFailMax))||((numCFDFail == 2)&&(tDiff >= coincGate2CFDFailMin)&&(tDiff <= coincGate2CFDFailMax))){
                 int eGamma2 = (int)(hit2E/keVPerBin);
                 if(eGamma2>=0 && eGamma2<S32K){
                   mcaOut[SP_GATED][eGamma2]++; //fill true coincidence histogram
                 }
-              }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
+              }else if((tDiff >= tRandGateMin)&&(tDiff <= tRandGateMax)){
                 //time random
                 int eGamma2 = (int)(hit2E/keVPerBin);
                 //double eGamma2 = ( (timeRandomOffsetFactor*hit2E*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
@@ -257,7 +251,7 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
 
                   //Now check the sum timing condition
                   Double_t tDiffSum = (sortedEvt.noABHit[secondSumHitInd].tsDiff - sortedEvt.noABHit[firstSumHitInd].tsDiff)*10.0;
-                  if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition (sum)
+                  if((tDiffSum >= sumGateMin)&&(tDiffSum <= sumGateMax)){ //timing condition (sum)
 
                     const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
 
@@ -268,7 +262,7 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
 
                     const Double_t tDiff = fabs(noABHitTime(&sortedEvt,firstSumHitInd) - noABHitTime(&sortedEvt,noABHitInd));
                     
-                    if(((numCFDFail == 0)&&(tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX))||((numCFDFail == 1)&&(tDiff >= COINC_TIMING_GATE_1CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_1CFDFAIL_MAX))||((numCFDFail == 2)&&(tDiff >= COINC_TIMING_GATE_2CFDFAIL_MIN)&&(tDiff <= COINC_TIMING_GATE_2CFDFAIL_MAX))){
+                    if(((numCFDFail == 0)&&(tDiff >= coincGateMin)&&(tDiff <= coincGateMax))||((numCFDFail == 1)&&(tDiff >= coincGate1CFDFailMin)&&(tDiff <= coincGate1CFDFailMax))||((numCFDFail == 2)&&(tDiff >= coincGate2CFDFailMin)&&(tDiff <= coincGate2CFDFailMax))){
                       //time coincident summing
                       const int eSumGamma1 = (int)(hit2E/keVPerBin);
                       const int eSumGamma2 = (int)(hit3E/keVPerBin);
@@ -284,7 +278,7 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
                         mcaOut[SP_SUMOUT][eSumGamma1]++; //fill 180 degree projection histogram
                       }
                       break;
-                    }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
+                    }else if((tDiff >= tRandGateMin)&&(tDiff <= tRandGateMax)){
                       //time random summing
                       const int eSumGamma1 = (int)(hit2E/keVPerBin);
                       const int eSumGamma2 = (int)(hit3E/keVPerBin);
@@ -340,8 +334,6 @@ uint64_t EEGamma_noAB_mca_SMOL_splitruns::SortData(const char *sfile, const char
 
 int main(int argc, char **argv){
 
-  EEGamma_noAB_mca_SMOL_splitruns *mysort = new EEGamma_noAB_mca_SMOL_splitruns();
-
   const char *sfile;
   const char *outfile;
   uint8_t discardPileup = 0;
@@ -351,9 +343,19 @@ int main(int argc, char **argv){
   double offset = 0.0;
   double gain = 1.0;
   double quad = 0.0;
+  double coincGateMin = COINC_TIMING_GATE_MIN;
+  double coincGateMax = COINC_TIMING_GATE_MAX;
+  double coincGate1CFDFailMin = COINC_TIMING_GATE_1CFDFAIL_MIN;
+  double coincGate1CFDFailMax = COINC_TIMING_GATE_1CFDFAIL_MAX;
+  double coincGate2CFDFailMin = COINC_TIMING_GATE_2CFDFAIL_MIN;
+  double coincGate2CFDFailMax = COINC_TIMING_GATE_2CFDFAIL_MAX;
+  double sumGateMin = SUM_TIMING_GATE_MIN;
+  double sumGateMax = SUM_TIMING_GATE_MAX;
+  double tRandGateMin = TRANDOM_GATE_MIN;
+  double tRandGateMax = TRANDOM_GATE_MAX;
   printf("Starting EEGamma_noAB_mca_SMOL_splitruns\n");
 
-  if((argc < 6)||(argc > 11)){
+  if((argc < 6)||(argc > 21)){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
     cout << "Arguments: EEGamma_noAB_mca_SMOL_splitruns smol_file_list EGateLow EGateHigh output_dmca_file_prefix events_per_split keV_per_bin discard_pileup offset gain quad" << endl;
     cout << "  *smol_file* can be a single SMOL tree (extension .smole6), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
@@ -380,6 +382,18 @@ int main(int argc, char **argv){
           offset = atof(argv[8]);
           gain = atof(argv[9]);
           quad = atof(argv[10]);
+        }
+        if(argc >= 21){
+          coincGateMin = atof(argv[11]);
+          coincGateMax = atof(argv[12]);
+          coincGate1CFDFailMin = atof(argv[13]);
+          coincGate1CFDFailMax = atof(argv[14]);
+          coincGate2CFDFailMin = atof(argv[15]);
+          coincGate2CFDFailMax = atof(argv[16]);
+          sumGateMin = atof(argv[17]);
+          sumGateMax = atof(argv[18]);
+          tRandGateMin = atof(argv[19]);
+          tRandGateMax = atof(argv[20]);
         }
       }
 
@@ -412,6 +426,11 @@ int main(int argc, char **argv){
   uint64_t numSepEvts = 0U;
   if(strcmp(dot + 1, "list") == 0){
     printf("SMOL tree list: %s\nEnergy gate: [%0.2f %0.2f]\nOutput file: %s\nEntries per file: %lu\n%0.2f keV per bin\n", sfile, eLow, eHigh, outfile, entriesPerFile, keVPerBin);
+    printf("Coincidence timing gate: [%0.2f %0.2f] ns\n",coincGateMin,coincGateMax);
+    printf("  (with 1 CFD fail: [%0.2f %0.2f] ns)\n",coincGate1CFDFailMin,coincGate1CFDFailMax);
+    printf("  (with 2 CFD fails: [%0.2f %0.2f] ns)\n",coincGate2CFDFailMin,coincGate2CFDFailMax);
+    printf("Sum timing gate: [%0.2f %0.2f] ns\n",sumGateMin,sumGateMax);
+    printf("Random timing gate: [%0.2f %0.2f] ns\n",tRandGateMin,tRandGateMax);
     if(discardPileup == 1){
       printf("Discarding pileup hits.\n");
     }else if(discardPileup == 2){
@@ -426,6 +445,7 @@ int main(int argc, char **argv){
     for(uint8_t i=0;i<64;i++){ //first core
       for(uint8_t j=0;j<64;j++){ //coinc core
         if(i!=j){
+          //uses vectors for detectors in forward position - should be valid for back position as well
           if(getGeVector(i,0,1).Angle(getGeVector(j,0,1))*180.0/PI > 175.0){ //same effect for any value down to 165 degrees
             hitMap180deg[i][j] = 1;
           }
@@ -443,7 +463,11 @@ int main(int argc, char **argv){
       while(!(feof(listfile))){//go until the end of file is reached
         if(fgets(str,256,listfile)!=NULL){ //get an entire line
           str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          numSepEvts += mysort->SortData(str, outfile, eLow, eHigh, keVPerBin, discardPileup, entriesPerFile, offset, gain, quad);
+          numSepEvts += SortData(str, outfile, eLow, eHigh, keVPerBin, discardPileup, 
+                                 entriesPerFile, offset, gain, quad, coincGateMin, 
+                                 coincGateMax, coincGate1CFDFailMin, coincGate1CFDFailMax,
+                                 coincGate2CFDFailMin, coincGate2CFDFailMax, sumGateMin, 
+                                 sumGateMax, tRandGateMin, tRandGateMax);
         }
       }
     }
