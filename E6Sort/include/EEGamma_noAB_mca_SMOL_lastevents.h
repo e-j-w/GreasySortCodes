@@ -1,5 +1,5 @@
-#ifndef EEGamma_noAB_mca_SMOL_splitruns_h
-#define EEGamma_noAB_mca_SMOL_splitruns_h
+#ifndef EEGamma_noAB_mca_SMOL_lastevents_h
+#define EEGamma_noAB_mca_SMOL_lastevents_h
 
 #include <iostream>
 #include <iomanip>
@@ -34,8 +34,8 @@ SP_ENUM_LENGTH
 };
 
 uint8_t hitMap180deg[64][64]; //1st index = crystal of hit, 2nd index = crystal of 2nd hit, val = 1 indicates 180 degree summing occurs
-uint64_t filehits;
 uint32_t numFilesWritten;
+uint64_t totalEntriesRead, totalEntriesInFileList;
 
 #endif
 

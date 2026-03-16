@@ -6,10 +6,15 @@
 
 using namespace std;
 
+//timing windows
+const Double_t hpgehpgeTGate[2] = {-30, 30}; // narrow HPGe - HPGe timing window (ns)
+const Double_t hpgehpgeTSGate[2] = {0, 6}; // narrow HPGe - HPGe timing window (timestamp units)
+const Double_t hpgehpgeTRandGate[2] = {1300, 2000}; // time-random HPGe - HPGe timing window (ns)
 
-void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
+
+void SortData(const char *sfile, const char *outfile)
 {
-  Initialise();
+  InitialiseHists();
 
   FILE *inp = fopen(sfile, "rb");
   if(inp==NULL){
@@ -126,6 +131,7 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
             
             hpgeT_hpgeT_le->Fill(tDiffTS);
             hpgeT_hpgeT->Fill(tDiff);
+            hpgeT_hpgeT_le_pos->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,tDiffTS);
             hpgeT_hpgeT_pos->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,tDiff);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
             hpgeE_hpgeE->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
@@ -133,11 +139,19 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
             if(fabs(sortedEvt.noABHit[noABHitInd2].energy - sortedEvt.noABHit[noABHitInd].energy) < 0.1){
               hpgePos_hpgePos_lowEDiff->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U);
             }
-            hpge_hpge_dist->Fill(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1)); //FORWARD POSITION (11 cm)
-            hpge_hpge_angle->Fill(getGeVector(sortedEvt.noABHit[noABHitInd].core & 63U,0,1).Angle(getGeVector(sortedEvt.noABHit[noABHitInd2].core & 63U,0,1))*180.0/PI); //FORWARD POSITION (11 cm)
+            if((!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))&&(!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+              hpgeT_hpgeT_le_pos_nopileup->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,tDiffTS);
+              hpgeT_hpgeT_pos_nopileup->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,tDiff);
+            }
+            hpge_hpge_dist->Fill(getTIGRESSHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1)); //FORWARD POSITION (11 cm)
+            hpge_hpge_angle->Fill(getGRIFFINVector(sortedEvt.noABHit[noABHitInd].core & 63U,1).Angle(getGRIFFINVector(sortedEvt.noABHit[noABHitInd2].core & 63U,1))*180.0/PI); //FORWARD POSITION (11 cm)
             hpgeT_hpgeT_EDiff->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy - sortedEvt.noABHit[noABHitInd].energy);
             hpgeT_hpgeT_hpgeE->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy);
             hpgeT_hpgeT_hpgeE->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy);
+            hpgeT_hpgeT_hpgeTotalE->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy);
+            hpgeT_hpgeT_le_hpgeE->Fill(tDiffTS,sortedEvt.noABHit[noABHitInd].energy);
+            hpgeT_hpgeT_le_hpgeE->Fill(tDiffTS,sortedEvt.noABHit[noABHitInd2].energy);
+            hpgeT_hpgeT_le_hpgeTotalE->Fill(tDiffTS,sortedEvt.noABHit[noABHitInd].energy + sortedEvt.noABHit[noABHitInd2].energy);
             if((sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)1 << 6))){
               hpgeT_hpgeT_hpgeE_2CFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd].energy);
               hpgeT_hpgeT_hpgeE_2CFDfail->Fill(tDiff,sortedEvt.noABHit[noABHitInd2].energy);
@@ -173,9 +187,18 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
                   hpgeE_pos_1477gate_tsep->Fill(sortedEvt.noABHit[noABHitInd2].core & 63U,sortedEvt.noABHit[noABHitInd].energy);
                 }
               }
-              
             }
-            if(getGeVector(sortedEvt.noABHit[noABHitInd].core & 63U,0,1).Angle(getGeVector(sortedEvt.noABHit[noABHitInd2].core & 63U,0,1))*180.0/PI > 175.0){
+            if((tDiffTS >= hpgehpgeTSGate[0])&&(tDiffTS <= hpgehpgeTSGate[1])){
+              hpgeT_hpgeT_tsep_ts->Fill(tDiffTS);
+              if(gate1477 != 0){
+                if(gate1477HitInd == noABHitInd){
+                  hpgeE_pos_1477gate_tsep_ts->Fill(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].energy);
+                }else if(gate1477HitInd == noABHitInd2){
+                  hpgeE_pos_1477gate_tsep_ts->Fill(sortedEvt.noABHit[noABHitInd2].core & 63U,sortedEvt.noABHit[noABHitInd].energy);
+                }
+              }
+            }
+            if(getGRIFFINVector(sortedEvt.noABHit[noABHitInd].core & 63U,1).Angle(getGRIFFINVector(sortedEvt.noABHit[noABHitInd2].core & 63U,1))*180.0/PI > 175.0){
               if((tDiff >= hpgehpgeTGate[0])&&(tDiff <= hpgehpgeTGate[1])){
                 hpgeE_hpgeE_180deg->Fill(sortedEvt.noABHit[noABHitInd].energy,sortedEvt.noABHit[noABHitInd2].energy);
                 hpgeE_hpgeE_180deg->Fill(sortedEvt.noABHit[noABHitInd2].energy,sortedEvt.noABHit[noABHitInd].energy); //symmetrized
@@ -258,14 +281,12 @@ void SortDiagnosticsS::SortData(const char *sfile, const char *outfile)
 int main(int argc, char **argv)
 {
 
-  SortDiagnosticsS *mysort = new SortDiagnosticsS();
-
   const char *sfile;
   const char *outfile;
   printf("Starting SortDiagnosticsSMOL\n");
 
   if (argc == 1){
-    cout << "Code sorts a bunch of diagnostic histograms for online HPGe data" << endl;
+    cout << "Code sorts a bunch of diagnostic histograms for online HPGe data." << endl;
     cout << "Arguments: SortDiagnosticsSMOL smol_file output_file" << endl;
     cout << "Default values will be used if arguments (other than SMOL file) are omitted." << endl;
     return 0;
@@ -284,7 +305,7 @@ int main(int argc, char **argv)
 
   theApp=new TApplication("App", &argc, argv);
 
-  mysort->SortData(sfile, outfile);
+  SortData(sfile, outfile);
 
   return 0;
 }

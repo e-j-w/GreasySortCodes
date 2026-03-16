@@ -40,7 +40,7 @@ uint64_t EEGamma_noAB_sumEgate_mca_SMOL::SortData(const char *sfile, const doubl
     for(uint8_t i=0;i<64;i++){ //first core
         for(uint8_t j=0;j<64;j++){ //coinc core
             if(i!=j){
-                if(getGeVector(i,0,1).Angle(getGeVector(j,0,1))*180.0/PI > 175.0){
+                if(getGRIFFINVector(i,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
                     hitMap180deg[i][j] = 1;
                     continue; //check the next coinc core
                 }

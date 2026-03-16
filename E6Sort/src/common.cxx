@@ -7,7 +7,7 @@
 
 using namespace std;
 
-TVector3 getGeVector(const uint8_t core, const uint8_t seg, const uint8_t forwardPos){
+TVector3 getTIGRESSVector(const uint8_t core, const uint8_t seg, const uint8_t forwardPos){
   TVector3 hitPos(0,0,0);
   if(core > 63){
     printf("WARNING: bad core value (%u)\n",core);
@@ -59,9 +59,53 @@ TVector3 getGeVector(const uint8_t core, const uint8_t seg, const uint8_t forwar
   return hitPos;
 }
 
-Double_t getGeHitDistance(const uint8_t core1, const uint8_t seg1, const uint8_t core2, const uint8_t seg2, const uint8_t forwardPos){
-  TVector3 vec1 = getGeVector(core1,seg1,forwardPos);
-  TVector3 vec2 = getGeVector(core2,seg2,forwardPos);
+//Get the position of a GRIFFIN clover
+//Mostly copied from GRSISort
+TVector3 getGRIFFINVector(const uint8_t core, const uint8_t forwardPos){
+
+  // Gets the position vector for a crystal specified by CryNbr within Clover DetNbr at a distance of dist mm away.
+  // This is calculated to the most likely interaction point within the crystal.
+  if(core > 63) {
+    return {0, 0, 1};
+  }
+
+  TVector3 temp_pos(fGrifCloverPosition[1 + (core/4)]); //convert 0-index to 1-index assumed in GRSISort
+
+  // Interaction points may eventually be set externally. May make these members of each crystal, or pass from
+  // waveforms.
+  Double_t cp = 26.0;   // Crystal Center Point  mm.
+  Double_t id = 45.0;   // 45.0;  //Crystal interaction depth mm.
+  // Set Theta's of the center of each DETECTOR face
+  ////Define one Detector position
+  TVector3 shift;
+  switch(core % 4) {
+  case 0: shift.SetXYZ(-cp, cp, id); break;
+  case 1: shift.SetXYZ(cp, cp, id); break;
+  case 2: shift.SetXYZ(cp, -cp, id); break;
+  case 3: shift.SetXYZ(-cp, -cp, id); break;
+  default: shift.SetXYZ(0, 0, 1); break;
+  };
+  shift.RotateY(temp_pos.Theta());
+  shift.RotateZ(temp_pos.Phi());
+
+  if(forwardPos){
+    temp_pos.SetMag(110.0);
+  }else{
+    temp_pos.SetMag(145.0);
+  }
+
+  return (temp_pos + shift);
+}
+
+Double_t getTIGRESSHitDistance(const uint8_t core1, const uint8_t seg1, const uint8_t core2, const uint8_t seg2, const uint8_t forwardPos){
+  TVector3 vec1 = getTIGRESSVector(core1,seg1,forwardPos);
+  TVector3 vec2 = getTIGRESSVector(core2,seg2,forwardPos);
+  return sqrt(pow(vec1.X() - vec2.X(),2.0) + pow(vec1.Y() - vec2.Y(),2.0) + pow(vec1.Z() - vec2.Z(),2.0));
+}
+
+Double_t getGRIFFINHitDistance(const uint8_t core1, const uint8_t core2, const uint8_t forwardPos){
+  TVector3 vec1 = getGRIFFINVector(core1,forwardPos);
+  TVector3 vec2 = getGRIFFINVector(core2,forwardPos);
   return sqrt(pow(vec1.X() - vec2.X(),2.0) + pow(vec1.Y() - vec2.Y(),2.0) + pow(vec1.Z() - vec2.Z(),2.0));
 }
 

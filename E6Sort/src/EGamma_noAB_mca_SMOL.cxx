@@ -10,7 +10,7 @@ using namespace std;
 
 uint8_t hitMap180deg[64][64]; //1st index = crystal of hit, 2nd index = crystal of 2nd hit, val = 1 indicates 180 degree summing occurs
 
-void EGamma_noAB_mca_SMOL::WriteData(const char* outName){
+void WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -25,7 +25,7 @@ void EGamma_noAB_mca_SMOL::WriteData(const char* outName){
 
 }
 
-uint64_t EGamma_noAB_mca_SMOL::SortData(char const *sfile, const double keVPerBin){
+uint64_t SortData(char const *sfile, const double keVPerBin){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -54,7 +54,7 @@ uint64_t EGamma_noAB_mca_SMOL::SortData(char const *sfile, const double keVPerBi
   for(uint8_t i=0;i<64;i++){ //first core
     for(uint8_t j=0;j<64;j++){ //coinc core
         if(i!=j){
-            if(getGeVector(i,0,1).Angle(getGeVector(j,0,1))*180.0/PI > 175.0){ //same effect for any value down to 165 degrees
+            if(getGRIFFINVector(i,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){ //same effect for any value down to 165 degrees
                 hitMap180deg[i][j] = 1;
                 continue; //check the next coinc core
             }
@@ -115,8 +115,6 @@ uint64_t EGamma_noAB_mca_SMOL::SortData(char const *sfile, const double keVPerBi
 
 int main(int argc, char **argv){
 
-  EGamma_noAB_mca_SMOL *mysort = new EGamma_noAB_mca_SMOL();
-
   const char *sfile;
   const char *outfile;
   double keVPerBin = 1.0;
@@ -151,7 +149,7 @@ int main(int argc, char **argv){
   uint64_t numSepEvts = 0U;
   if(strcmp(dot + 1, "smol") == 0){
     printf("SMOL tree: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, outfile, keVPerBin);
-    numSepEvts += mysort->SortData(sfile, keVPerBin);
+    numSepEvts += SortData(sfile, keVPerBin);
   }else if(strcmp(dot + 1, "list") == 0){
     printf("SMOL tree list: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, outfile, keVPerBin);
     
@@ -165,7 +163,7 @@ int main(int argc, char **argv){
       while(!(feof(listfile))){//go until the end of file is reached
         if(fgets(str,256,listfile)!=NULL){ //get an entire line
           str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          numSepEvts += mysort->SortData(str, keVPerBin);
+          numSepEvts += SortData(str, keVPerBin);
         }
       }
     }
@@ -174,7 +172,7 @@ int main(int argc, char **argv){
     return 0;
   }
   
-  mysort->WriteData(outfile);
+  WriteData(outfile);
   cout << "Wrote " << numSepEvts << " separated events to: " << outfile << endl;
 
   return 0;

@@ -44,14 +44,14 @@ uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABR
     for(uint8_t i=0;i<64;i++){ //first core
         for(uint8_t j=0;j<64;j++){ //coinc core
             if(i!=j){
-                if(getGeVector(i,0,1).Angle(getGeVector(j,0,1))*180.0/PI > 175.0){
+                if(getGRIFFINVector(i,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
                     hitMap180deg[i][j] = 1;
                     continue; //check the next coinc core
                 }
                 for(uint8_t k=0;k<64;k++){ //other core next to the first core, which could be addback'd with ti
                     if((k!=i)&&(k!=j)){
-                        if(getGeHitDistance(i,0,k,0,1) < projABRad){
-                            if(getGeVector(k,0,1).Angle(getGeVector(j,0,1))*180.0/PI > 175.0){
+                        if(getTIGRESSHitDistance(i,0,k,0,1) < projABRad){
+                            if(getGRIFFINVector(k,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
                                 hitMap180deg[i][j] = 1;
                                 break; //check the next coinc core
                             }
@@ -87,7 +87,7 @@ uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABR
                     if(noABHitInd2 < 64){
                         if(noABHitInd2 != noABHitInd){
                             //check if hits are in neighbouring crystals
-                            if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < projABRad){ //FORWARD POSITION (11 cm)
+                            if(getTIGRESSHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < projABRad){ //FORWARD POSITION (11 cm)
                                 double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
                                 if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                     if(!(abHitBuildFlags & (1UL << noABHitInd))){

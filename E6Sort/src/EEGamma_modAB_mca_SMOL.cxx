@@ -37,25 +37,39 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
 
     FILE *inp = fopen(sfile, "rb");
     printf("\nFile %s opened\n", sfile);
-    
+
     uint64_t sentries = 0U;
+    uint64_t pileupCtrs[16];
     fread(&sentries,sizeof(uint64_t),1,inp);
+    uint64_t smolVersion = (uint64_t)(sentries >> 48);
+    if(smolVersion > 0){
+        fread(&pileupCtrs,sizeof(pileupCtrs),1,inp);
+        //printf("\nNumber of hits of each pileup type:\n");
+        uint64_t totalHits = 0;
+        for(uint8_t i=0; i<16; i++){
+        //printf("Pileup type %2u: %Lu\n",i,pileupCtrs[i]);
+        totalHits += pileupCtrs[i];
+        }
+        //printf("Total hits:     %Lu\n",totalHits);
+        long double frac = (long double)(pileupCtrs[1])/((long double)(totalHits));
+        printf("Fraction of hits with pileup type 1 (no pileup): %Lf\n",frac);
+    }
+    sentries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
     sorted_evt sortedEvt;
-    uint8_t footerVal;
 
     //construct 180 degree summing hit map
     memset(hitMap180deg,0,sizeof(hitMap180deg));
     for(uint8_t i=0;i<64;i++){ //first core
         for(uint8_t j=0;j<64;j++){ //coinc core
             if(i!=j){
-                if(getGeVector(i,0,1).Angle(getGeVector(j,0,1))*180.0/PI > 175.0){
+                if(getGRIFFINVector(i,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
                     hitMap180deg[i][j] = 1;
                     continue; //check the next coinc core
                 }
                 for(uint8_t k=0;k<64;k++){ //other core next to the first core, which could be addback'd with ti
                     if((k!=i)&&(k!=j)){
-                        if(getGeHitDistance(i,0,k,0,1) < projABRad){
-                            if(getGeVector(k,0,1).Angle(getGeVector(j,0,1))*180.0/PI > 175.0){
+                        if(getGRIFFINHitDistance(i,k,1) < projABRad){
+                            if(getGRIFFINVector(k,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
                                 hitMap180deg[i][j] = 1;
                                 break; //check the next coinc core
                             }
@@ -95,7 +109,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                     if(noABHitInd2 < 64){
                         if(noABHitInd2 != noABHitInd){
                             //check if hits are in neighbouring crystals
-                            if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < gateABRad){ //FORWARD POSITION (11 cm)
+                            if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,1) < gateABRad){ //FORWARD POSITION (11 cm)
                                 double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
                                 if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                     if(!(gateABHitBuildFlags & (1UL << noABHitInd))){
@@ -173,7 +187,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                 if(noABHitInd2 < 64){
                                     if((noABHitInd2 != gateNoABHitInd)&&(noABHitInd2 != noABHitInd)){
                                         //check if hits are in neighbouring crystals
-                                        if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < projABRad){ //FORWARD POSITION (11 cm)
+                                        if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,1) < projABRad){ //FORWARD POSITION (11 cm)
                                             double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
                                             if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                                 if(!(projABHitBuildFlags & (1UL << noABHitInd))){
@@ -470,7 +484,7 @@ uint64_t EEGamma_modAB_mca_SMOL::SortData(const char *sfile, const double eLow, 
                                 if(noABHitInd2 < 64){
                                     if((!(usedGateHitBuildFlags & (1UL << noABHitInd2)))&&(noABHitInd2 != noABHitInd)){
                                         //check if hits are in neighbouring crystals
-                                        if(getGeHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < projABRad){ //FORWARD POSITION (11 cm)
+                                        if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,1) < projABRad){ //FORWARD POSITION (11 cm)
                                             double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
                                             if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                                 if(!(projABHitBuildFlags & (1UL << noABHitInd))){
@@ -808,7 +822,7 @@ int main(int argc, char **argv){
   }
 
   uint64_t numSepEvts = 0U;
-  if(strcmp(dot + 1, "smole6") == 0){
+  if(strcmp(dot + 1, "smol") == 0){
     printf("SMOL tree: %s\nEnergy gate: [%0.2f %0.2f]\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, gateABRad, projABRad, outfile, keVPerBin);
     numSepEvts += mysort->SortData(sfile, eLow, eHigh, gateABRad, projABRad, keVPerBin);
   }else if(strcmp(dot + 1, "list") == 0){
