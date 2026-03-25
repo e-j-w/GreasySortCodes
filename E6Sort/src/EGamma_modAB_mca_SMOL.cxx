@@ -14,7 +14,7 @@ uint8_t ABHitMapping[64]; //arrays specifying which hits correspond to which add
 double addbackE[64];
 double addbackT[64];
 
-void EGamma_modAB_mca_SMOL::WriteData(const char* outName){
+void WriteData(const char* outName){
 
   cout << "Writing gated histogram to: " << outName << endl;
 
@@ -29,15 +29,29 @@ void EGamma_modAB_mca_SMOL::WriteData(const char* outName){
 
 }
 
-uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABRad, const double keVPerBin){
+uint64_t SortData(const char *sfile, const double projABRad, const uint8_t forwardPos, const double keVPerBin, const uint8_t discardPileup){
 
     FILE *inp = fopen(sfile, "rb");
     printf("\nFile %s opened\n", sfile);
     
     uint64_t sentries = 0U;
+    uint64_t pileupCtrs[16];
     fread(&sentries,sizeof(uint64_t),1,inp);
+    uint64_t smolVersion = (uint64_t)(sentries >> 48);
+    if(smolVersion > 0){
+        fread(&pileupCtrs,sizeof(pileupCtrs),1,inp);
+        //printf("\nNumber of hits of each pileup type:\n");
+        uint64_t totalHits = 0;
+        for(uint8_t i=0; i<16; i++){
+        //printf("Pileup type %2u: %Lu\n",i,pileupCtrs[i]);
+        totalHits += pileupCtrs[i];
+        }
+        //printf("Total hits:     %Lu\n",totalHits);
+        long double frac = (long double)(pileupCtrs[1])/((long double)(totalHits));
+        printf("Fraction of hits with pileup type 1 (no pileup): %Lf\n",frac);
+    }
+    sentries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
     sorted_evt sortedEvt;
-    uint8_t footerVal;
 
     //construct 180 degree summing hit map
     memset(hitMap180deg,0,sizeof(hitMap180deg));
@@ -50,7 +64,7 @@ uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABR
                 }
                 for(uint8_t k=0;k<64;k++){ //other core next to the first core, which could be addback'd with ti
                     if((k!=i)&&(k!=j)){
-                        if(getTIGRESSHitDistance(i,0,k,0,1) < projABRad){
+                        if(getGRIFFINHitDistance(i,k,forwardPos) < projABRad){
                             if(getGRIFFINVector(k,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
                                 hitMap180deg[i][j] = 1;
                                 break; //check the next coinc core
@@ -82,12 +96,26 @@ uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABR
         //and using ABHitMapping to track which hits are grouped together
         for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
             if(noABHitInd < 64){
+
+                if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                    continue; //skip pileup hit
+                }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                    continue; //skip non-pileup hit
+                }
+
                 uint8_t abHitBuilt = 0;
                 for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
                     if(noABHitInd2 < 64){
+
+                        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                            continue; //skip pileup hit
+                        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                            continue; //skip non-pileup hit
+                        }
+
                         if(noABHitInd2 != noABHitInd){
                             //check if hits are in neighbouring crystals
-                            if(getTIGRESSHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < projABRad){ //FORWARD POSITION (11 cm)
+                            if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < projABRad){
                                 double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
                                 if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                     if(!(abHitBuildFlags & (1UL << noABHitInd))){
@@ -154,6 +182,13 @@ uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABR
 
         //add remaining non-addbacked hits
         for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+            if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                continue; //skip pileup hit
+            }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                continue; //skip non-pileup hit
+            }
+
             if(!(abHitBuildFlags & (1UL << noABHitInd))){
                 int eGamma = (int)(sortedEvt.noABHit[noABHitInd].energy/keVPerBin);
                 if(eGamma>=0 && eGamma<S32K){
@@ -166,6 +201,13 @@ uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABR
         uint64_t usedHits = 0;
         uint64_t usedABHits1 = 0;
         for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+            if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                continue; //skip pileup hit
+            }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                continue; //skip non-pileup hit
+            }
+
             if((!(usedHits & (1UL << noABHitInd))) && ((!(abHitBuildFlags & (1UL << noABHitInd))) || (!(usedABHits1 & (1UL << ABHitMapping[noABHitInd]))))){
                 int eGamma1 = 0;
                 double tGamma1 = 0.0;
@@ -180,6 +222,13 @@ uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABR
                 }
                 uint64_t usedABHits2 = 0;
                 for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+
+                    if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                        continue; //skip pileup hit
+                    }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                        continue; //skip non-pileup hit
+                    }
+
                     //if(noABHitInd != noABHitInd2){
                         if((!(usedHits & (1UL << noABHitInd2))) && ((!(abHitBuildFlags & (1UL << noABHitInd2))) || (!(usedABHits2 & (1UL << ABHitMapping[noABHitInd2]))))){
                             if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
@@ -236,76 +285,87 @@ uint64_t EGamma_modAB_mca_SMOL::SortData(const char *sfile, const double projABR
 
 int main(int argc, char **argv){
 
-  EGamma_modAB_mca_SMOL *mysort = new EGamma_modAB_mca_SMOL();
+    const char *sfile;
+    const char *outfile;
+    double keVPerBin = 1.0;
+    double projABRad;
+    uint8_t forwardPos = 0;
+    uint8_t discardPileup = 0;
+    printf("Starting EGamma_modAB_mca_SMOL\n");
 
-  const char *sfile;
-  const char *outfile;
-  double keVPerBin = 1.0;
-  double projABRad;
-  printf("Starting EGamma_modAB_mca_SMOL\n");
-
-  if((argc != 4)&&(argc != 5)){
-    cout << "Generates dmca singles spectra." << endl;
-    cout << "Arguments: EGamma_modAB_mca_SMOL smol_file projABRadius output_dmca_file keV_per_bin" << endl;
-    cout << "  *smol_file* can be a single SMOL tree (extension .smole6), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
-    cout << "  *projABRadius* is in mm. A value of zero corresponds to no addback" << endl;
-    cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
-    return 0;
-  }else{
-    sfile = argv[1];
-    projABRad = atof(argv[2]);
-    outfile = argv[3];
-    if(argc > 4){
-      keVPerBin = atof(argv[4]);
-    }
-  }
-
-  if(keVPerBin <= 0.0){
-    cout << "ERROR: Invalid keV/bin factor (" << keVPerBin << ")!" << endl;
-    return 0;
-  }
-
-  if(projABRad < 0.0){
-    cout << "ERROR: addback radius must be 0 or larger!" << endl;
-    return 0;
-  }
-
-  memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
-
-  const char *dot = strrchr(sfile, '.'); //get the file extension
-  if(dot==NULL){
-    cout << "ERROR: couldn't get SMOL tree or list file name." << endl;
-    return 0;
-  }
-
-  uint64_t numSepEvts = 0U;
-  if(strcmp(dot + 1, "smole6") == 0){
-    printf("SMOL tree: %s\nAddback radius: %0.2f mm\nOutput file: %s\n%0.2f keV per bin\n", sfile, projABRad, outfile, keVPerBin);
-    numSepEvts += mysort->SortData(sfile, projABRad, keVPerBin);
-  }else if(strcmp(dot + 1, "list") == 0){
-    printf("SMOL tree list: %s\nAddback radius: %0.2f mm\nOutput file: %s\n%0.2f keV per bin\n", sfile, projABRad, outfile, keVPerBin);
-    
-    FILE *listfile;
-    char str[256];
-
-    if((listfile=fopen(sfile,"r"))==NULL){
-      cout << "ERROR: Cannot open the list file: " << sfile << endl;
-      return 0;
+    if((argc != 5)&&(argc != 6)&&(argc != 7)){
+        cout << "Generates dmca singles spectra." << endl;
+        cout << "Arguments: EGamma_modAB_mca_SMOL smol_file projABRadius forward_pos output_dmca_file keV_per_bin discard_pileup" << endl;
+        cout << "  *smol_file* can be a single SMOL tree (extension .smol), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
+        cout << "  *projABRadius* is in mm. A value of zero corresponds to no addback" << endl;
+        cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
+        cout << "  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits)." << endl;
+        return 0;
     }else{
-      while(!(feof(listfile))){//go until the end of file is reached
-        if(fgets(str,256,listfile)!=NULL){ //get an entire line
-          str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          numSepEvts += mysort->SortData(str, projABRad, keVPerBin);
+        sfile = argv[1];
+        projABRad = atof(argv[2]);
+        forwardPos = (uint8_t)(atoi(argv[3]) == 1);
+        outfile = argv[4];
+        if(argc > 5){
+            keVPerBin = atof(argv[5]);
+            if(argc > 6){
+                discardPileup = (uint8_t)(atoi(argv[6]));
+            }
         }
-      }
     }
-  }else{
-    cout << "ERROR: improper file extension for SMOL tree or list (should be .smole6 or .list)." << endl;
-    return 0;
-  }
-  
-  mysort->WriteData(outfile);
-  cout << "Wrote " << numSepEvts << " separated events to: " << outfile << endl;
 
-  return 0;
+    if(keVPerBin <= 0.0){
+        cout << "ERROR: Invalid keV/bin factor (" << keVPerBin << ")!" << endl;
+        return 0;
+    }
+
+    if(projABRad < 0.0){
+        cout << "ERROR: addback radius must be 0 or larger!" << endl;
+        return 0;
+    }
+
+    memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
+
+    const char *dot = strrchr(sfile, '.'); //get the file extension
+    if(dot==NULL){
+        cout << "ERROR: couldn't get SMOL tree or list file name." << endl;
+        return 0;
+    }
+
+    if(discardPileup == 1){
+        printf("Discarding pileup hits.\n");
+    }else if(discardPileup == 2){
+        printf("Only taking pileup hits.\n");
+    }
+
+    uint64_t numSepEvts = 0U;
+    if(strcmp(dot + 1, "smol") == 0){
+        printf("SMOL tree: %s\nAddback radius: %0.2f mm\nDetector position: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, projABRad, (forwardPos == 1) ? "forward" : "back", outfile, keVPerBin);
+        numSepEvts += SortData(sfile, projABRad, forwardPos, keVPerBin, discardPileup);
+    }else if(strcmp(dot + 1, "list") == 0){
+        printf("SMOL tree list: %s\nAddback radius: %0.2f mm\nDetector position: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, projABRad, (forwardPos == 1) ? "forward" : "back", outfile, keVPerBin);
+        
+        FILE *listfile;
+        char str[256];
+
+        if((listfile=fopen(sfile,"r"))==NULL){
+            cout << "ERROR: Cannot open the list file: " << sfile << endl;
+            return 0;
+        }else{
+            while(!(feof(listfile))){//go until the end of file is reached
+                if(fgets(str,256,listfile)!=NULL){ //get an entire line
+                    str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
+                    numSepEvts += SortData(str, projABRad, forwardPos, keVPerBin, discardPileup);
+                }
+            }
+        }
+    }else{
+        cout << "ERROR: improper file extension for SMOL tree or list (should be .smol or .list)." << endl;
+        return 0;
+    }
+    
+    WriteData(outfile);
+    cout << "Wrote " << numSepEvts << " separated events to: " << outfile << endl;
+
+    return 0;
 }

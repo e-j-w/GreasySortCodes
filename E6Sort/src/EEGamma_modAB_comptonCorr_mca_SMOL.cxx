@@ -18,30 +18,44 @@ uint8_t gateABHitMapping[64], projABHitMapping[64]; //arrays specifying which hi
 double gateAddbackE[64], projAddbackE[64];
 double gateAddbackT[64], projAddbackT[64];
 
-void EEGamma_modAB_comptonCorr_mca_SMOL::WriteData(const char* outName){
+void WriteData(const char* outName){
 
-  cout << "Writing gated histogram to: " << outName << endl;
+    cout << "Writing gated histogram to: " << outName << endl;
 
-  FILE *out;
-  if((out = fopen(outName, "w")) == NULL){ //open the file
-    cout << "ERROR: Cannot open the output file: " << outName << endl;
-    return;
-  }else{
-    fwrite(&mcaOut,sizeof(mcaOut),1,out);
-    fclose(out);
-  }
+    FILE *out;
+    if((out = fopen(outName, "w")) == NULL){ //open the file
+        cout << "ERROR: Cannot open the output file: " << outName << endl;
+        return;
+    }else{
+        fwrite(&mcaOut,sizeof(mcaOut),1,out);
+        fclose(out);
+    }
 
 }
 
-uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const double eLow, const double eHigh, const double eShift, const double gateABRad, const double projABRad, const double keVPerBin){
+uint64_t SortData(const char *sfile, const double eLow, const double eHigh, const double eShift, const double gateABRad, const double projABRad, const uint8_t forwardPos, const double keVPerBin, const uint8_t discardPileup){
 
     FILE *inp = fopen(sfile, "rb");
     printf("\nFile %s opened\n", sfile);
     
     uint64_t sentries = 0U;
+    uint64_t pileupCtrs[16];
     fread(&sentries,sizeof(uint64_t),1,inp);
+    uint64_t smolVersion = (uint64_t)(sentries >> 48);
+    if(smolVersion > 0){
+        fread(&pileupCtrs,sizeof(pileupCtrs),1,inp);
+        //printf("\nNumber of hits of each pileup type:\n");
+        uint64_t totalHits = 0;
+        for(uint8_t i=0; i<16; i++){
+        //printf("Pileup type %2u: %Lu\n",i,pileupCtrs[i]);
+        totalHits += pileupCtrs[i];
+        }
+        //printf("Total hits:     %Lu\n",totalHits);
+        long double frac = (long double)(pileupCtrs[1])/((long double)(totalHits));
+        printf("Fraction of hits with pileup type 1 (no pileup): %Lf\n",frac);
+    }
+    sentries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
     sorted_evt sortedEvt;
-    uint8_t footerVal;
 
     //construct 180 degree summing hit map
     memset(hitMap180deg,0,sizeof(hitMap180deg));
@@ -54,7 +68,7 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                 }
                 for(uint8_t k=0;k<64;k++){ //other core next to the first core, which could be addback'd with ti
                     if((k!=i)&&(k!=j)){
-                        if(getTIGRESSHitDistance(i,0,k,0,1) < projABRad){
+                        if(getGRIFFINHitDistance(i,k,forwardPos) < projABRad){
                             if(getGRIFFINVector(k,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
                                 hitMap180deg[i][j] = 1;
                                 break; //check the next coinc core
@@ -90,12 +104,26 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
         //and using gateABHitMapping to track which hits are grouped together
         for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
             if(noABHitInd < 64){
+
+                if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                    continue; //skip pileup hit
+                }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                    continue; //skip non-pileup hit
+                }
+
                 uint8_t abHitBuilt = 0;
                 for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
                     if(noABHitInd2 < 64){
+
+                        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                            continue; //skip pileup hit
+                        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                            continue; //skip non-pileup hit
+                        }
+
                         if(noABHitInd2 != noABHitInd){
                             //check if hits are in neighbouring crystals
-                            if(getTIGRESSHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < gateABRad){ //FORWARD POSITION (11 cm)
+                            if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < gateABRad){ //FORWARD POSITION (11 cm)
                                 double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
                                 if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                     if(!(gateABHitBuildFlags & (1UL << noABHitInd))){
@@ -167,13 +195,27 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                 memset(projAddbackT,0,sizeof(projAddbackT));
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
                     if(noABHitInd < 64){
+
+                        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                            continue; //skip pileup hit
+                        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                            continue; //skip non-pileup hit
+                        }
+
                         if(noABHitInd != gateNoABHitInd){
                             uint8_t abHitBuilt = 0;
                             for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
                                 if(noABHitInd2 < 64){
+
+                                    if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                                        continue; //skip pileup hit
+                                    }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                                        continue; //skip non-pileup hit
+                                    }
+
                                     if((noABHitInd2 != gateNoABHitInd)&&(noABHitInd2 != noABHitInd)){
                                         //check if hits are in neighbouring crystals
-                                        if(getTIGRESSHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < projABRad){ //FORWARD POSITION (11 cm)
+                                        if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < projABRad){ //FORWARD POSITION (11 cm)
                                             double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
                                             if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                                 if(!(projABHitBuildFlags & (1UL << noABHitInd))){
@@ -237,6 +279,13 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                     //check flags
                     uint8_t hitPrevFilled = 0;
                     for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+                        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                            continue; //skip pileup hit
+                        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                            continue; //skip non-pileup hit
+                        }
+
                         if(projABHitMapping[noABHitInd] == projABHitInd){
                             if(specFillFlags[0] & (1UL << noABHitInd)){
                                 hitPrevFilled = 1;
@@ -247,20 +296,27 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                     if(hitPrevFilled == 0){
                         if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                             //fill spectrum with hit
-                            int eGamma = (int)((projAddbackE[projABHitInd] + eShift)/keVPerBin);
+                            int eGamma = (int)((projAddbackE[projABHitInd]/keVPerBin) + eShift);
                             if(eGamma>=0 && eGamma<S32K){
                                 mcaOut[0][eGamma]++;
                                 //mcaOut[6][eGamma]++;
                             }
                             //flag that spectrum was filled with this hit
                             for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+                                if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                                    continue; //skip pileup hit
+                                }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                                    continue; //skip non-pileup hit
+                                }
+
                                 if(projABHitMapping[noABHitInd] == projABHitInd){
                                     specFillFlags[0] |= (1UL << noABHitInd);
                                 }
                             }
                         }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
                             //time random
-                            int eGamma = (int)((projAddbackE[projABHitInd] + eShift)/keVPerBin);
+                            int eGamma = (int)((projAddbackE[projABHitInd]/keVPerBin) + eShift);
                             if(eGamma>=0 && eGamma<S32K){
                                 mcaOut[3][eGamma]++;
                             }
@@ -271,6 +327,13 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                     //first, check flags
                     uint8_t hitPrevFilledS = 0;
                     for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+                        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                            continue; //skip pileup hit
+                        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                            continue; //skip non-pileup hit
+                        }
+
                         if(projABHitMapping[noABHitInd] == projABHitInd){
                             if(specFillFlags[1] & (1UL << noABHitInd)){
                                 hitPrevFilledS = 1;
@@ -281,22 +344,36 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                     if(hitPrevFilledS == 0){
                         if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                             for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+                                if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                                    continue; //skip pileup hit
+                                }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                                    continue; //skip non-pileup hit
+                                }
+
                                 if(!(specFillFlags[1] & (1UL << noABHitInd))){
                                     if(projABHitMapping[noABHitInd] == projABHitInd){
                                         for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+
+                                            if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                                                continue; //skip pileup hit
+                                            }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                                                continue; //skip non-pileup hit
+                                            }
+
                                             if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                                 if(((!(projABHitBuildFlags & (1UL << noABHitInd2))) || (projABHitMapping[noABHitInd2] != projABHitInd))&&(noABHitInd2 != gateNoABHitInd)){
                                                     if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
-                                                        double eGamma = (projAddbackE[projABHitInd] + eShift)/keVPerBin;
+                                                        double eGamma = (projAddbackE[projABHitInd]/keVPerBin) + eShift;
                                                         double eGamma2 = 0;
                                                         tDiff = SUM_TIMING_GATE_MAX + 1000.0; //default value, outside the gate
                                                         if(projABHitBuildFlags & (1UL << noABHitInd2)){
                                                             //opposing hit was part of a different projection hit
-                                                            eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
+                                                            eGamma2 = (projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin) + eShift;
                                                             tDiff = (projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
                                                         }else{
                                                             //opposing hit was a single non-addback hit
-                                                            eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
+                                                            eGamma2 = (sortedEvt.noABHit[noABHitInd2].energy/keVPerBin) + eShift;
                                                             tDiff = (noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
                                                         }
                                                         if((tDiff >= SUM_TIMING_GATE_MIN)&&(tDiff <= SUM_TIMING_GATE_MAX)){ //timing condition
@@ -339,13 +416,20 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                 
                 //add in any remaining hits that weren't addback'd
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+                    if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                        continue; //skip pileup hit
+                    }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                        continue; //skip non-pileup hit
+                    }
+
                     if(noABHitInd != gateNoABHitInd){
                         double tDiff = (noABHitTime(&sortedEvt,gateNoABHitInd) - noABHitTime(&sortedEvt,noABHitInd));
                         //printf("tDiff: %0.3f\n",tDiff);
                         if(!(specFillFlags[0] & (1UL << noABHitInd))){
                             if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                                 //fill spectrum with hit
-                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin);
+                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy/keVPerBin) + eShift);
                                 if(eGamma>=0 && eGamma<S32K){
                                     mcaOut[0][eGamma]++;
                                     //mcaOut[7][eGamma]++;
@@ -354,7 +438,7 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                                 specFillFlags[0] |= (1UL << noABHitInd);
                             }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
                                 //time random
-                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin);
+                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy/keVPerBin) + eShift);
                                 if(eGamma>=0 && eGamma<S32K){
                                     mcaOut[3][eGamma]++;
                                 }
@@ -364,19 +448,26 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                         if(!(specFillFlags[1] & (1UL << noABHitInd))){
                             if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                                 for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+
+                                    if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                                        continue; //skip pileup hit
+                                    }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                                        continue; //skip non-pileup hit
+                                    }
+
                                     if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                         if((noABHitInd2 != noABHitInd)&&(noABHitInd2 != gateNoABHitInd)){
                                             if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
-                                                double eGamma = (sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin;
+                                                double eGamma = (sortedEvt.noABHit[noABHitInd].energy/keVPerBin) + eShift;
                                                 double eGamma2 = 0;
                                                 double tDiff = SUM_TIMING_GATE_MAX + 1000.0; //default value, outside the gate
                                                 if(projABHitBuildFlags & (1UL << noABHitInd2)){
                                                     //opposing hit was part of a different projection hit
-                                                    eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
+                                                    eGamma2 = (projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin) + eShift;
                                                     tDiff = (projAddbackT[projABHitMapping[noABHitInd2]] - noABHitTime(&sortedEvt,noABHitInd));
                                                 }else{
                                                     //opposing hit was a single non-addback hit
-                                                    eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
+                                                    eGamma2 = (sortedEvt.noABHit[noABHitInd2].energy/keVPerBin) + eShift;
                                                     tDiff = (noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
                                                 }
                                                 if((tDiff >= SUM_TIMING_GATE_MIN)&&(tDiff <= SUM_TIMING_GATE_MAX)){ //timing condition
@@ -440,13 +531,27 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                 memset(projAddbackT,0,sizeof(projAddbackT));
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
                     if(noABHitInd < 64){
+
+                        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                            continue; //skip pileup hit
+                        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                            continue; //skip non-pileup hit
+                        }
+
                         if(!(usedGateHitBuildFlags & (1UL << noABHitInd))){
                             uint8_t abHitBuilt = 0;
                             for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
                                 if(noABHitInd2 < 64){
+
+                                    if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                                        continue; //skip pileup hit
+                                    }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                                        continue; //skip non-pileup hit
+                                    }
+
                                     if((!(usedGateHitBuildFlags & (1UL << noABHitInd2)))&&(noABHitInd2 != noABHitInd)){
                                         //check if hits are in neighbouring crystals
-                                        if(getTIGRESSHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,0,sortedEvt.noABHit[noABHitInd2].core & 63U,0,1) < projABRad){ //FORWARD POSITION (11 cm)
+                                        if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < projABRad){ //FORWARD POSITION (11 cm)
                                             double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
                                             if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
                                                 if(!(projABHitBuildFlags & (1UL << noABHitInd))){
@@ -510,6 +615,13 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                     //check flags
                     uint8_t hitPrevFilled = 0;
                     for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+                        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                            continue; //skip pileup hit
+                        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                            continue; //skip non-pileup hit
+                        }
+
                         if(projABHitMapping[noABHitInd] == projABHitInd){
                             if(specFillFlags[0] & (1UL << noABHitInd)){
                                 hitPrevFilled = 1;
@@ -520,20 +632,27 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                     if(hitPrevFilled == 0){
                         if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                             //fill spectrum with hit
-                            int eGamma = (int)((projAddbackE[projABHitInd] + eShift)/keVPerBin);
+                            int eGamma = (int)((projAddbackE[projABHitInd]/keVPerBin) + eShift);
                             if(eGamma>=0 && eGamma<S32K){
                                 mcaOut[0][eGamma]++;
                                 //mcaOut[4][eGamma]++;
                             }
                             //flag that spectrum was filled with this hit
                             for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+                                if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                                    continue; //skip pileup hit
+                                }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                                    continue; //skip non-pileup hit
+                                }
+
                                 if(projABHitMapping[noABHitInd] == projABHitInd){
                                     specFillFlags[0] |= (1UL << noABHitInd);
                                 }
                             }
                         }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
                             //time random
-                            int eGamma = (int)((projAddbackE[projABHitInd] + eShift)/keVPerBin);
+                            int eGamma = (int)((projAddbackE[projABHitInd]/keVPerBin) + eShift);
                             if(eGamma>=0 && eGamma<S32K){
                                 mcaOut[3][eGamma]++;
                             }
@@ -543,6 +662,13 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                     //first, check flags
                     uint8_t hitPrevFilledS = 0;
                     for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+                        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                            continue; //skip pileup hit
+                        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                            continue; //skip non-pileup hit
+                        }
+
                         if(projABHitMapping[noABHitInd] == projABHitInd){
                             if(specFillFlags[1] & (1UL << noABHitInd)){
                                 hitPrevFilledS = 1;
@@ -553,22 +679,36 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                     if(hitPrevFilledS == 0){
                         if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                             for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+                                if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                                    continue; //skip pileup hit
+                                }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                                    continue; //skip non-pileup hit
+                                }
+
                                 if(!(specFillFlags[1] & (1UL << noABHitInd))){
                                     if(projABHitMapping[noABHitInd] == projABHitInd){
                                         for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+
+                                            if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                                                continue; //skip pileup hit
+                                            }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                                                continue; //skip non-pileup hit
+                                            }
+
                                             if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                                 if(((!(projABHitBuildFlags & (1UL << noABHitInd2))) || (projABHitMapping[noABHitInd2] != projABHitInd))&&(!(usedGateHitBuildFlags & (1UL << noABHitInd2)))){
                                                     if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
-                                                        double eGamma = (projAddbackE[projABHitInd] + eShift)/keVPerBin;
+                                                        double eGamma = (projAddbackE[projABHitInd]/keVPerBin) + eShift;
                                                         double eGamma2 = 0;
                                                         double tDiff = SUM_TIMING_GATE_MAX + 1000.0; //default value, outside the gate
                                                         if(projABHitBuildFlags & (1UL << noABHitInd2)){
                                                             //opposing hit was part of a different projection hit
-                                                            eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
+                                                            eGamma2 = (projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin) + eShift;
                                                             tDiff = (projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
                                                         }else{
                                                             //opposing hit was a single non-addback hit
-                                                            eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
+                                                            eGamma2 = (sortedEvt.noABHit[noABHitInd2].energy/keVPerBin) + eShift;
                                                             tDiff = (noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
                                                         }
                                                         if((tDiff >= SUM_TIMING_GATE_MIN)&&(tDiff <= SUM_TIMING_GATE_MAX)){ //timing condition
@@ -610,13 +750,20 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                 }
                 //add in any remaining hits that weren't addback'd
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){ //double filling is not in this loop
+
+                    if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                        continue; //skip pileup hit
+                    }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                        continue; //skip non-pileup hit
+                    }
+
                     if(!(usedGateHitBuildFlags & (1UL << noABHitInd))){
                         double tDiff = (gateAddbackT[gateABHitInd] - noABHitTime(&sortedEvt,noABHitInd));
                         //printf("tDiff: %0.3f\n",tDiff);
                         if(!(specFillFlags[0] & (1UL << noABHitInd))){
                             if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                                 //fill spectrum with hit
-                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin);
+                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy/keVPerBin) + eShift);
                                 if(eGamma>=0 && eGamma<S32K){
                                     mcaOut[0][eGamma]++;
                                     //mcaOut[5][eGamma]++;
@@ -626,7 +773,7 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                                 
                             }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
                                 //time random
-                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin);
+                                int eGamma = (int)((sortedEvt.noABHit[noABHitInd].energy/keVPerBin) + eShift);
                                 if(eGamma>=0 && eGamma<S32K){
                                     mcaOut[3][eGamma]++;
                                 }
@@ -636,19 +783,26 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                         if(!(specFillFlags[1] & (1UL << noABHitInd))){
                             if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
                                 for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+
+                                    if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                                        continue; //skip pileup hit
+                                    }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                                        continue; //skip non-pileup hit
+                                    }
+
                                     if(!(specFillFlags[1] & (1UL << noABHitInd2))){
                                         if(!(usedGateHitBuildFlags & (1UL << noABHitInd2))){
                                             if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
-                                                double eGamma = (sortedEvt.noABHit[noABHitInd].energy + eShift)/keVPerBin;
+                                                double eGamma = (sortedEvt.noABHit[noABHitInd].energy/keVPerBin) + eShift;
                                                 double eGamma2 = 0;
                                                 double tDiff = SUM_TIMING_GATE_MAX + 1000.0; //default value, outside the gate
                                                 if(projABHitBuildFlags & (1UL << noABHitInd2)){
                                                     //opposing hit was part of a different projection hit
-                                                    eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
+                                                    eGamma2 = (projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin) + eShift;
                                                     tDiff = (projAddbackT[projABHitMapping[noABHitInd2]] - noABHitTime(&sortedEvt,noABHitInd));
                                                 }else{
                                                     //opposing hit was a single non-addback hit
-                                                    eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
+                                                    eGamma2 = (sortedEvt.noABHit[noABHitInd2].energy/keVPerBin) + eShift;
                                                     tDiff = (noABHitTime(&sortedEvt,noABHitInd2) - noABHitTime(&sortedEvt,noABHitInd));
                                                 }
                                                 if((tDiff >= SUM_TIMING_GATE_MIN)&&(tDiff <= SUM_TIMING_GATE_MAX)){ //timing condition
@@ -664,7 +818,7 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
                                                         specFillFlags[1] |= (1UL << noABHitInd2);
                                                     }
                                                     //fill sum spectra
-                                                    int eGammaSum = (int)(eGamma + eGamma2 + eShift);
+                                                    int eGammaSum = (int)(eGamma + eGamma2);
                                                     if(eGammaSum>=0 && eGammaSum<S32K){
                                                         mcaOut[2][eGammaSum]++;
                                                     }
@@ -707,89 +861,106 @@ uint64_t EEGamma_modAB_comptonCorr_mca_SMOL::SortData(const char *sfile, const d
 
 int main(int argc, char **argv){
 
-  EEGamma_modAB_comptonCorr_mca_SMOL *mysort = new EEGamma_modAB_comptonCorr_mca_SMOL();
+    const char *sfile;
+    const char *outfile;
+    double keVPerBin = 1.0;
+    double eLow, eHigh, eCorr, gateABRad, projABRad;
+    uint8_t forwardPos = 0;
+    uint8_t discardPileup = 0;
+    printf("Starting EEGamma_modAB_comptonCorr_mca_SMOL\n");
 
-  const char *sfile;
-  const char *outfile;
-  double keVPerBin = 1.0;
-  double eLow, eHigh, eCorr, gateABRad, projABRad;
-  printf("Starting EEGamma_modAB_comptonCorr_mca_SMOL\n");
-
-  if((argc != 8)&&(argc != 9)){
-    cout << "Generates dmca gamma-gated Compton background spectra, to be used in background subtraction of Compton scatter features." << endl;
-    cout << "Arguments: EEGamma_modAB_comptonCorr_mca_SMOL smol_file EGateLow EGateHigh ECorr gateABRadius projABRadius output_dmca_file keV_per_bin" << endl;
-    cout << "  *smol_file* can be a single SMOL tree (extension .smole6), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
-    cout << "  *ECorr* is the energy in keV for which the Compton background is being generated (ie. the original gate energy which the background will be subtracted from)." << endl;
-    cout << "  *gateABRadius* and *projABRadius* are in mm. Values of zero correspond to no addback." << endl;
-    cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
-    return 0;
-  }else{
-    sfile = argv[1];
-    eLow = atof(argv[2]);
-    eHigh = atof(argv[3]);
-    eCorr = atof(argv[4]);
-    gateABRad = atof(argv[5]);
-    projABRad = atof(argv[6]);
-    outfile = argv[7];
-    if(argc > 8){
-      keVPerBin = atof(argv[8]);
-    }
-  }
-
-  if(keVPerBin <= 0.0){
-    cout << "ERROR: Invalid keV/bin factor (" << keVPerBin << ")!" << endl;
-    return 0;
-  }
-
-  if(eLow > eHigh){
-    //swap energy gate bounds
-    double tmp = eHigh;
-    eHigh = eLow;
-    eLow = tmp;
-  }
-  if((gateABRad < 0.0)||(projABRad < 0.0)){
-    cout << "ERROR: addback radii must be 0 or larger!" << endl;
-    return 0;
-  }
-
-  memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
-
-  const char *dot = strrchr(sfile, '.'); //get the file extension
-  if(dot==NULL){
-    cout << "ERROR: couldn't get SMOL tree or list file name." << endl;
-    return 0;
-  }
-
-  double eShift = (eLow + eHigh)/2.0 - eCorr; //energy to shift all hits by
-
-  uint64_t numSepEvts = 0U;
-  if(strcmp(dot + 1, "smole6") == 0){
-    printf("SMOL tree: %s\nEnergy gate: [%0.2f %0.2f]\nCompton correction energy: %0.2f keV\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, eCorr, gateABRad, projABRad, outfile, keVPerBin);
-    numSepEvts += mysort->SortData(sfile, eLow, eHigh, eShift, gateABRad, projABRad, keVPerBin);
-  }else if(strcmp(dot + 1, "list") == 0){
-    printf("SMOL tree list: %s\nEnergy gate: [%0.2f %0.2f]\nCompton correction energy: %0.2f keV\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, eCorr, gateABRad, projABRad, outfile, keVPerBin);
-    
-    FILE *listfile;
-    char str[256];
-
-    if((listfile=fopen(sfile,"r"))==NULL){
-      cout << "ERROR: Cannot open the list file: " << sfile << endl;
-      return 0;
+    if((argc != 9)&&(argc != 10)&&(argc != 11)){
+        cout << "Generates dmca gamma-gated Compton background spectra, to be used in background subtraction of Compton scatter features." << endl;
+        cout << "Arguments: EEGamma_modAB_comptonCorr_mca_SMOL smol_file EGateLow EGateHigh ECorr gateABRadius projABRadius forward_pos output_dmca_file keV_per_bin discard_pileup" << endl;
+        cout << "  *smol_file* can be a single SMOL tree (extension .smol), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
+        cout << "  *ECorr* is the energy in keV for which the Compton background is being generated (ie. the original gate energy which the background will be subtracted from)." << endl;
+        cout << "  *gateABRadius* and *projABRadius* are in mm. Values of zero correspond to no addback." << endl;
+        cout << "  *forward_pos* should be 1 if the detectors are in the forward (110 mm) position, 0 otherwise." << endl;
+        cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
+        cout << "  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits)." << endl;
+        return 0;
     }else{
-      while(!(feof(listfile))){//go until the end of file is reached
-        if(fgets(str,256,listfile)!=NULL){ //get an entire line
-          str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          numSepEvts += mysort->SortData(str, eLow, eHigh, eShift, gateABRad, projABRad, keVPerBin);
+        sfile = argv[1];
+        eLow = atof(argv[2]);
+        eHigh = atof(argv[3]);
+        eCorr = atof(argv[4]);
+        gateABRad = atof(argv[5]);
+        projABRad = atof(argv[6]);
+        forwardPos = (uint8_t)(atoi(argv[7]) == 1);
+        outfile = argv[8];
+        if(argc > 9){
+            keVPerBin = atof(argv[9]);
+            if(argc > 10){
+                discardPileup = (uint8_t)(atoi(argv[10]));
+            }
         }
-      }
     }
-  }else{
-    cout << "ERROR: improper file extension for SMOL tree or list (should be .smole6 or .list)." << endl;
-    return 0;
-  }
-  
-  mysort->WriteData(outfile);
-  cout << "Wrote " << numSepEvts << " separated events to: " << outfile << endl;
 
-  return 0;
+    if(keVPerBin <= 0.0){
+        cout << "ERROR: Invalid keV/bin factor (" << keVPerBin << ")!" << endl;
+        return 0;
+    }
+
+    if(discardPileup > 2){
+        cout << "ERROR: Invalid discard_pileup value (" << discardPileup << ")!" << endl;
+        return 0;
+    }
+
+    if(eLow > eHigh){
+        //swap energy gate bounds
+        double tmp = eHigh;
+        eHigh = eLow;
+        eLow = tmp;
+    }
+    if((gateABRad < 0.0)||(projABRad < 0.0)){
+        cout << "ERROR: addback radii must be 0 or larger!" << endl;
+        return 0;
+    }
+
+    memset(mcaOut,0,sizeof(mcaOut)); //zero out output spectrum
+
+    const char *dot = strrchr(sfile, '.'); //get the file extension
+    if(dot==NULL){
+        cout << "ERROR: couldn't get SMOL tree or list file name." << endl;
+        return 0;
+    }
+
+    if(discardPileup == 1){
+        printf("Discarding pileup hits.\n");
+    }else if(discardPileup == 2){
+        printf("Only taking pileup hits.\n");
+    }
+
+    const double eShift = (eLow + eHigh)/2.0 - eCorr; //energy to shift all hits by
+
+    uint64_t numSepEvts = 0U;
+    if(strcmp(dot + 1, "smol") == 0){
+        printf("SMOL tree: %s\nEnergy gate: [%0.2f %0.2f]\nCompton correction energy: %0.2f keV\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nDetector position: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, eCorr, gateABRad, projABRad, (forwardPos == 1) ? "forward" : "back", outfile, keVPerBin);
+        numSepEvts += SortData(sfile, eLow, eHigh, eShift, gateABRad, projABRad, forwardPos, keVPerBin, discardPileup);
+    }else if(strcmp(dot + 1, "list") == 0){
+        printf("SMOL tree list: %s\nEnergy gate: [%0.2f %0.2f]\nCompton correction energy: %0.2f keV\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nDetector position: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, eCorr, gateABRad, projABRad, (forwardPos == 1) ? "forward" : "back", outfile, keVPerBin);
+        
+        FILE *listfile;
+        char str[256];
+
+        if((listfile=fopen(sfile,"r"))==NULL){
+            cout << "ERROR: Cannot open the list file: " << sfile << endl;
+            return 0;
+        }else{
+            while(!(feof(listfile))){//go until the end of file is reached
+                if(fgets(str,256,listfile)!=NULL){ //get an entire line
+                    str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
+                    numSepEvts += SortData(str, eLow, eHigh, eShift, gateABRad, projABRad, forwardPos, keVPerBin, discardPileup);
+                }
+            }
+        }
+    }else{
+        cout << "ERROR: improper file extension for SMOL tree or list (should be .smol or .list)." << endl;
+        return 0;
+    }
+    
+    WriteData(outfile);
+    cout << "Wrote " << numSepEvts << " separated events to: " << outfile << endl;
+
+    return 0;
 }

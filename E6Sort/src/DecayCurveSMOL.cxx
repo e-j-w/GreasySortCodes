@@ -8,7 +8,7 @@ using namespace std;
 
 sorted_evt sortedEvt;
 
-void DecayCurveS::SortData(const char *sfile, const uint64_t startNumSec)
+void SortData(const char *sfile, const uint64_t startNumSec)
 {
     
   FILE *inp = fopen(sfile, "rb");
@@ -23,10 +23,10 @@ void DecayCurveS::SortData(const char *sfile, const uint64_t startNumSec)
   uint64_t smolVersion = (uint64_t)(sentries >> 48);
   if(smolVersion > 0){
     fread(&pileupCtrs,sizeof(pileupCtrs),1,inp);
-    printf("\nNumber of hits of each pileup type:\n");
+    //printf("\nNumber of hits of each pileup type:\n");
     uint64_t totalHits = 0;
     for(uint8_t i=0; i<16; i++){
-      printf("Pileup type %2u: %Lu\n",i,pileupCtrs[i]);
+      //printf("Pileup type %2u: %Lu\n",i,pileupCtrs[i]);
       totalHits += pileupCtrs[i];
     }
     printf("Total hits:     %Lu\n",totalHits);
@@ -63,6 +63,9 @@ void DecayCurveS::SortData(const char *sfile, const uint64_t startNumSec)
         if((sortedEvt.noABHit[noABHitInd].energy >= 676.0)&&(sortedEvt.noABHit[noABHitInd].energy <= 695.0)){
           counts_time_685->Fill(tSec/60.0);
         }
+        if((sortedEvt.noABHit[noABHitInd].energy >= 930.0)&&(sortedEvt.noABHit[noABHitInd].energy <= 938.0)){
+          counts_time_934->Fill(tSec/60.0);
+        }
         if((sortedEvt.noABHit[noABHitInd].energy >= 1469.0)&&(sortedEvt.noABHit[noABHitInd].energy <= 1487.0)){
           counts_time_1477->Fill(tSec/60.0);
         }
@@ -83,8 +86,6 @@ void DecayCurveS::SortData(const char *sfile, const uint64_t startNumSec)
 }
 int main(int argc, char **argv)
 {
-
-  DecayCurveS *mysort = new DecayCurveS();
 
   const char *lsfile;
   const char *outfile;
@@ -123,7 +124,7 @@ int main(int argc, char **argv)
         cout << "ERROR: Cannot open the list file: " << lsfile << endl;
         return 0;
     }else{
-        mysort->Initialise();
+        InitialiseHists();
         while(!(feof(listfile))){//go until the end of file is reached
             if(fgets(str,256,listfile)!=NULL){ //get an entire line
                 str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
@@ -132,7 +133,7 @@ int main(int argc, char **argv)
                     strncpy(fileName,tok,127);
                     tok = strtok(NULL,"");
                     if(tok!=NULL){
-                        mysort->SortData(fileName,(uint64_t)strtol(tok,NULL,10));
+                        SortData(fileName,(uint64_t)strtol(tok,NULL,10));
                     }else{
                         printf("ERROR: couldn't get time for run in file: %s\n",fileName);
                         exit(-1);
