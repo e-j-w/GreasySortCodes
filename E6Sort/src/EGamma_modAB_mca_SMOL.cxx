@@ -29,7 +29,7 @@ void WriteData(const char* outName){
 
 }
 
-uint64_t SortData(const char *sfile, const double projABRad, const uint8_t forwardPos, const double keVPerBin, const uint8_t discardPileup){
+uint64_t SortData(const char *sfile, const double projABRad, const uint8_t sameCloverOnly, const uint8_t forwardPos, const double keVPerBin, const uint8_t discardPileup){
 
     FILE *inp = fopen(sfile, "rb");
     printf("\nFile %s opened\n", sfile);
@@ -64,10 +64,12 @@ uint64_t SortData(const char *sfile, const double projABRad, const uint8_t forwa
                 }
                 for(uint8_t k=0;k<64;k++){ //other core next to the first core, which could be addback'd with ti
                     if((k!=i)&&(k!=j)){
-                        if(getGRIFFINHitDistance(i,k,forwardPos) < projABRad){
-                            if(getGRIFFINVector(k,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
-                                hitMap180deg[i][j] = 1;
-                                break; //check the next coinc core
+                        if((!sameCloverOnly) || ((i/4) == (k/4))){
+                            if(getGRIFFINHitDistance(i,k,forwardPos) < projABRad){
+                                if(getGRIFFINVector(k,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
+                                    hitMap180deg[i][j] = 1;
+                                    break; //check the next coinc core
+                                }
                             }
                         }
                     }
@@ -115,44 +117,46 @@ uint64_t SortData(const char *sfile, const double projABRad, const uint8_t forwa
 
                         if(noABHitInd2 != noABHitInd){
                             //check if hits are in neighbouring crystals
-                            if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < projABRad){
-                                double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-                                if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
-                                    if(!(abHitBuildFlags & (1UL << noABHitInd))){
-                                        //first hit not yet flagged
-                                        if(!(abHitBuildFlags & (1UL << noABHitInd2))){
-                                            //neither hit flagged
-                                            //build initial addback hit
-                                            addbackT[numProjABHitsBuilt] = sortedEvt.noABHit[noABHitInd].timeOffsetNs;
-                                            if(!(abHitBuildFlags & (1UL << noABHitInd))){
-                                                addbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd].energy;
-                                            }
+                            if((!sameCloverOnly) || (((sortedEvt.noABHit[noABHitInd].core & 63U)/4) == ((sortedEvt.noABHit[noABHitInd2].core & 63U)/4))){
+                                if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < projABRad){
+                                    double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
+                                    if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
+                                        if(!(abHitBuildFlags & (1UL << noABHitInd))){
+                                            //first hit not yet flagged
                                             if(!(abHitBuildFlags & (1UL << noABHitInd2))){
-                                                addbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                //neither hit flagged
+                                                //build initial addback hit
+                                                addbackT[numProjABHitsBuilt] = sortedEvt.noABHit[noABHitInd].timeOffsetNs;
+                                                if(!(abHitBuildFlags & (1UL << noABHitInd))){
+                                                    addbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd].energy;
+                                                }
+                                                if(!(abHitBuildFlags & (1UL << noABHitInd2))){
+                                                    addbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                }
+                                                //flag hits
+                                                abHitBuildFlags |= (1UL << noABHitInd);
+                                                abHitBuildFlags |= (1UL << noABHitInd2);
+                                                ABHitMapping[noABHitInd] = numProjABHitsBuilt;
+                                                ABHitMapping[noABHitInd2] = numProjABHitsBuilt;
+                                                abHitBuilt = 1;
+                                            }else{
+                                                //first hit not flagged, second hit flagged
+                                                //add first hit to second hit's addback data
+                                                addbackE[ABHitMapping[noABHitInd2]] += sortedEvt.noABHit[noABHitInd].energy;
+                                                //flag hit
+                                                abHitBuildFlags |= (1UL << noABHitInd);
+                                                ABHitMapping[noABHitInd] = ABHitMapping[noABHitInd2];
                                             }
-                                            //flag hits
-                                            abHitBuildFlags |= (1UL << noABHitInd);
-                                            abHitBuildFlags |= (1UL << noABHitInd2);
-                                            ABHitMapping[noABHitInd] = numProjABHitsBuilt;
-                                            ABHitMapping[noABHitInd2] = numProjABHitsBuilt;
-                                            abHitBuilt = 1;
                                         }else{
-                                            //first hit not flagged, second hit flagged
-                                            //add first hit to second hit's addback data
-                                            addbackE[ABHitMapping[noABHitInd2]] += sortedEvt.noABHit[noABHitInd].energy;
-                                            //flag hit
-                                            abHitBuildFlags |= (1UL << noABHitInd);
-                                            ABHitMapping[noABHitInd] = ABHitMapping[noABHitInd2];
-                                        }
-                                    }else{
-                                        //first hit flagged
-                                        if(!(abHitBuildFlags & (1UL << noABHitInd2))){
-                                            //first hit flagged, second not flagged
-                                            //add second hit to first hit's addback data
-                                            addbackE[ABHitMapping[noABHitInd]] += sortedEvt.noABHit[noABHitInd2].energy;
-                                            //flag hit
-                                            abHitBuildFlags |= (1UL << noABHitInd2);
-                                            ABHitMapping[noABHitInd2] = ABHitMapping[noABHitInd];
+                                            //first hit flagged
+                                            if(!(abHitBuildFlags & (1UL << noABHitInd2))){
+                                                //first hit flagged, second not flagged
+                                                //add second hit to first hit's addback data
+                                                addbackE[ABHitMapping[noABHitInd]] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                //flag hit
+                                                abHitBuildFlags |= (1UL << noABHitInd2);
+                                                ABHitMapping[noABHitInd2] = ABHitMapping[noABHitInd];
+                                            }
                                         }
                                     }
                                 }
@@ -290,12 +294,13 @@ int main(int argc, char **argv){
     double keVPerBin = 1.0;
     double projABRad;
     uint8_t forwardPos = 0;
+    uint8_t sameCloverOnly = 0;
     uint8_t discardPileup = 0;
     printf("Starting EGamma_modAB_mca_SMOL\n");
 
-    if((argc != 5)&&(argc != 6)&&(argc != 7)){
+    if((argc != 6)&&(argc != 7)&&(argc != 8)){
         cout << "Generates dmca singles spectra." << endl;
-        cout << "Arguments: EGamma_modAB_mca_SMOL smol_file projABRadius forward_pos output_dmca_file keV_per_bin discard_pileup" << endl;
+        cout << "Arguments: EGamma_modAB_mca_SMOL smol_file projABRadius same_clover_only forward_pos output_dmca_file keV_per_bin discard_pileup" << endl;
         cout << "  *smol_file* can be a single SMOL tree (extension .smol), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
         cout << "  *projABRadius* is in mm. A value of zero corresponds to no addback" << endl;
         cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
@@ -304,12 +309,13 @@ int main(int argc, char **argv){
     }else{
         sfile = argv[1];
         projABRad = atof(argv[2]);
-        forwardPos = (uint8_t)(atoi(argv[3]) == 1);
-        outfile = argv[4];
-        if(argc > 5){
-            keVPerBin = atof(argv[5]);
-            if(argc > 6){
-                discardPileup = (uint8_t)(atoi(argv[6]));
+        sameCloverOnly = (uint8_t)(atoi(argv[3]) == 1);
+        forwardPos = (uint8_t)(atoi(argv[4]) == 1);
+        outfile = argv[5];
+        if(argc > 6){
+            keVPerBin = atof(argv[6]);
+            if(argc > 7){
+                discardPileup = (uint8_t)(atoi(argv[7]));
             }
         }
     }
@@ -340,10 +346,10 @@ int main(int argc, char **argv){
 
     uint64_t numSepEvts = 0U;
     if(strcmp(dot + 1, "smol") == 0){
-        printf("SMOL tree: %s\nAddback radius: %0.2f mm\nDetector position: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, projABRad, (forwardPos == 1) ? "forward" : "back", outfile, keVPerBin);
-        numSepEvts += SortData(sfile, projABRad, forwardPos, keVPerBin, discardPileup);
+        printf("SMOL tree: %s\nAddback radius: %0.2f mm\nDetector position: %s\nClover addback only: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, projABRad, (forwardPos == 1) ? "forward" : "back", (sameCloverOnly == 1) ? "yes" : "no", outfile, keVPerBin);
+        numSepEvts += SortData(sfile, projABRad, sameCloverOnly, forwardPos, keVPerBin, discardPileup);
     }else if(strcmp(dot + 1, "list") == 0){
-        printf("SMOL tree list: %s\nAddback radius: %0.2f mm\nDetector position: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, projABRad, (forwardPos == 1) ? "forward" : "back", outfile, keVPerBin);
+        printf("SMOL tree list: %s\nAddback radius: %0.2f mm\nDetector position: %s\nClover addback only: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, projABRad, (forwardPos == 1) ? "forward" : "back", (sameCloverOnly == 1) ? "yes" : "no", outfile, keVPerBin);
         
         FILE *listfile;
         char str[256];
@@ -355,7 +361,7 @@ int main(int argc, char **argv){
             while(!(feof(listfile))){//go until the end of file is reached
                 if(fgets(str,256,listfile)!=NULL){ //get an entire line
                     str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-                    numSepEvts += SortData(str, projABRad, forwardPos, keVPerBin, discardPileup);
+                    numSepEvts += SortData(str, projABRad, sameCloverOnly, forwardPos, keVPerBin, discardPileup);
                 }
             }
         }

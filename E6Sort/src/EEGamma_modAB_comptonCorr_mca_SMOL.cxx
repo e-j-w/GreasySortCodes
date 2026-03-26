@@ -33,7 +33,7 @@ void WriteData(const char* outName){
 
 }
 
-uint64_t SortData(const char *sfile, const double eLow, const double eHigh, const double eShift, const double gateABRad, const double projABRad, const uint8_t forwardPos, const double keVPerBin, const uint8_t discardPileup){
+uint64_t SortData(const char *sfile, const double eLow, const double eHigh, const double eShift, const double gateABRad, const double projABRad, const uint8_t sameCloverOnly, const uint8_t forwardPos, const double keVPerBin, const uint8_t discardPileup){
 
     FILE *inp = fopen(sfile, "rb");
     printf("\nFile %s opened\n", sfile);
@@ -68,10 +68,12 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
                 }
                 for(uint8_t k=0;k<64;k++){ //other core next to the first core, which could be addback'd with ti
                     if((k!=i)&&(k!=j)){
-                        if(getGRIFFINHitDistance(i,k,forwardPos) < projABRad){
-                            if(getGRIFFINVector(k,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
-                                hitMap180deg[i][j] = 1;
-                                break; //check the next coinc core
+                        if((!sameCloverOnly) || ((i/4) == (k/4))){
+                            if(getGRIFFINHitDistance(i,k,forwardPos) < projABRad){
+                                if(getGRIFFINVector(k,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
+                                    hitMap180deg[i][j] = 1;
+                                    break; //check the next coinc core
+                                }
                             }
                         }
                     }
@@ -123,44 +125,46 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
 
                         if(noABHitInd2 != noABHitInd){
                             //check if hits are in neighbouring crystals
-                            if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < gateABRad){ //FORWARD POSITION (11 cm)
-                                double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-                                if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
-                                    if(!(gateABHitBuildFlags & (1UL << noABHitInd))){
-                                        //first hit not yet flagged
-                                        if(!(gateABHitBuildFlags & (1UL << noABHitInd2))){
-                                            //neither hit flagged
-                                            //build initial addback hit
-                                            gateAddbackT[numGateABHitsBuilt] = noABHitTime(&sortedEvt,noABHitInd);
-                                            if(!(gateABHitBuildFlags & (1UL << noABHitInd))){
-                                                gateAddbackE[numGateABHitsBuilt] += sortedEvt.noABHit[noABHitInd].energy;
-                                            }
+                            if((!sameCloverOnly) || (((sortedEvt.noABHit[noABHitInd].core & 63U)/4) == ((sortedEvt.noABHit[noABHitInd2].core & 63U)/4))){
+                                if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < gateABRad){ //FORWARD POSITION (11 cm)
+                                    double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
+                                    if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
+                                        if(!(gateABHitBuildFlags & (1UL << noABHitInd))){
+                                            //first hit not yet flagged
                                             if(!(gateABHitBuildFlags & (1UL << noABHitInd2))){
-                                                gateAddbackE[numGateABHitsBuilt] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                //neither hit flagged
+                                                //build initial addback hit
+                                                gateAddbackT[numGateABHitsBuilt] = noABHitTime(&sortedEvt,noABHitInd);
+                                                if(!(gateABHitBuildFlags & (1UL << noABHitInd))){
+                                                    gateAddbackE[numGateABHitsBuilt] += sortedEvt.noABHit[noABHitInd].energy;
+                                                }
+                                                if(!(gateABHitBuildFlags & (1UL << noABHitInd2))){
+                                                    gateAddbackE[numGateABHitsBuilt] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                }
+                                                //flag hits
+                                                gateABHitBuildFlags |= (1UL << noABHitInd);
+                                                gateABHitBuildFlags |= (1UL << noABHitInd2);
+                                                gateABHitMapping[noABHitInd] = numGateABHitsBuilt;
+                                                gateABHitMapping[noABHitInd2] = numGateABHitsBuilt;
+                                                abHitBuilt = 1;
+                                            }else{
+                                                //first hit not flagged, second hit flagged
+                                                //add first hit to second hit's addback data
+                                                gateAddbackE[gateABHitMapping[noABHitInd2]] += sortedEvt.noABHit[noABHitInd].energy;
+                                                //flag hit
+                                                gateABHitBuildFlags |= (1UL << noABHitInd);
+                                                gateABHitMapping[noABHitInd] = gateABHitMapping[noABHitInd2];
                                             }
-                                            //flag hits
-                                            gateABHitBuildFlags |= (1UL << noABHitInd);
-                                            gateABHitBuildFlags |= (1UL << noABHitInd2);
-                                            gateABHitMapping[noABHitInd] = numGateABHitsBuilt;
-                                            gateABHitMapping[noABHitInd2] = numGateABHitsBuilt;
-                                            abHitBuilt = 1;
                                         }else{
-                                            //first hit not flagged, second hit flagged
-                                            //add first hit to second hit's addback data
-                                            gateAddbackE[gateABHitMapping[noABHitInd2]] += sortedEvt.noABHit[noABHitInd].energy;
-                                            //flag hit
-                                            gateABHitBuildFlags |= (1UL << noABHitInd);
-                                            gateABHitMapping[noABHitInd] = gateABHitMapping[noABHitInd2];
-                                        }
-                                    }else{
-                                        //first hit flagged
-                                        if(!(gateABHitBuildFlags & (1UL << noABHitInd2))){
-                                            //first hit flagged, second not flagged
-                                            //add second hit to first hit's addback data
-                                            gateAddbackE[gateABHitMapping[noABHitInd]] += sortedEvt.noABHit[noABHitInd2].energy;
-                                            //flag hit
-                                            gateABHitBuildFlags |= (1UL << noABHitInd2);
-                                            gateABHitMapping[noABHitInd2] = gateABHitMapping[noABHitInd];
+                                            //first hit flagged
+                                            if(!(gateABHitBuildFlags & (1UL << noABHitInd2))){
+                                                //first hit flagged, second not flagged
+                                                //add second hit to first hit's addback data
+                                                gateAddbackE[gateABHitMapping[noABHitInd]] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                //flag hit
+                                                gateABHitBuildFlags |= (1UL << noABHitInd2);
+                                                gateABHitMapping[noABHitInd2] = gateABHitMapping[noABHitInd];
+                                            }
                                         }
                                     }
                                 }
@@ -215,44 +219,46 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
 
                                     if((noABHitInd2 != gateNoABHitInd)&&(noABHitInd2 != noABHitInd)){
                                         //check if hits are in neighbouring crystals
-                                        if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < projABRad){ //FORWARD POSITION (11 cm)
-                                            double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-                                            if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
-                                                if(!(projABHitBuildFlags & (1UL << noABHitInd))){
-                                                    //first hit not yet flagged
-                                                    if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
-                                                        //neither hit flagged
-                                                        //build initial addback hit
-                                                        projAddbackT[numProjABHitsBuilt] = noABHitTime(&sortedEvt,noABHitInd);
-                                                        if(!(projABHitBuildFlags & (1UL << noABHitInd))){
-                                                            projAddbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd].energy;
-                                                        }
+                                        if((!sameCloverOnly) || (((sortedEvt.noABHit[noABHitInd].core & 63U)/4) == ((sortedEvt.noABHit[noABHitInd2].core & 63U)/4))){
+                                            if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < projABRad){ //FORWARD POSITION (11 cm)
+                                                double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
+                                                if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
+                                                    if(!(projABHitBuildFlags & (1UL << noABHitInd))){
+                                                        //first hit not yet flagged
                                                         if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
-                                                            projAddbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                            //neither hit flagged
+                                                            //build initial addback hit
+                                                            projAddbackT[numProjABHitsBuilt] = noABHitTime(&sortedEvt,noABHitInd);
+                                                            if(!(projABHitBuildFlags & (1UL << noABHitInd))){
+                                                                projAddbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd].energy;
+                                                            }
+                                                            if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
+                                                                projAddbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                            }
+                                                            //flag hits
+                                                            projABHitBuildFlags |= (1UL << noABHitInd);
+                                                            projABHitBuildFlags |= (1UL << noABHitInd2);
+                                                            projABHitMapping[noABHitInd] = numProjABHitsBuilt;
+                                                            projABHitMapping[noABHitInd2] = numProjABHitsBuilt;
+                                                            abHitBuilt = 1;
+                                                        }else{
+                                                            //first hit not flagged, second hit flagged
+                                                            //add first hit to second hit's addback data
+                                                            projAddbackE[projABHitMapping[noABHitInd2]] += sortedEvt.noABHit[noABHitInd].energy;
+                                                            //flag hit
+                                                            projABHitBuildFlags |= (1UL << noABHitInd);
+                                                            projABHitMapping[noABHitInd] = projABHitMapping[noABHitInd2];
                                                         }
-                                                        //flag hits
-                                                        projABHitBuildFlags |= (1UL << noABHitInd);
-                                                        projABHitBuildFlags |= (1UL << noABHitInd2);
-                                                        projABHitMapping[noABHitInd] = numProjABHitsBuilt;
-                                                        projABHitMapping[noABHitInd2] = numProjABHitsBuilt;
-                                                        abHitBuilt = 1;
                                                     }else{
-                                                        //first hit not flagged, second hit flagged
-                                                        //add first hit to second hit's addback data
-                                                        projAddbackE[projABHitMapping[noABHitInd2]] += sortedEvt.noABHit[noABHitInd].energy;
-                                                        //flag hit
-                                                        projABHitBuildFlags |= (1UL << noABHitInd);
-                                                        projABHitMapping[noABHitInd] = projABHitMapping[noABHitInd2];
-                                                    }
-                                                }else{
-                                                    //first hit flagged
-                                                    if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
-                                                        //first hit flagged, second not flagged
-                                                        //add second hit to first hit's addback data
-                                                        projAddbackE[projABHitMapping[noABHitInd]] += sortedEvt.noABHit[noABHitInd2].energy;
-                                                        //flag hit
-                                                        projABHitBuildFlags |= (1UL << noABHitInd2);
-                                                        projABHitMapping[noABHitInd2] = projABHitMapping[noABHitInd];
+                                                        //first hit flagged
+                                                        if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
+                                                            //first hit flagged, second not flagged
+                                                            //add second hit to first hit's addback data
+                                                            projAddbackE[projABHitMapping[noABHitInd]] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                            //flag hit
+                                                            projABHitBuildFlags |= (1UL << noABHitInd2);
+                                                            projABHitMapping[noABHitInd2] = projABHitMapping[noABHitInd];
+                                                        }
                                                     }
                                                 }
                                             }
@@ -551,44 +557,46 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
 
                                     if((!(usedGateHitBuildFlags & (1UL << noABHitInd2)))&&(noABHitInd2 != noABHitInd)){
                                         //check if hits are in neighbouring crystals
-                                        if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < projABRad){ //FORWARD POSITION (11 cm)
-                                            double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
-                                            if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
-                                                if(!(projABHitBuildFlags & (1UL << noABHitInd))){
-                                                    //first hit not yet flagged
-                                                    if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
-                                                        //neither hit flagged
-                                                        //build initial addback hit
-                                                        projAddbackT[numProjABHitsBuilt] = noABHitTime(&sortedEvt,noABHitInd);
-                                                        if(!(projABHitBuildFlags & (1UL << noABHitInd))){
-                                                            projAddbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd].energy;
-                                                        }
+                                        if((!sameCloverOnly) || (((sortedEvt.noABHit[noABHitInd].core & 63U)/4) == ((sortedEvt.noABHit[noABHitInd2].core & 63U)/4))){
+                                            if(getGRIFFINHitDistance(sortedEvt.noABHit[noABHitInd].core & 63U,sortedEvt.noABHit[noABHitInd2].core & 63U,forwardPos) < projABRad){ //FORWARD POSITION (11 cm)
+                                                double tDiff = (noABHitTime(&sortedEvt,noABHitInd) - noABHitTime(&sortedEvt,noABHitInd2));
+                                                if(fabs(tDiff) <= ADDBACK_TIMING_GATE){ //timing condition
+                                                    if(!(projABHitBuildFlags & (1UL << noABHitInd))){
+                                                        //first hit not yet flagged
                                                         if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
-                                                            projAddbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                            //neither hit flagged
+                                                            //build initial addback hit
+                                                            projAddbackT[numProjABHitsBuilt] = noABHitTime(&sortedEvt,noABHitInd);
+                                                            if(!(projABHitBuildFlags & (1UL << noABHitInd))){
+                                                                projAddbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd].energy;
+                                                            }
+                                                            if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
+                                                                projAddbackE[numProjABHitsBuilt] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                            }
+                                                            //flag hits
+                                                            projABHitBuildFlags |= (1UL << noABHitInd);
+                                                            projABHitBuildFlags |= (1UL << noABHitInd2);
+                                                            projABHitMapping[noABHitInd] = numProjABHitsBuilt;
+                                                            projABHitMapping[noABHitInd2] = numProjABHitsBuilt;
+                                                            abHitBuilt = 1;
+                                                        }else{
+                                                            //first hit not flagged, second hit flagged
+                                                            //add first hit to second hit's addback data
+                                                            projAddbackE[projABHitMapping[noABHitInd2]] += sortedEvt.noABHit[noABHitInd].energy;
+                                                            //flag hit
+                                                            projABHitBuildFlags |= (1UL << noABHitInd);
+                                                            projABHitMapping[noABHitInd] = projABHitMapping[noABHitInd2];
                                                         }
-                                                        //flag hits
-                                                        projABHitBuildFlags |= (1UL << noABHitInd);
-                                                        projABHitBuildFlags |= (1UL << noABHitInd2);
-                                                        projABHitMapping[noABHitInd] = numProjABHitsBuilt;
-                                                        projABHitMapping[noABHitInd2] = numProjABHitsBuilt;
-                                                        abHitBuilt = 1;
                                                     }else{
-                                                        //first hit not flagged, second hit flagged
-                                                        //add first hit to second hit's addback data
-                                                        projAddbackE[projABHitMapping[noABHitInd2]] += sortedEvt.noABHit[noABHitInd].energy;
-                                                        //flag hit
-                                                        projABHitBuildFlags |= (1UL << noABHitInd);
-                                                        projABHitMapping[noABHitInd] = projABHitMapping[noABHitInd2];
-                                                    }
-                                                }else{
-                                                    //first hit flagged
-                                                    if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
-                                                        //first hit flagged, second not flagged
-                                                        //add second hit to first hit's addback data
-                                                        projAddbackE[projABHitMapping[noABHitInd]] += sortedEvt.noABHit[noABHitInd2].energy;
-                                                        //flag hit
-                                                        projABHitBuildFlags |= (1UL << noABHitInd2);
-                                                        projABHitMapping[noABHitInd2] = projABHitMapping[noABHitInd];
+                                                        //first hit flagged
+                                                        if(!(projABHitBuildFlags & (1UL << noABHitInd2))){
+                                                            //first hit flagged, second not flagged
+                                                            //add second hit to first hit's addback data
+                                                            projAddbackE[projABHitMapping[noABHitInd]] += sortedEvt.noABHit[noABHitInd2].energy;
+                                                            //flag hit
+                                                            projABHitBuildFlags |= (1UL << noABHitInd2);
+                                                            projABHitMapping[noABHitInd2] = projABHitMapping[noABHitInd];
+                                                        }
                                                     }
                                                 }
                                             }
@@ -866,15 +874,17 @@ int main(int argc, char **argv){
     double keVPerBin = 1.0;
     double eLow, eHigh, eCorr, gateABRad, projABRad;
     uint8_t forwardPos = 0;
+    uint8_t sameCloverOnly = 0;
     uint8_t discardPileup = 0;
     printf("Starting EEGamma_modAB_comptonCorr_mca_SMOL\n");
 
-    if((argc != 9)&&(argc != 10)&&(argc != 11)){
+    if((argc != 10)&&(argc != 11)&&(argc != 12)){
         cout << "Generates dmca gamma-gated Compton background spectra, to be used in background subtraction of Compton scatter features." << endl;
-        cout << "Arguments: EEGamma_modAB_comptonCorr_mca_SMOL smol_file EGateLow EGateHigh ECorr gateABRadius projABRadius forward_pos output_dmca_file keV_per_bin discard_pileup" << endl;
+        cout << "Arguments: EEGamma_modAB_comptonCorr_mca_SMOL smol_file EGateLow EGateHigh ECorr gateABRadius projABRadius same_clover_only forward_pos output_dmca_file keV_per_bin discard_pileup" << endl;
         cout << "  *smol_file* can be a single SMOL tree (extension .smol), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
         cout << "  *ECorr* is the energy in keV for which the Compton background is being generated (ie. the original gate energy which the background will be subtracted from)." << endl;
         cout << "  *gateABRadius* and *projABRadius* are in mm. Values of zero correspond to no addback." << endl;
+        cout << "  *same_clover_only* should be 1 if the addback will only consider hits in the same clover, 0 otherwise." << endl;
         cout << "  *forward_pos* should be 1 if the detectors are in the forward (110 mm) position, 0 otherwise." << endl;
         cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
         cout << "  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits)." << endl;
@@ -886,12 +896,13 @@ int main(int argc, char **argv){
         eCorr = atof(argv[4]);
         gateABRad = atof(argv[5]);
         projABRad = atof(argv[6]);
-        forwardPos = (uint8_t)(atoi(argv[7]) == 1);
-        outfile = argv[8];
-        if(argc > 9){
-            keVPerBin = atof(argv[9]);
-            if(argc > 10){
-                discardPileup = (uint8_t)(atoi(argv[10]));
+        sameCloverOnly = (uint8_t)(atoi(argv[7]) == 1);
+        forwardPos = (uint8_t)(atoi(argv[8]) == 1);
+        outfile = argv[9];
+        if(argc > 10){
+            keVPerBin = atof(argv[10]);
+            if(argc > 11){
+                discardPileup = (uint8_t)(atoi(argv[11]));
             }
         }
     }
@@ -935,10 +946,10 @@ int main(int argc, char **argv){
 
     uint64_t numSepEvts = 0U;
     if(strcmp(dot + 1, "smol") == 0){
-        printf("SMOL tree: %s\nEnergy gate: [%0.2f %0.2f]\nCompton correction energy: %0.2f keV\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nDetector position: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, eCorr, gateABRad, projABRad, (forwardPos == 1) ? "forward" : "back", outfile, keVPerBin);
-        numSepEvts += SortData(sfile, eLow, eHigh, eShift, gateABRad, projABRad, forwardPos, keVPerBin, discardPileup);
+        printf("SMOL tree: %s\nEnergy gate: [%0.2f %0.2f]\nCompton correction energy: %0.2f keV\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nDetector position: %s\nClover addback only: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, eCorr, gateABRad, projABRad, (forwardPos == 1) ? "forward" : "back", (sameCloverOnly == 1) ? "yes" : "no", outfile, keVPerBin);
+        numSepEvts += SortData(sfile, eLow, eHigh, eShift, gateABRad, projABRad, sameCloverOnly, forwardPos, keVPerBin, discardPileup);
     }else if(strcmp(dot + 1, "list") == 0){
-        printf("SMOL tree list: %s\nEnergy gate: [%0.2f %0.2f]\nCompton correction energy: %0.2f keV\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nDetector position: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, eCorr, gateABRad, projABRad, (forwardPos == 1) ? "forward" : "back", outfile, keVPerBin);
+        printf("SMOL tree list: %s\nEnergy gate: [%0.2f %0.2f]\nCompton correction energy: %0.2f keV\nGate addback radius: %0.2f mm\nProjection addback radius: %0.2f mm\nDetector position: %s\nClover addback only: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, eLow, eHigh, eCorr, gateABRad, projABRad, (forwardPos == 1) ? "forward" : "back", (sameCloverOnly == 1) ? "yes" : "no", outfile, keVPerBin);
         
         FILE *listfile;
         char str[256];
@@ -950,7 +961,7 @@ int main(int argc, char **argv){
             while(!(feof(listfile))){//go until the end of file is reached
                 if(fgets(str,256,listfile)!=NULL){ //get an entire line
                     str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-                    numSepEvts += SortData(str, eLow, eHigh, eShift, gateABRad, projABRad, forwardPos, keVPerBin, discardPileup);
+                    numSepEvts += SortData(str, eLow, eHigh, eShift, gateABRad, projABRad, sameCloverOnly, forwardPos, keVPerBin, discardPileup);
                 }
             }
         }

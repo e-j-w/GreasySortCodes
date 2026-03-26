@@ -27,7 +27,7 @@ using namespace std;
 #define PI 3.14159265359
 
 //default timing gates
-#define ADDBACK_TIMING_GATE            50.0 //maximum time (in ns) that can separate events which will be summed in addback
+#define ADDBACK_TIMING_GATE            200.0 //maximum time (in ns) that can separate events which will be summed in addback
 #define COINC_TIMING_GATE_MIN         -50.0 //minimum time (in ns) that can separate sorted coincidences (following addback), previously -30
 #define COINC_TIMING_GATE_MAX          50.0 //maximum time (in ns) that can separate sorted coincidences (following addback), previously 30
 #define COINC_TIMING_GATE_1CFDFAIL_MIN  -150.0 //previously -150

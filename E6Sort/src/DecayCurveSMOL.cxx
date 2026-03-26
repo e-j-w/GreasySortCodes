@@ -49,26 +49,85 @@ void SortData(const char *sfile, const uint64_t startNumSec)
 
     //read event
     if(readSMOLEvent(inp,&sortedEvt)==0){
-      cout << "ERROR: bad event data in entry " << jentry << "." << endl;
+      printf("ERROR: bad event data in entry %lu.\n",jentry);
       exit(-1);
+    }
+
+    //construct addback energies and times
+    memset(addbackE,0,sizeof(addbackE));
+    memset(maxABHitE,0,sizeof(maxABHitE));
+    for(int ABpos = 0; ABpos < NGRIFPOS; ABpos++){
+      addbackT[ABpos] = -1.0; //default value
+    }
+    for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+      int ABHitPos = (sortedEvt.noABHit[noABHitInd].core & 63U)/4;
+
+      if(ABHitPos < NGRIFPOS){
+
+        //check timing criteria
+        if(addbackT[ABHitPos] >= 0.0){
+          //there are hits in this clover
+          if(fabs(noABHitTime(&sortedEvt,noABHitInd) - (double)addbackT[ABHitPos]) > ADDBACK_TIMING_GATE){
+            //hit not in time coincidence with other hits
+            if(sortedEvt.noABHit[noABHitInd].energy > maxABHitE[ABHitPos]){
+              //higher energy, not time coincident
+              //make this hit the new hit
+              addbackT[ABHitPos] = noABHitTime(&sortedEvt,noABHitInd);
+              maxABHitE[ABHitPos] = sortedEvt.noABHit[noABHitInd].energy;
+              addbackE[ABHitPos] = sortedEvt.noABHit[noABHitInd].energy;
+              //got to the next hit
+              continue;
+            }else{
+              //lower energy, not time coincident
+              //skip this hit
+              continue;
+            }
+          }
+        }
+        
+        //only get here if there are no hits in the clover, or if there
+        //is a time coincident hit
+        if(sortedEvt.noABHit[noABHitInd].energy > maxABHitE[ABHitPos]){
+          addbackT[ABHitPos] = noABHitTime(&sortedEvt,noABHitInd);
+          maxABHitE[ABHitPos] = sortedEvt.noABHit[noABHitInd].energy;
+        }
+        addbackE[ABHitPos] += sortedEvt.noABHit[noABHitInd].energy; 
+      }
     }
     
     Double_t tSec = 0.0;
-    for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-      if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
-        tSec = ((sortedEvt.header.evtTimeNs + (double)(sortedEvt.noABHit[noABHitInd].timeOffsetNs))/(1.0E9)) + (double)startNumSec;
+
+    for(int ABpos = 0; ABpos < NGRIFPOS; ABpos++){
+
+      if(addbackT[ABpos] < 0.0){
+        //no addback hit in this clover
+        continue;
+      }
+
+      if(addbackE[ABpos] > MIN_HPGE_EAB){
+        tSec = (addbackT[ABpos]/(1.0E9)) + (double)startNumSec;
         //if((jentry % 10000)==0) printf("evtTimeNs: %f, tSec: %f\n",sortedEvt.header.evtTimeNs,tSec);
-        hpgeE_time->Fill(sortedEvt.noABHit[noABHitInd].energy, tSec/60.0);
+        hpgeE_time->Fill(addbackE[ABpos], tSec/60.0);
         counts_time->Fill(tSec/60.0);
-        if((sortedEvt.noABHit[noABHitInd].energy >= 676.0)&&(sortedEvt.noABHit[noABHitInd].energy <= 695.0)){
+        if((addbackE[ABpos] >= 676.0)&&(addbackE[ABpos] <= 695.0)){
           counts_time_685->Fill(tSec/60.0);
         }
-        if((sortedEvt.noABHit[noABHitInd].energy >= 930.0)&&(sortedEvt.noABHit[noABHitInd].energy <= 938.0)){
+        if((addbackE[ABpos] >= 930.0)&&(addbackE[ABpos] <= 938.0)){
           counts_time_934->Fill(tSec/60.0);
         }
-        if((sortedEvt.noABHit[noABHitInd].energy >= 1469.0)&&(sortedEvt.noABHit[noABHitInd].energy <= 1487.0)){
+        if((addbackE[ABpos] >= 1469.0)&&(addbackE[ABpos] <= 1487.0)){
           counts_time_1477->Fill(tSec/60.0);
         }
+        counts_time->Fill(tSec/60.0);
+      }
+    }
+    
+    for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+      if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
+        tSec = (noABHitTime(&sortedEvt, noABHitInd)/(1.0E9)) + (double)startNumSec;
+        //if((jentry % 10000)==0) printf("evtTimeNs: %f, tSec: %f\n",sortedEvt.header.evtTimeNs,tSec);
+        hpgeE_time->Fill(sortedEvt.noABHit[noABHitInd].energy, tSec/60.0);
       }
     }
 
