@@ -123,7 +123,7 @@ int main(int argc, char **argv){
   if((argc != 3)&&(argc != 4)){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
     cout << "Arguments: EGamma_noAB_mca_SMOL smol_file output_dmca_file keV_per_bin" << endl;
-    cout << "  *smol_file* can be a single SMOL tree (extension .smole6), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
+    cout << "  *smol_file* can be a single SMOL tree (extension .smol), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     return 0;
   }else{

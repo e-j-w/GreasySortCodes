@@ -12,7 +12,7 @@
 
 using namespace std;
 
-uint8_t hitMap180deg[64][64]; //1st index = crystal of hit, 2nd index = crystal of 2nd hit, val = 1 indicates 180 degree summing occurs
+uint8_t hitMap180deg[NGRIFPOS*4][NGRIFPOS*4]; //1st index = crystal of hit, 2nd index = crystal of 2nd hit, val = 1 indicates 180 degree summing occurs
 
 uint8_t gateABHitMapping[64], projABHitMapping[64]; //arrays specifying which hits correspond to which addback hits
 double gateAddbackE[64], projAddbackE[64];
@@ -59,14 +59,14 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
 
     //construct 180 degree summing hit map
     memset(hitMap180deg,0,sizeof(hitMap180deg));
-    for(uint8_t i=0;i<64;i++){ //first core
-        for(uint8_t j=0;j<64;j++){ //coinc core
+    for(uint8_t i=0;i<(NGRIFPOS*4);i++){ //first core
+        for(uint8_t j=0;j<(NGRIFPOS*4);j++){ //coinc core
             if(i!=j){
                 if(getGRIFFINVector(i,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 175.0){
                     hitMap180deg[i][j] = 1;
                     continue; //check the next coinc core
                 }
-                for(uint8_t k=0;k<64;k++){ //other core next to the first core, which could be addback'd with ti
+                for(uint8_t k=0;k<(NGRIFPOS*4);k++){ //other core next to the first core, which could be addback'd with ti
                     if((k!=i)&&(k!=j)){
                         if((!sameCloverOnly) || ((i/4) == (k/4))){
                             if(getGRIFFINHitDistance(i,k,forwardPos) < projABRad){
@@ -105,7 +105,7 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
         //build initial addback hits, using the gate addback radius,
         //and using gateABHitMapping to track which hits are grouped together
         for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-            if(noABHitInd < 64){
+            if(noABHitInd < MAX_HITS_PER_EVT){
 
                 if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
                     continue; //skip pileup hit
@@ -115,7 +115,7 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
 
                 uint8_t abHitBuilt = 0;
                 for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
-                    if(noABHitInd2 < 64){
+                    if(noABHitInd2 < MAX_HITS_PER_EVT){
 
                         if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
                             continue; //skip pileup hit
@@ -175,7 +175,7 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
                 if(abHitBuilt != 0){
                     //addback hit was just built
                     numGateABHitsBuilt++;
-                    if(numGateABHitsBuilt>=64){
+                    if(numGateABHitsBuilt>=MAX_HITS_PER_EVT){
                         break;
                     }
                 }
@@ -198,7 +198,7 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
                 memset(projAddbackE,0,sizeof(projAddbackE));
                 memset(projAddbackT,0,sizeof(projAddbackT));
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-                    if(noABHitInd < 64){
+                    if(noABHitInd < MAX_HITS_PER_EVT){
 
                         if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
                             continue; //skip pileup hit
@@ -209,7 +209,7 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
                         if(noABHitInd != gateNoABHitInd){
                             uint8_t abHitBuilt = 0;
                             for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
-                                if(noABHitInd2 < 64){
+                                if(noABHitInd2 < MAX_HITS_PER_EVT){
 
                                     if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
                                         continue; //skip pileup hit
@@ -270,7 +270,7 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
                             if(abHitBuilt != 0){
                                 //addback hit was just built
                                 numProjABHitsBuilt++;
-                                if(numProjABHitsBuilt>=64){
+                                if(numProjABHitsBuilt>=MAX_HITS_PER_EVT){
                                     break;
                                 }
                             }
@@ -523,7 +523,7 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
                 //satisfactory gate hit found, flag its original hits as in use
                 uint64_t usedGateHitBuildFlags = 0;
                 for(uint8_t i=0;i<sortedEvt.header.numNoABHits;i++){
-                    if(i<64){
+                    if(i<MAX_HITS_PER_EVT){
                         if(gateABHitBuildFlags & (1UL << i)){
                             if(gateABHitMapping[i]==gateABHitInd){
                                 usedGateHitBuildFlags |= (1UL << i);
@@ -539,7 +539,7 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
                 memset(projAddbackE,0,sizeof(projAddbackE));
                 memset(projAddbackT,0,sizeof(projAddbackT));
                 for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-                    if(noABHitInd < 64){
+                    if(noABHitInd < MAX_HITS_PER_EVT){
 
                         if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
                             continue; //skip pileup hit
@@ -550,7 +550,7 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
                         if(!(usedGateHitBuildFlags & (1UL << noABHitInd))){
                             uint8_t abHitBuilt = 0;
                             for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
-                                if(noABHitInd2 < 64){
+                                if(noABHitInd2 < MAX_HITS_PER_EVT){
 
                                     if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
                                         continue; //skip pileup hit
@@ -610,7 +610,7 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
                             if(abHitBuilt != 0){
                                 //addback hit was just built
                                 numProjABHitsBuilt++;
-                                if(numProjABHitsBuilt>=64){
+                                if(numProjABHitsBuilt>=MAX_HITS_PER_EVT){
                                     break;
                                 }
                             }
@@ -689,77 +689,76 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
                     }
                     if(hitPrevFilledS == 0){
                         
-                            for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+                        for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
 
-                                if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
-                                    continue; //skip pileup hit
-                                }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
-                                    continue; //skip non-pileup hit
-                                }
+                            if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+                                continue; //skip pileup hit
+                            }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+                                continue; //skip non-pileup hit
+                            }
 
-                                if(!(specFillFlags[1] & (1UL << noABHitInd))){
-                                    if(projABHitMapping[noABHitInd] == projABHitInd){
-                                        for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+                            if(!(specFillFlags[1] & (1UL << noABHitInd))){
+                                if(projABHitMapping[noABHitInd] == projABHitInd){
+                                    for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
 
-                                            if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
-                                                continue; //skip pileup hit
-                                            }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
-                                                continue; //skip non-pileup hit
-                                            }
+                                        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+                                            continue; //skip pileup hit
+                                        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+                                            continue; //skip non-pileup hit
+                                        }
 
-                                            if(!(specFillFlags[1] & (1UL << noABHitInd2))){
-                                                if(((!(projABHitBuildFlags & (1UL << noABHitInd2))) || (projABHitMapping[noABHitInd2] != projABHitInd))&&(!(usedGateHitBuildFlags & (1UL << noABHitInd2)))){
-                                                    if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
-                                                        double eGamma = projAddbackE[projABHitInd]/keVPerBin;
-                                                        double eGamma2 = 0;
-                                                        double tDiffSum = SUM_TIMING_GATE_MAX + 1000.0; //default value, outside the gate
-                                                        if(projABHitBuildFlags & (1UL << noABHitInd2)){
-                                                            //opposing hit was part of a different projection hit
-                                                            eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
-                                                            tDiffSum = (projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
-                                                        }else{
-                                                            //opposing hit was a single non-addback hit
-                                                            eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
-                                                            tDiffSum = (noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
-                                                        }
-                                                        if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition
-                                                            if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
-                                                                //set flags
+                                        if(!(specFillFlags[1] & (1UL << noABHitInd2))){
+                                            if(((!(projABHitBuildFlags & (1UL << noABHitInd2))) || (projABHitMapping[noABHitInd2] != projABHitInd))&&(!(usedGateHitBuildFlags & (1UL << noABHitInd2)))){
+                                                if(hitMap180deg[sortedEvt.noABHit[noABHitInd].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
+                                                    double eGamma = projAddbackE[projABHitInd]/keVPerBin;
+                                                    double eGamma2 = 0;
+                                                    double tDiffSum = SUM_TIMING_GATE_MAX + 1000.0; //default value, outside the gate
+                                                    if(projABHitBuildFlags & (1UL << noABHitInd2)){
+                                                        //opposing hit was part of a different projection hit
+                                                        eGamma2 = projAddbackE[projABHitMapping[noABHitInd2]]/keVPerBin;
+                                                        tDiffSum = (projAddbackT[projABHitMapping[noABHitInd2]] - projAddbackT[projABHitInd]);
+                                                    }else{
+                                                        //opposing hit was a single non-addback hit
+                                                        eGamma2 = sortedEvt.noABHit[noABHitInd2].energy/keVPerBin;
+                                                        tDiffSum = (noABHitTime(&sortedEvt,noABHitInd2) - projAddbackT[projABHitInd]);
+                                                    }
+                                                    if((tDiffSum >= SUM_TIMING_GATE_MIN)&&(tDiffSum <= SUM_TIMING_GATE_MAX)){ //timing condition
+                                                        if((tDiff >= COINC_TIMING_GATE_MIN)&&(tDiff <= COINC_TIMING_GATE_MAX)){ //timing condition
+                                                            //set flags
+                                                            for(int noABHitIndS = 0; noABHitIndS < sortedEvt.header.numNoABHits; noABHitIndS++){
+                                                                if(projABHitMapping[noABHitIndS] == projABHitInd){
+                                                                    specFillFlags[1] |= (1UL << noABHitIndS);
+                                                                }
+                                                            }
+                                                            if(projABHitBuildFlags & (1UL << noABHitInd2)){
                                                                 for(int noABHitIndS = 0; noABHitIndS < sortedEvt.header.numNoABHits; noABHitIndS++){
-                                                                    if(projABHitMapping[noABHitIndS] == projABHitInd){
+                                                                    if(projABHitMapping[noABHitIndS] == projABHitMapping[noABHitInd2]){
                                                                         specFillFlags[1] |= (1UL << noABHitIndS);
                                                                     }
                                                                 }
-                                                                if(projABHitBuildFlags & (1UL << noABHitInd2)){
-                                                                    for(int noABHitIndS = 0; noABHitIndS < sortedEvt.header.numNoABHits; noABHitIndS++){
-                                                                        if(projABHitMapping[noABHitIndS] == projABHitMapping[noABHitInd2]){
-                                                                            specFillFlags[1] |= (1UL << noABHitIndS);
-                                                                        }
-                                                                    }
-                                                                }else{
-                                                                    specFillFlags[1] |= (1UL << noABHitInd2);
-                                                                }
-                                                                int eGammaSum = (int)(eGamma + eGamma2);
-                                                                if(eGammaSum>=0 && eGammaSum<S32K){
-                                                                    mcaOut[2][eGammaSum]++;
-                                                                }
-                                                                if(eGamma>=0 && eGamma<S32K){
-                                                                    mcaOut[1][(int)eGamma]++;
-                                                                }
-                                                                if(eGamma2>=0 && eGamma2<S32K){
-                                                                    mcaOut[1][(int)eGamma2]++;
-                                                                }
-                                                            }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
-                                                                int eGammaSum = (int)(eGamma + eGamma2);
-                                                                if(eGammaSum>=0 && eGammaSum<S32K){
-                                                                    mcaOut[5][eGammaSum]++;
-                                                                }
-                                                                if(eGamma>=0 && eGamma<S32K){
-                                                                    mcaOut[4][(int)eGamma]++;
-                                                                }
-                                                                if(eGamma2>=0 && eGamma2<S32K){
-                                                                    mcaOut[4][(int)eGamma2]++;
-                                                                }
+                                                            }else{
+                                                                specFillFlags[1] |= (1UL << noABHitInd2);
+                                                            }
+                                                            int eGammaSum = (int)(eGamma + eGamma2);
+                                                            if(eGammaSum>=0 && eGammaSum<S32K){
+                                                                mcaOut[2][eGammaSum]++;
+                                                            }
+                                                            if(eGamma>=0 && eGamma<S32K){
+                                                                mcaOut[1][(int)eGamma]++;
+                                                            }
+                                                            if(eGamma2>=0 && eGamma2<S32K){
+                                                                mcaOut[1][(int)eGamma2]++;
+                                                            }
+                                                        }else if((tDiff >= TRANDOM_GATE_MIN)&&(tDiff <= TRANDOM_GATE_MAX)){
+                                                            int eGammaSum = (int)(eGamma + eGamma2);
+                                                            if(eGammaSum>=0 && eGammaSum<S32K){
+                                                                mcaOut[5][eGammaSum]++;
+                                                            }
+                                                            if(eGamma>=0 && eGamma<S32K){
+                                                                mcaOut[4][(int)eGamma]++;
+                                                            }
+                                                            if(eGamma2>=0 && eGamma2<S32K){
+                                                                mcaOut[4][(int)eGamma2]++;
                                                             }
                                                         }
                                                     }
@@ -769,6 +768,7 @@ uint64_t SortData(const char *sfile, const double eLow, const double eHigh, cons
                                     }
                                 }
                             }
+                        }
                     }
                 }
                 //add in any remaining hits that weren't addback'd

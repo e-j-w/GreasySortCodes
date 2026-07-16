@@ -11,10 +11,35 @@ const Double_t hpgehpgeTGate[2] = {-30, 30}; // narrow HPGe - HPGe timing window
 const Double_t hpgehpgeTSGate[2] = {0, 6}; // narrow HPGe - HPGe timing window (timestamp units)
 const Double_t hpgehpgeTRandGate[2] = {1300, 2000}; // time-random HPGe - HPGe timing window (ns)
 
+void WriteData(const char* outName){
 
-void SortData(const char *sfile, const char *outfile)
+  cout << "Writing histograms to " << outName << endl;
+
+  TFile *myfile = new TFile(outName, "RECREATE");
+  myfile->cd();
+  TDirectory *hpgedir = myfile->mkdir("HPGe");
+  hpgedir->cd();
+  hpgeList->Write();
+  myfile->cd();
+
+  TDirectory *timingdir = myfile->mkdir("Timing");
+  timingdir->cd();
+  timingList->Write();
+  myfile->cd();
+
+  TDirectory *hpgehpgedir = myfile->mkdir("HPGe_HPGe");
+  hpgehpgedir->cd();
+  hpgehpgeList->Write();
+  myfile->cd();
+
+  myfile->Write();
+  myfile->Close();
+
+}
+
+
+void SortData(const char *sfile)
 {
-  InitialiseHists();
 
   FILE *inp = fopen(sfile, "rb");
   if(inp==NULL){
@@ -253,29 +278,7 @@ void SortData(const char *sfile, const char *outfile)
   } // analysis tree
 
   cout << "Entry " << sentries << " of " << sentries << ", 100% complete" << endl;
-  cout << endl << "Event sorting complete" << endl;
 
-  cout << "Writing histograms to " << outfile << endl;
-
-  TFile *myfile = new TFile(outfile, "RECREATE");
-  myfile->cd();
-  TDirectory *hpgedir = myfile->mkdir("HPGe");
-  hpgedir->cd();
-  hpgeList->Write();
-  myfile->cd();
-
-  TDirectory *timingdir = myfile->mkdir("Timing");
-  timingdir->cd();
-  timingList->Write();
-  myfile->cd();
-
-  TDirectory *hpgehpgedir = myfile->mkdir("HPGe_HPGe");
-  hpgehpgedir->cd();
-  hpgehpgeList->Write();
-  myfile->cd();
-
-  myfile->Write();
-  myfile->Close();
   fclose(inp);
 }
 int main(int argc, char **argv)
@@ -286,26 +289,58 @@ int main(int argc, char **argv)
   printf("Starting SortDiagnosticsSMOL\n");
 
   if (argc == 1){
-    cout << "Code sorts a bunch of diagnostic histograms for online HPGe data." << endl;
+    cout << "Code sorts a bunch of diagnostic ROOT histograms for online HPGe data." << endl;
     cout << "Arguments: SortDiagnosticsSMOL smol_file output_file" << endl;
-    cout << "Default values will be used if arguments (other than SMOL file) are omitted." << endl;
+    cout << "  *smol_file* can be a single SMOL tree (extension .smol), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
+    cout << "  Default values will be used if arguments (other than SMOL file) are omitted." << endl;
     return 0;
   }else if(argc == 2){
     sfile = argv[1];
     outfile = "Histograms.root";
-    printf("SMOL file: %s\nOutput file: %s\n", sfile, outfile); 
   }else if(argc == 3){
     sfile = argv[1];
     outfile = argv[2];
-    printf("SMOL file: %s\nOutput file: %s\n", sfile, outfile);
   }else{
-    printf("ERROR: too many arguments!\nArguments: SortDiagnostics SMOL smol_file output_file\n");
+    printf("ERROR: too many arguments!\nArguments: SortDiagnosticsSMOL smol_file output_file\n");
     return 0;
   }
 
   theApp=new TApplication("App", &argc, argv);
+  InitialiseHists();
 
-  SortData(sfile, outfile);
+  const char *dot = strrchr(sfile, '.'); //get the file extension
+  if(dot==NULL){
+    cout << "ERROR: couldn't get SMOL tree or list file name." << endl;
+    return 0;
+  }
+
+  uint64_t numSepEvts = 0U;
+  if(strcmp(dot + 1, "smol") == 0){
+    printf("SMOL tree: %s\nOutput file: %s\n", sfile, outfile);
+    SortData(sfile);
+  }else if(strcmp(dot + 1, "list") == 0){
+    printf("SMOL tree list: %s\nOutput file: %s\n", sfile, outfile);
+    
+    FILE *listfile;
+    char str[256];
+
+    if((listfile=fopen(sfile,"r"))==NULL){
+      cout << "ERROR: Cannot open the list file: " << sfile << endl;
+      return 0;
+    }else{
+      while(!(feof(listfile))){//go until the end of file is reached
+        if(fgets(str,256,listfile)!=NULL){ //get an entire line
+          str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
+          SortData(str);
+        }
+      }
+    }
+  }else{
+    cout << "ERROR: improper file extension for SMOL tree or list (should be .smol or .list)." << endl;
+    return 0;
+  }
+
+  WriteData(outfile);
 
   return 0;
 }

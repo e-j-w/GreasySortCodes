@@ -258,7 +258,7 @@ void SortData(const char *sfile, const char *efile, const char *outfile, const u
     for(int i=0; i<numWindows; i++){
         for(int j=0; j<(NGRIFPOS*4); j++){
             if((corrCoeff[0][j][i] != 0.0)&&(corrCoeff[1][j][i] != 0.0)){
-                printf("Window %i, crystal %i: %0.4f %0.4f %0.4f\n",i,j,corrCoeff[0][j][i],corrCoeff[1][j][i],corrCoeff[2][j][i]);
+                printf("Window %i, crystal %i: %0.4f %0.4f %0.8f\n",i,j,corrCoeff[0][j][i],corrCoeff[1][j][i],corrCoeff[2][j][i]);
             }
         }
     }

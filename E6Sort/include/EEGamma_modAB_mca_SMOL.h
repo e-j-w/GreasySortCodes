@@ -6,6 +6,8 @@
 
 using namespace std;
 
+#define MAX_HITS_PER_EVT 64 //constrained by uint64_t size
+
 //spectra
 double mcaOut[6][S32K]; //output .dmca data
 // sp 0 is gated energy spectrum

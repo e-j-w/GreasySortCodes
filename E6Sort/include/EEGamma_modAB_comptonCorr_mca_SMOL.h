@@ -6,6 +6,8 @@
 
 using namespace std;
 
+#define MAX_HITS_PER_EVT 64 //constrained by uint64_t size
+
 //spectra
 double mcaOut[4][S32K]; //output .dmca data, sp 0 is gated energy spectrum, sp 1 is 180 degree projection, sp 2 is 180 degree sum, sp 3 is time random
 
