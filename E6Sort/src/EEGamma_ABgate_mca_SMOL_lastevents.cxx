@@ -502,6 +502,7 @@ int main(int argc, char **argv){
   double offset = 0.0;
   double gain = 1.0;
   double quad = 0.0;
+  uint8_t forwardPos = 1;
   sortingSubset = 0;
   coincGateMin = COINC_TIMING_GATE_MIN;
   coincGateMax = COINC_TIMING_GATE_MAX;
@@ -519,9 +520,9 @@ int main(int argc, char **argv){
   leTRandGateMax = LE_TRANDOM_GATE_MAX;
   printf("Starting EEGamma_ABgate_mca_SMOL_lastevents\n");
 
-  if(argc < 6){
+  if(argc < 7){
     cout << "Generates GRIFIFN gated spectra." << endl;
-    cout << "Arguments: EEGamma_ABgate_mca_SMOL_lastevents smol_file_list num_gates EGateLow1 EGateHigh1 (EGateLow2 EGateHigh2...) num_sorts percent_of_events_1 (percent_of_events_2 ...) output_dmca_file_prefix keV_per_bin discard_pileup offset gain quad" << endl;
+    cout << "Arguments: EEGamma_ABgate_mca_SMOL_lastevents smol_file_list forward_pos num_gates EGateLow1 EGateHigh1 (EGateLow2 EGateHigh2...) num_sorts percent_of_events_1 (percent_of_events_2 ...) output_dmca_file_prefix keV_per_bin discard_pileup offset gain quad" << endl;
     cout << "  *smol_file* must be a list of SMOL trees (extension .list, one filepath per line)." << endl;
     cout << "  *percent_of_events_X* specifies the percentage of events at the end of the file list to sort. The intention when writing this was to sort only events at the end of a decay curve." << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
@@ -532,13 +533,14 @@ int main(int argc, char **argv){
     return 0;
   }else{
     sfile = argv[1];
-    numEGates = atoi(argv[2]);
-    uint8_t currentArg = 3;
+    forwardPos = (uint8_t)atoi(argv[2]);
+    numEGates = atoi(argv[3]);
+    uint8_t currentArg = 4;
     if((numEGates >= 0)&&(numEGates <= MAX_NUM_GATES)){
       //valid number of gates
       //check that there are enough arguments
-      if(argc < (5 + 2*numEGates)){
-        printf("ERROR: not enough arguments for the number of energy gates specified (need %u).\n",(5 + 2*numEGates));
+      if(argc < (6 + 2*numEGates)){
+        printf("ERROR: not enough arguments for the number of energy gates specified (need %u).\n",(6 + 2*numEGates));
         return 0;
       }
       for(uint8_t i=0; i<numEGates; i++){
@@ -553,8 +555,8 @@ int main(int argc, char **argv){
     //printf("Number of subsets to sort: %u.\n",numPctToSort);
     if((numPctToSort > 0)&&(numPctToSort <= MAX_NUM_PCTTOSORT)){
       //valid number of subsets of data to sort
-      if(argc < (5 + 2*numEGates + numPctToSort)){
-        printf("ERROR: not enough arguments for the number of sorts specified (need %u).\n",(5 + 2*numEGates + numPctToSort));
+      if(argc < (6 + 2*numEGates + numPctToSort)){
+        printf("ERROR: not enough arguments for the number of sorts specified (need %u).\n",(6 + 2*numEGates + numPctToSort));
         return 0;
       }
       for(uint8_t i=0; i<numPctToSort; i++){
@@ -567,21 +569,21 @@ int main(int argc, char **argv){
     }
     outfile = argv[currentArg++];
     //printf("Output filepath: %s.\n",argv[currentArg-1]);
-    if(argc > (5 + 2*numEGates + numPctToSort)){
+    if(argc > (6 + 2*numEGates + numPctToSort)){
       keVPerBin = atof(argv[currentArg++]);
-      if(argc > (6 + 2*numEGates + numPctToSort)){
+      if(argc > (7 + 2*numEGates + numPctToSort)){
         discardPileup = atoi(argv[currentArg++]);
         if(discardPileup > 2){
           printf("ERROR: Invalid value for discard_pileup (%s)!\n",argv[currentArg-1]);
           printf("  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits).\n");
           return 0;
         }
-        if(argc >= (10 + 2*numEGates)){
+        if(argc >= (11 + 2*numEGates)){
           offset = atof(argv[currentArg++]);
           gain = atof(argv[currentArg++]);
           quad = atof(argv[currentArg++]);
         }
-        if(argc >= (24 + 2*numEGates)){
+        if(argc >= (25 + 2*numEGates)){
           //manually specified timing gates
           coincGateMin = atof(argv[currentArg++]);
           coincGateMax = atof(argv[currentArg++]);
@@ -651,7 +653,16 @@ int main(int argc, char **argv){
         printf("], [%0.2f %0.2f",gateELow[i],gateEHigh[i]);
       }
     }
-    printf("] keV\nOutput file prefix: %s\nPercentage of events to sort: [", outfile);
+    printf("] keV\n");
+    if(forwardPos == 1){
+      printf("GRIFFIN at 110 mm\n");
+    }else if(forwardPos == 0){
+      printf("GRIFFIN at 145 mm\n");
+    }else{
+      printf("ERROR: invalid GRIFFIN position!\n");
+      return 0;
+    }
+    printf("Output file prefix: %s\nPercentage of events to sort: [", outfile);
     for(uint8_t i=0; i<numPctToSort; i++){
       if(i==0){
         printf("%0.2f",pctToSort[i]);
@@ -685,10 +696,9 @@ int main(int argc, char **argv){
       for(uint8_t j=0;j<64;j++){ //coinc core
         if(i!=j){
           /*if(i==1){
-            printf("Angle between %u and %u: %f\n",i,j,getGRIFFINVector(i,1).Angle(getGRIFFINVector(j,1))*180.0/PI);
+            printf("Angle between %u and %u: %f\n",i,j,getGRIFFINVector(i,forwardPos).Angle(getGRIFFINVector(j,forwardPos))*180.0/PI);
           }*/
-          //uses vectors for detectors in forward position - should be valid for back position as well
-          if(getGRIFFINVector(i,1).Angle(getGRIFFINVector(j,1))*180.0/PI > 170.0){ //same effect for any value down to 165 degrees
+          if(getGRIFFINVector(i,forwardPos).Angle(getGRIFFINVector(j,forwardPos))*180.0/PI > 170.0){ //same effect for any value down to 165 degrees
             hitMap180deg[i][j] = 1;
             //printf("Pair %u and %u are at 180 degrees.\n",i,j);
           }

@@ -61,8 +61,10 @@ void SortData(const char *sfile)
       totalHits += pileupCtrs[i];
     }
     printf("Total hits:     %Lu\n",totalHits);
-    long double frac = (long double)(pileupCtrs[1])/((long double)(totalHits));
-    printf("Fraction of hits with type 1 (no pileup): %Lf\n",frac);
+    if(totalHits > 0){
+      long double frac = (long double)(pileupCtrs[1])/((long double)(totalHits));
+      printf("Fraction of hits with type 1 (no pileup): %Lf\n",frac);
+    }
   }
   sentries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
   sorted_evt sortedEvt;

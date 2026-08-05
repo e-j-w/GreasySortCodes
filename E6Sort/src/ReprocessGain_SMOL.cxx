@@ -347,7 +347,7 @@ void SortData(const char *sfile, const char *efile, const char *outfile, const u
     uint64_t smolFormatVersion = 1;
     actualSepEntries |= (smolFormatVersion << 48);
     fwrite(&actualSepEntries,sizeof(uint64_t),1,out);
-    printf("Wrote %lu separated events to: %s",actualSepEntries & 0xFFFFFFFFFFFF,outfile);
+    printf("Wrote %lu separated events to: %s\n",actualSepEntries & 0xFFFFFFFFFFFF,outfile);
     fclose(out);
 
     fclose(inp);
