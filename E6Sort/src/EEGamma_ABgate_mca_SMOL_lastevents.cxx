@@ -124,8 +124,10 @@ void SortData(const char *sfile,
       totalHits += pileupCtrs[i];
     }
     //printf("Total hits:     %lu\n",totalHits);
-    long double frac = (long double)(pileupCtrs[1])/((long double)(totalHits));
-    printf("Fraction of hits with pileup type 1 (no pileup): %Lf\n",frac);
+    if(totalHits > 0){
+      long double frac = (long double)(pileupCtrs[1])/((long double)(totalHits));
+      printf("Fraction of hits with pileup type 1 (no pileup): %Lf\n",frac);
+    }
   }
 
   uint64_t startEntry = 0;
