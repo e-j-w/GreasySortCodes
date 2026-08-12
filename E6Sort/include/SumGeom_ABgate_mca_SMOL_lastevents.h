@@ -9,6 +9,9 @@ using namespace std;
 #define MAX_NUM_GATES 10 //maximum number of energy gates to sort
 #define MAX_NUM_PCTTOSORT 30 //maximum number of percentage values for sorting
 
+#define EVT_MIX_SEARCH_DEPTH 1000 //number of events to search for 'coincidences' in
+#define E_THRESHOLD 250
+
 enum sp_enum{
 SP_GATED, SP_SUMOUT, SP_SUMIN, SP_SUMOUT_CFD, SP_SUMIN_CFD,
 SP_TR_GATED, SP_TR_SUMOUT, SP_TR_SUMIN,
@@ -31,14 +34,11 @@ double addbackT[NGRIFPOS];
 uint8_t addbackTS[NGRIFPOS];
 uint8_t addbackNumCFDFail[NGRIFPOS];
 
-uint8_t prevEvtABPos, currentEvtABPos;
+uint64_t ABHitEvtNum, sumHit1EvtNum;
+uint8_t prevEvtABPos, prevEvtSumHit1Pos, prevEvtSumHit2Pos;
 
 uint64_t numEvtCoinc[MAX_NUM_PCTTOSORT];
 uint64_t numEvtCoincSum[MAX_NUM_PCTTOSORT];
-
-double coincGateMin, coincGateMax, coincGate1CFDFailMin, coincGate1CFDFailMax, coincGate2CFDFailMin, coincGate2CFDFailMax;
-double sumGateMin, sumGateMax, sumGateCFDMin, sumGateCFDMax, sumGate1CFDFailMin, sumGate1CFDFailMax, sumGate2CFDFailMin, sumGate2CFDFailMax; 
-double tRandGateMin, tRandGateMax, leCoincGateMin, leCoincGateMax, leTRandGateMin, leTRandGateMax;
 
 #endif
 

@@ -8,32 +8,6 @@
 
 using namespace std;
 
-
-
-uint8_t evalCoincGateCFD(const uint8_t numCFDFail, const double tDiff){
-  if((numCFDFail == 0)&&(tDiff >= coincGateMin)&&(tDiff <= coincGateMax)){
-    return 1; //passes gate
-  }else if((numCFDFail == 1)&&(tDiff >= coincGate1CFDFailMin)&&(tDiff <= coincGate1CFDFailMax)){
-    return 1; //passes gate
-  }else if((numCFDFail == 2)&&(tDiff >= coincGate2CFDFailMin)&&(tDiff <= coincGate2CFDFailMax)){
-    return 1; //passes gate
-  }else{
-    return 0;
-  }
-}
-
-uint8_t evalSumCorrGateCFD(const uint8_t numCFDFail, const double tDiff){
-  if((numCFDFail == 0)&&(tDiff >= sumGateCFDMin)&&(tDiff <= sumGateCFDMax)){
-    return 1; //passes gate
-  }else if((numCFDFail == 1)&&(tDiff >= sumGate1CFDFailMin)&&(tDiff <= sumGate1CFDFailMax)){
-    return 1; //passes gate
-  }else if((numCFDFail == 2)&&(tDiff >= sumGate2CFDFailMin)&&(tDiff <= sumGate2CFDFailMax)){
-    return 1; //passes gate
-  }else{
-    return 0;
-  }
-}
-
 uint64_t getNumEntriesInFile(const char *sfile){
   FILE *inp = fopen(sfile, "rb");
   if(inp == NULL){
@@ -89,7 +63,7 @@ void SortData(const char *sfile,
   sorted_evt sortedEvt;
 
   //allow decimation of sorted events (for debugging/tuning)
-  Long64_t increment = 1;
+  uint64_t increment = 1;
   if(increment == 1){
     printf("\nSorting events (skipping %lu)...\n",startEntry);
   }else if(increment > 0){
@@ -98,7 +72,7 @@ void SortData(const char *sfile,
     increment = 1;
   }
 
-  for(Long64_t jentry = 0; jentry < sentries; jentry+=increment){
+  for(uint64_t jentry = 0; jentry < sentries; jentry+=increment){
 
     //read event
     if(readSMOLEvent(inp,&sortedEvt)==0){
@@ -181,115 +155,147 @@ void SortData(const char *sfile,
       }
     }
 
-    currentEvtABPos = prevEvtABPos;
-
-    //'randomly' sample an addback position to compare the sum hits to
-    //taking into account the efficiency at each clover
+    //'randomly' sample an addback position to compare to the sum hits
+    //while taking into account the efficiency at each clover
     //we do this by taking the first addback hit of an event, then using
-    //it to compare against hits in the net event
-    for(uint8_t ABpos = 0; ABpos < NGRIFPOS; ABpos++){
+    //it to compare against hits in the next event
 
-      if(addbackT[ABpos] < 0.0){
-        //no addback hit in this clover
-        continue;
-      }else if(addbackE[ABpos] >= 250.0){
-        //flag this addback position
-        prevEvtABPos = ABpos;
-        break;
+    if(prevEvtABPos == 255U){
+      for(uint8_t ABpos = 0; ABpos < NGRIFPOS; ABpos++){
+
+        if(addbackT[ABpos] < 0.0){
+          //no addback hit in this clover
+          continue;
+        }else if(addbackE[ABpos] >= E_THRESHOLD){ //ignore threshold effects for low energy gammas (we assume any energy gates set are above threshold for all detectors)
+          //flag this addback position
+          prevEvtABPos = ABpos;
+          ABHitEvtNum = jentry;
+          break;
+        }
+
+        if(ABpos == NGRIFPOS-1){
+          //no addback hits found
+          prevEvtABPos = 255U; //set invalid position
+        }
+
       }
-
-      if(ABpos == NGRIFPOS-1){
-        //no addback hits found
-        prevEvtABPos = 255U; //set invalid position
-      }
-
     }
 
     //look for coincidences with addback hits
-    if(currentEvtABPos != 255U){
-      for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+    if(jentry != ABHitEvtNum){ //event mixing
+      if(prevEvtABPos != 255U){
 
-        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
-          continue; //skip pileup hit
-        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
-          continue; //skip non-pileup hit
+        if(prevEvtSumHit1Pos == 255U){
+          for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+
+            if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+              continue; //skip pileup hit
+            }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+              continue; //skip non-pileup hit
+            }
+
+            const double hit2E = offset + sortedEvt.noABHit[noABHitInd2].energy*gain + sortedEvt.noABHit[noABHitInd2].energy*sortedEvt.noABHit[noABHitInd2].energy*quad;
+            if((hit2E/keVPerBin) >= E_THRESHOLD){ //ignore threshold effects for low energy gammas (we assume any sum peaks being analyzed consist of gammas above threshold for all detectors)
+              //flag 2nd hit
+              prevEvtSumHit1Pos = sortedEvt.noABHit[noABHitInd2].core & 63U;
+              sumHit1EvtNum = jentry;
+            }
+          }
         }
 
-        //evaluate 180 degree summing conditions
-        for(int noABHitInd3 = noABHitInd2+1; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
-          
-          if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7))){
-            continue; //skip pileup hit
-          }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7)))){
-            continue; //skip non-pileup hit
+        if(jentry != sumHit1EvtNum){
+          if(prevEvtSumHit1Pos != 255U){
+            //evaluate 180 degree summing conditions
+            //only look at gammas that have real coincidences, since some positions
+            //may not contain any gammas in coincidence with other and therefore
+            //wont be available for the 180 degree coincidence summing correction,
+            //but will still contain real sum peaks
+            //(eg. if the corresponding GRIF-16 has a clock de-sync)
+            if(sortedEvt.header.numNoABHits > 1){ //enforce coincidence condition
+              for(int noABHitInd3 = 0; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
+                
+                if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7))){
+                  continue; //skip pileup hit
+                }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7)))){
+                  continue; //skip non-pileup hit
+                }
+
+                if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][prevEvtSumHit1Pos] != 0){
+                  //2nd hit and 3rd hit are a unique pair that are 180 degrees apart
+                  //(assume that the 2nd hit is the first of the pair, and that they are in coincidence)
+
+                  const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
+                  if((hit3E/keVPerBin) >= E_THRESHOLD){ //ignore threshold effects for low energy gammas (we assume any sum peaks being analyzed consist of gammas above threshold for all detectors)
+                    //flag 3rd hit
+                    prevEvtSumHit2Pos = sortedEvt.noABHit[noABHitInd3].core & 63U;
+                  }
+                  
+                }
+                //}
+              }
+            }
+            
+          }
+        }
+
+        //if all 3 hits have been flagged, evaluate what type
+        //of summing/correction they contribute to 
+        if(prevEvtSumHit2Pos != 255U){
+          //now check whether the 180 degree coindident hit conflicts with the original addback gate
+          //and flag it if so
+          const int ABpos2 = (prevEvtSumHit1Pos)/4;
+          const int ABpos3 = (prevEvtSumHit2Pos)/4;
+          if((ABpos3 != prevEvtABPos)&&(ABpos2 != prevEvtABPos)){
+            //in this case both a real sum peak and a 180 correction would be visible
+            //since neither of the 180 degree gammas is in the clover where the coincident hit occured
+            for(uint8_t i=0; i<numPctToSort; i++){
+              if(sortingSubset & (1U << i)){
+                numEvtCoinc[i]++; //real sum peak
+                numEvtCoincSum[i]++; //180 sum coincidence
+              }
+            }
+          }else if(ABpos2 != prevEvtABPos){
+            //in this case a real sum peak would be visible, but not a 180 degree correction
+            //since only one of the 180 degree gammas is in the clover where the coincident hit occured
+            for(uint8_t i=0; i<numPctToSort; i++){
+              if(sortingSubset & (1U << i)){
+                numEvtCoinc[i]++; //real sum peak
+              }
+            }
           }
 
-          if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd2].core & 63U] != 0){
-            //2nd hit and 3rd hit are a unique pair that are 180 degrees apart
-            //now we need to know which of these hits comes first in time,
-            //since that gives the DAQ time of the equivalent 0 degree sum hit
+          //reset flags
+          prevEvtABPos = 255U;
+          prevEvtSumHit1Pos = 255U;
+          prevEvtSumHit2Pos = 255U;
+        }else if(jentry > (ABHitEvtNum+EVT_MIX_SEARCH_DEPTH)){
+          //reached the end of the event mixing search
+          //but the 3rd hit was not seen
+          //check whether the 2nd hit contributes to summing
 
-            int firstSumHitIndCFD = noABHitInd2;
-            int secondSumHitIndCFD = noABHitInd3;
-            if(noABHitTime(&sortedEvt,noABHitInd3) < noABHitTime(&sortedEvt,noABHitInd2)){
-              firstSumHitIndCFD = noABHitInd3;
-              secondSumHitIndCFD = noABHitInd2;
-            }
-
-            //check the sum timing condition, using CFD timing
-            Double_t tDiffSumCFD = noABHitTime(&sortedEvt,secondSumHitIndCFD) - noABHitTime(&sortedEvt,firstSumHitIndCFD);
-            uint8_t numCFDFailSum = 0;
-            if(sortedEvt.noABHit[firstSumHitIndCFD].core & ((uint8_t)1 << 6)){
-              numCFDFailSum++;
-            }
-            if(sortedEvt.noABHit[secondSumHitIndCFD].core & ((uint8_t)1 << 6)){
-              numCFDFailSum++;
-            }
-            if(evalSumCorrGateCFD(numCFDFailSum, tDiffSumCFD)){
-
-              //time coincident summing
-              const double hit2E = offset + sortedEvt.noABHit[noABHitInd2].energy*gain + sortedEvt.noABHit[noABHitInd2].energy*sortedEvt.noABHit[noABHitInd2].energy*quad;
-              const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
-              const int eSumGamma1 = (int)(hit2E/keVPerBin);
-              const int eSumGamma2 = (int)(hit3E/keVPerBin);
-              
-              //now check whether the 180 degree coindident hit conflicts with the original addback gate
-              //and flag it if so
-              const int ABpos2 = (sortedEvt.noABHit[noABHitInd2].core & 63U)/4;
-              const int ABpos3 = (sortedEvt.noABHit[noABHitInd3].core & 63U)/4;
-              const int ABposSumHit = (sortedEvt.noABHit[firstSumHitIndCFD].core & 63U)/4;
-              if((ABpos3 != currentEvtABPos)&&(ABpos2 != currentEvtABPos)){
-                //in this case both a real sum peak and a 180 correction would be visible
-                //since neither of the 180 degree gammas is in the clover where the coincident hit occured
-                if((eSumGamma1 >= 250)&&(eSumGamma2 >= 250)){ //ignore threshold effects for low energy gammas
-                  for(uint8_t i=0; i<numPctToSort; i++){
-                    if(sortingSubset & (1U << i)){
-                      numEvtCoinc[i]++; //real sum peak
-                      numEvtCoincSum[i]++; //180 sum coincidence
-                    }
-                  }
-                }
-              }else if(ABposSumHit != currentEvtABPos){
-                //in this case a real sum peak would be visible, but not a 180 degree correction
-                //since only one of the 180 degree gammas is in the clover where the coincident hit occured
-                if((eSumGamma1 >= 250)&&(eSumGamma2 >= 250)){ //ignore threshold effects for low energy gammas
-                  for(uint8_t i=0; i<numPctToSort; i++){
-                    if(sortingSubset & (1U << i)){
-                      numEvtCoinc[i]++; //real sum peak
-                    }
-                  }
+          if(prevEvtSumHit1Pos != 255U){
+            const int ABpos2 = (prevEvtSumHit1Pos)/4;
+            if(ABpos2 != prevEvtABPos){
+              //in this case a real sum peak would be visible, but not a 180 degree correction
+              //since the only other gamma isn't in the clover where the coincident hit occured
+              //and 180 degree coincident gammas apparently don't exist
+              for(uint8_t i=0; i<numPctToSort; i++){
+                if(sortingSubset & (1U << i)){
+                  numEvtCoinc[i]++; //real sum peak
                 }
               }
-
             }
-
           }
 
+          //reset flags
+          prevEvtABPos = 255U;
+          prevEvtSumHit1Pos = 255U;
+          prevEvtSumHit2Pos = 255U;
         }
-        //}
+        
       }
-      
     }
+    
 
     if (jentry % 90713 == 0)
       cout << setiosflags(ios::fixed) << "Entry " << (jentry-startEntry) << " of " << (sentries-startEntry) << ", " << 100 * (jentry-startEntry) / (sentries-startEntry) << "% complete" << "\r" << flush;
@@ -316,43 +322,29 @@ int main(int argc, char **argv){
   double quad = 0.0;
   uint8_t forwardPos = 1;
   sortingSubset = 0;
-  coincGateMin = COINC_TIMING_GATE_MIN;
-  coincGateMax = COINC_TIMING_GATE_MAX;
-  coincGate1CFDFailMin = COINC_TIMING_GATE_1CFDFAIL_MIN;
-  coincGate1CFDFailMax = COINC_TIMING_GATE_1CFDFAIL_MAX;
-  coincGate2CFDFailMin = COINC_TIMING_GATE_2CFDFAIL_MIN;
-  coincGate2CFDFailMax = COINC_TIMING_GATE_2CFDFAIL_MAX;
-  sumGateMin = SUM_TIMING_GATE_MIN;
-  sumGateMax = SUM_TIMING_GATE_MAX;
-  tRandGateMin = TRANDOM_GATE_MIN;
-  tRandGateMax = TRANDOM_GATE_MAX;
-  leCoincGateMin = LE_COINC_TIMING_GATE_MIN;
-  leCoincGateMax = LE_COINC_TIMING_GATE_MAX;
-  leTRandGateMin = LE_TRANDOM_GATE_MIN;
-  leTRandGateMax = LE_TRANDOM_GATE_MAX;
   printf("Starting SumGeom_ABgate_mca_SMOL_lastevents\n");
 
   if(argc < 5){
     cout << "Determines the geometrical effect on the 180 degree summing correction, when using an addback gate." << endl;
-    cout << "Arguments: SumGeom_ABgate_mca_SMOL_lastevents smol_file_list forward_pos num_sorts percent_of_events_1 (percent_of_events_2 ...) keV_per_bin discard_pileup offset gain quad" << endl;
+    cout << "Arguments: SumGeom_ABgate_mca_SMOL_lastevents smol_file_list output_file forward_pos num_sorts percent_of_events_1 (percent_of_events_2 ...) keV_per_bin discard_pileup offset gain quad" << endl;
     cout << "  *smol_file* must be a list of SMOL trees (extension .list, one filepath per line)." << endl;
+    cout << "  *output_file* is a text file that the geometric correction will be written to." << endl;
     cout << "  *percent_of_events_X* specifies the percentage of events at the end of the file list to sort. The intention when writing this was to sort only events at the end of a decay curve." << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     cout << "  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits)." << endl;
     cout << "  *offset*, *gain*, and *quad* are parameters to (re)calibrate the SMOL tree data by. If not specified, these will default to values of 0, 1, and 0 (ie. no change in calibration)." << endl;
-    cout << "  Additional parameters corresponding to timing gates can optionally be specified afterward, in the format:" << endl;
-    cout << "    coincGateMin coincGateMax coincGate1CFDFailMin coincGate1CFDFailMax coincGate2CFDFailMin coincGate2CFDFailMax sumGateMin sumGateMax tRandGateMin tRandGateMax leCoincGateMin leCoincGateMax leTRandGateMin leTRandGateMax" << endl;
     return 0;
   }else{
     sfile = argv[1];
-    forwardPos = (uint8_t)atoi(argv[2]);
-    uint8_t currentArg = 3;
+    outfile = argv[2];
+    forwardPos = (uint8_t)atoi(argv[3]);
+    uint8_t currentArg = 4;
     numPctToSort = (uint8_t)(atoi(argv[currentArg++]));
     //printf("Number of subsets to sort: %u.\n",numPctToSort);
     if((numPctToSort > 0)&&(numPctToSort <= MAX_NUM_PCTTOSORT)){
       //valid number of subsets of data to sort
-      if(argc < (4 + numPctToSort)){
-        printf("ERROR: not enough arguments for the number of sorts specified (need %u).\n",(4 + numPctToSort));
+      if(argc < (5 + numPctToSort)){
+        printf("ERROR: not enough arguments for the number of sorts specified (need %u).\n",(5 + numPctToSort));
         return 0;
       }
       for(uint8_t i=0; i<numPctToSort; i++){
@@ -364,39 +356,21 @@ int main(int argc, char **argv){
       return 0;
     }
     //printf("Output filepath: %s.\n",argv[currentArg-1]);
-    if(argc > (4 + numPctToSort)){
+    if(argc > (5 + numPctToSort)){
       keVPerBin = atof(argv[currentArg++]);
-      if(argc > (5 + numPctToSort)){
+      if(argc > (6 + numPctToSort)){
         discardPileup = atoi(argv[currentArg++]);
         if(discardPileup > 2){
           printf("ERROR: Invalid value for discard_pileup (%s)!\n",argv[currentArg-1]);
           printf("  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits).\n");
           return 0;
         }
-        if(argc >= (9 + numPctToSort)){
+        if(argc >= (10 + numPctToSort)){
           offset = atof(argv[currentArg++]);
           gain = atof(argv[currentArg++]);
           quad = atof(argv[currentArg++]);
         }
-        if(argc >= (23 + numPctToSort)){
-          //manually specified timing gates
-          coincGateMin = atof(argv[currentArg++]);
-          coincGateMax = atof(argv[currentArg++]);
-          coincGate1CFDFailMin = atof(argv[currentArg++]);
-          coincGate1CFDFailMax = atof(argv[currentArg++]);
-          coincGate2CFDFailMin = atof(argv[currentArg++]);
-          coincGate2CFDFailMax = atof(argv[currentArg++]);
-          sumGateMin = atof(argv[currentArg++]);
-          sumGateMax = atof(argv[currentArg++]);
-          tRandGateMin = atof(argv[currentArg++]);
-          tRandGateMax = atof(argv[currentArg++]);
-          leCoincGateMin = atof(argv[currentArg++]);
-          leCoincGateMax = atof(argv[currentArg++]);
-          leTRandGateMin = atof(argv[currentArg++]);
-          leTRandGateMax = atof(argv[currentArg++]);
-        }
       }
-
     }
   }
 
@@ -412,19 +386,12 @@ int main(int argc, char **argv){
     return 0;
   }
 
-  //setup sum correction CFD gates
-  //basically, make sure that the gate start and gate width are offset the same as the coincidence gates
-  sumGateCFDMin = sumGateMin*10.0;
-  sumGateCFDMax = sumGateMax*10.0;
-  sumGate1CFDFailMin = (coincGate1CFDFailMin-coincGateMin)+sumGateCFDMin;
-  sumGate1CFDFailMax = (fabs(coincGate1CFDFailMax-coincGate1CFDFailMin) - fabs(coincGateMax-coincGateMin)) + fabs(sumGateCFDMax - sumGateCFDMin) + sumGate1CFDFailMin;
-  sumGate2CFDFailMin = (coincGate2CFDFailMin-coincGateMin)+sumGateCFDMin;
-  sumGate2CFDFailMax = (fabs(coincGate2CFDFailMax-coincGate2CFDFailMin) - fabs(coincGateMax-coincGateMin)) + fabs(sumGateCFDMax - sumGateCFDMin) + sumGate2CFDFailMin;
-
   //initialize counters
   memset(numEvtCoinc,0,sizeof(numEvtCoinc));
   memset(numEvtCoincSum,0,sizeof(numEvtCoincSum));
   prevEvtABPos = 255U;
+  prevEvtSumHit1Pos = 255U;
+  prevEvtSumHit2Pos = 255U;
 
   const char *dot = strrchr(sfile, '.'); //get the file extension
   if(dot==NULL){
@@ -434,6 +401,7 @@ int main(int argc, char **argv){
 
   if(strcmp(dot + 1, "list") == 0){
     printf("SMOL tree list: %s\n", sfile);
+    printf("Output file: %s\n", outfile);
     if(forwardPos == 1){
       printf("GRIFFIN at 110 mm\n");
     }else if(forwardPos == 0){
@@ -451,16 +419,6 @@ int main(int argc, char **argv){
       }
     }
     printf("]\n%0.2f keV per bin\n", keVPerBin);
-    printf("Coincidence timing gate: [%0.2f %0.2f] ns\n",coincGateMin,coincGateMax);
-    printf("  (with 1 CFD fail: [%0.2f %0.2f] ns)\n",coincGate1CFDFailMin,coincGate1CFDFailMax);
-    printf("  (with 2 CFD fails: [%0.2f %0.2f] ns)\n",coincGate2CFDFailMin,coincGate2CFDFailMax);
-    printf("Sum timing gate: [%0.2f %0.2f] timestamps\n",sumGateMin,sumGateMax);
-    printf("  (using CFD timing: [%0.2f %0.2f] ns)\n",sumGateCFDMin,sumGateCFDMax);
-    printf("    (with 1 CFD fail: [%0.2f %0.2f] ns)\n",sumGate1CFDFailMin,sumGate1CFDFailMax);
-    printf("    (with 2 CFD fails: [%0.2f %0.2f] ns)\n",sumGate2CFDFailMin,sumGate2CFDFailMax);
-    printf("Random timing gate: [%0.2f %0.2f] ns\n",tRandGateMin,tRandGateMax);
-    printf("Leading-edge coincidence timing gate: [%0.2f %0.2f] timestamps\n",leCoincGateMin,leCoincGateMax);
-    printf("Leading-edge random timing gate: [%0.2f %0.2f] timestamps\n",leTRandGateMin,leTRandGateMax);
     if(discardPileup == 1){
       printf("Discarding pileup hits.\n");
     }else if(discardPileup == 2){
@@ -545,7 +503,7 @@ int main(int argc, char **argv){
     return 0;
   }
 
-  printf("Sorted a total of %lu events, keeping the last [",totalEntriesRead);
+  printf("\nSorted a total of %lu events, keeping the last [",totalEntriesRead);
   for(uint8_t i=0; i<numPctToSort; i++){
     if(i==0){
       printf("%lu (%f %%)",evtsToSort[i],100.0*(evtsToSort[i]/(1.0*totalEntriesRead)));
@@ -553,13 +511,36 @@ int main(int argc, char **argv){
       printf("], [%lu (%f %%)",evtsToSort[i],100.0*(evtsToSort[i]/(1.0*totalEntriesRead)));
     }
   }
-  printf("]\n");
+  printf("]\n\n");
 
   for(uint8_t i=0; i<numPctToSort; i++){
-    printf("Sort %: %f, Real geometric summing: %lu, 180 degree summing: %lu, ratio: %f\n",pctToSort[i],numEvtCoinc[i],numEvtCoincSum[i],((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i])));
+    printf("Sort %: %6.2f, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",pctToSort[i],numEvtCoinc[i],numEvtCoincSum[i],((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i])));
   }
   printf("For reference:\n");
   printf(" 1 clover missing: %f\n",15.0/14.0);
+
+  FILE *out;
+  if((out = fopen(outfile, "w")) == NULL){ //open the file
+    printf("ERROR: Cannot open the output file: %s\n",outfile);
+    return 0;
+  }else{
+    fprintf(out,"Sorted a total of %lu events, keeping the last [",totalEntriesRead);
+    for(uint8_t i=0; i<numPctToSort; i++){
+      if(i==0){
+        fprintf(out,"%lu (%f %%)",evtsToSort[i],100.0*(evtsToSort[i]/(1.0*totalEntriesRead)));
+      }else{
+        fprintf(out,"], [%lu (%f %%)",evtsToSort[i],100.0*(evtsToSort[i]/(1.0*totalEntriesRead)));
+      }
+    }
+    fprintf(out,"]\n\n");
+
+    for(uint8_t i=0; i<numPctToSort; i++){
+      fprintf(out,"Sort %: %6.2f, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",pctToSort[i],numEvtCoinc[i],numEvtCoincSum[i],((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i])));
+    }
+    fprintf(out,"For reference:\n");
+    fprintf(out," 1 clover missing: %f\n",15.0/14.0);
+    fclose(out);
+  }
 
   return 0;
 }
