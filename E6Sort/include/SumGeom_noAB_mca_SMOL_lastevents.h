@@ -1,5 +1,5 @@
-#ifndef SumGeom_ABgate_mca_SMOL_lastevents_h
-#define SumGeom_ABgate_mca_SMOL_lastevents_h
+#ifndef SumGeom_noAB_mca_SMOL_lastevents_h
+#define SumGeom_noAB_mca_SMOL_lastevents_h
 
 #include <iostream>
 #include <iomanip>
@@ -18,13 +18,9 @@ uint64_t sortingSubset; //bit-pattern describing which subsets (%s) of data are 
 uint64_t evtsToSort[MAX_NUM_PCTTOSORT], maxEvtsToSort;
 uint8_t hitMap180deg[64][64]; //1st index = crystal of hit, 2nd index = crystal of 2nd hit, val = 1 indicates 180 degree summing occurs
 uint64_t totalEntriesRead, totalEntriesInFileList;
-double addbackE[NGRIFPOS],maxABHitE[NGRIFPOS];
-double addbackT[NGRIFPOS];
-uint8_t addbackTS[NGRIFPOS];
-uint8_t addbackNumCFDFail[NGRIFPOS];
 
-uint64_t ABHitEvtNum, sumHit1EvtNum;
-uint8_t prevEvtABPos, prevEvtSumHit1Pos, prevEvtSumHit2Pos;
+uint64_t gateEvtNum, sumHit1EvtNum;
+uint8_t prevEvtGatePos, prevEvtSumHit1Pos, prevEvtSumHit2Pos;
 
 //counters
 uint64_t numEvtCoinc[MAX_NUM_PCTTOSORT];

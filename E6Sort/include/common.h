@@ -55,6 +55,7 @@ TVector3 getGRIFFINVector(const uint8_t core, const uint8_t forwardPos);
 Double_t getTIGRESSHitDistance(const uint8_t core1, const uint8_t seg1, const uint8_t core2, const uint8_t seg2, const uint8_t forwardPos);
 Double_t getGRIFFINHitDistance(const uint8_t core1, const uint8_t core2, const uint8_t forwardPos);
 bool gate1D(const Double_t value, const Double_t min, const Double_t max);
+Double_t recalEnergy(const double origE, const double offset, const double gain, const double quad);
 Int_t getHPGeRing(const float theta);
 Int_t getHPGeSegmentRing(const float theta);
 Int_t getHPGePhiRing(const float theta, const float phi);

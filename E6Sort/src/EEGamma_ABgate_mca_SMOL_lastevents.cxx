@@ -1,7 +1,3 @@
-//Generates TIGRESS gamma ray spectra for PID and time separated data
-//timing windows are defined in common.h
-//PID gates in common.cxx
-
 #define EEGamma_ABgate_mca_SMOL_lastevents_cxx
 #include "common.cxx"
 #include "EEGamma_ABgate_mca_SMOL_lastevents.h"
@@ -189,7 +185,7 @@ void SortData(const char *sfile,
 
       if(ABHitPos < NGRIFPOS){
 
-        double ABhitE = offset + sortedEvt.noABHit[noABHitInd].energy*gain + sortedEvt.noABHit[noABHitInd].energy*sortedEvt.noABHit[noABHitInd].energy*quad;
+        double ABhitE = recalEnergy(sortedEvt.noABHit[noABHitInd].energy,offset,gain,quad);
 
         //check timing criteria
         if(addbackT[ABHitPos] >= 0.0){
@@ -206,7 +202,7 @@ void SortData(const char *sfile,
               }
               maxABHitE[ABHitPos] = ABhitE;
               addbackE[ABHitPos] = ABhitE;
-              //got to the next hit
+              //go to the next hit
               continue;
             }else{
               //lower energy, not time coincident
@@ -239,33 +235,33 @@ void SortData(const char *sfile,
         continue; //skip non-pileup hit
       }
 
-      const double hit1E = offset + sortedEvt.noABHit[noABHitInd].energy*gain + sortedEvt.noABHit[noABHitInd].energy*sortedEvt.noABHit[noABHitInd].energy*quad;
+      const double hit1E = recalEnergy(sortedEvt.noABHit[noABHitInd].energy,offset,gain,quad);
 
       //fill singles spectra
       //int singlesE = (int)( (timeRandomOffsetFactor*hit1E*(1.0+rand_sym_dbl(timeRandomWidthInfl)))/keVPerBin );
       int singlesE = (int)(hit1E/keVPerBin);
       fillSp(0,SP_SINGLES,singlesE); //fill only for the first energy gate, singles spectra will be duplicated across all energy gates later
       //make summing histograms (for singles)
-      for(int noABHitInd3 = noABHitInd+1; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
-        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7))){
+      for(int noABHitInd2 = noABHitInd+1; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
           continue; //skip pileup hit
-        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7)))){
+        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
           continue; //skip non-pileup hit
         }
-        if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][sortedEvt.noABHit[noABHitInd].core & 63U] != 0){
-          Double_t tDiffSum = fabs(sortedEvt.noABHit[noABHitInd3].tsDiff - sortedEvt.noABHit[noABHitInd].tsDiff);
+        if(hitMap180deg[sortedEvt.noABHit[noABHitInd2].core & 63U][sortedEvt.noABHit[noABHitInd].core & 63U] != 0){
+          Double_t tDiffSum = fabs(sortedEvt.noABHit[noABHitInd2].tsDiff - sortedEvt.noABHit[noABHitInd].tsDiff);
           //printf("tDiffSum: %f\n",tDiffSum);
           if((tDiffSum >= sumGateMin)&&(tDiffSum <= sumGateMax)){ //timing condition (sum)
             //printf("Passed timing condition.\n");
 
-            const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
+            const double hit2E = recalEnergy(sortedEvt.noABHit[noABHitInd2].energy,offset,gain,quad);
 
-            int eGamma3 = (int)(hit3E/keVPerBin);
-            int eGammaSum = (int)((offset + (sortedEvt.noABHit[noABHitInd].energy+sortedEvt.noABHit[noABHitInd3].energy)*gain + ((sortedEvt.noABHit[noABHitInd].energy+sortedEvt.noABHit[noABHitInd3].energy)*(sortedEvt.noABHit[noABHitInd].energy+sortedEvt.noABHit[noABHitInd3].energy))*quad)/keVPerBin);
+            int eGamma2 = (int)(hit2E/keVPerBin);
+            int eGammaSum = (int)(recalEnergy(sortedEvt.noABHit[noABHitInd].energy+sortedEvt.noABHit[noABHitInd2].energy,offset,gain,quad)/keVPerBin);
             //int eGammaSum = (int)(correctSumE(hit1E,hit3E,tDiffSum)/keVPerBin);
             
             fillSp(0,SP_SINGLES_SUMIN,eGammaSum); //fill 180 degree sum histogram
-            fillSp(0,SP_SINGLES_SUMOUT,eGamma3); //fill 180 degree projection histogram
+            fillSp(0,SP_SINGLES_SUMOUT,eGamma2); //fill 180 degree projection histogram
             fillSp(0,SP_SINGLES_SUMOUT,singlesE); //fill 180 degree projection histogram
             
           }
@@ -293,7 +289,7 @@ void SortData(const char *sfile,
                 continue; //skip non-pileup hit
               }
 
-              const double hit2E = offset + sortedEvt.noABHit[noABHitInd2].energy*gain + sortedEvt.noABHit[noABHitInd2].energy*sortedEvt.noABHit[noABHitInd2].energy*quad;
+              const double hit2E = recalEnergy(sortedEvt.noABHit[noABHitInd2].energy,offset,gain,quad);
 
               //if(((sortedEvt.noABHit[noABHitInd].core & 63U)/4)!=((sortedEvt.noABHit[noABHitInd2].core & 63U)/4)){ //try to reduce crosstalk... doesn't seem to do anything regarding sum peak shapes, but seems to align time-random with singles data
               {
@@ -338,7 +334,7 @@ void SortData(const char *sfile,
                 //but getting rid of neither under-estimates summing
                 const int ABpos3 = (sortedEvt.noABHit[noABHitInd3].core & 63U)/4;
                 if(ABpos3 == ABpos){
-                  //const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
+                  //const double hit3E = recalEnergy(sortedEvt.noABHit[noABHitInd3].energy,offset,gain,quad);
                   //if((hit3E >= gateELow[i])&&(hit3E <= gateEHigh[i])){
                     continue;
                   //}
@@ -373,10 +369,10 @@ void SortData(const char *sfile,
                   //printf("tDiffSum: %f\n",tDiffSum);
                   if((tDiffSum >= sumGateMin)&&(tDiffSum <= sumGateMax)){ //timing condition (sum)
 
-                    const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
+                    const double hit3E = recalEnergy(sortedEvt.noABHit[noABHitInd3].energy,offset,gain,quad);
                     const int eSumGamma1 = (int)(hit2E/keVPerBin);
                     const int eSumGamma2 = (int)(hit3E/keVPerBin);
-                    const int eGammaSum = (int)((offset + (sortedEvt.noABHit[noABHitInd2].energy+sortedEvt.noABHit[noABHitInd3].energy)*gain + ((sortedEvt.noABHit[noABHitInd2].energy+sortedEvt.noABHit[noABHitInd3].energy)*(sortedEvt.noABHit[noABHitInd2].energy+sortedEvt.noABHit[noABHitInd3].energy))*quad)/keVPerBin);
+                    const int eGammaSum = (int)(recalEnergy(sortedEvt.noABHit[noABHitInd2].energy+sortedEvt.noABHit[noABHitInd3].energy,offset,gain,quad)/keVPerBin);
                     //int eGammaSum = (int)(correctSumE(hit2E,hit3E,tDiffSum)/keVPerBin);
 
                     //In a true sum event in the DAQ, only the time of the first sum hit matters for evaluating coincidences,
@@ -452,10 +448,10 @@ void SortData(const char *sfile,
                       }
                       if(evalCoincGateCFD(numCFDFail,tDiff)){
                         //time coincident summing
-                        const double hit3E = offset + sortedEvt.noABHit[noABHitInd3].energy*gain + sortedEvt.noABHit[noABHitInd3].energy*sortedEvt.noABHit[noABHitInd3].energy*quad;
+                        const double hit3E = recalEnergy(sortedEvt.noABHit[noABHitInd3].energy,offset,gain,quad);
                         const int eSumGamma1 = (int)(hit2E/keVPerBin);
                         const int eSumGamma2 = (int)(hit3E/keVPerBin);
-                        const int eGammaSum = (int)((offset + (sortedEvt.noABHit[noABHitInd2].energy+sortedEvt.noABHit[noABHitInd3].energy)*gain + ((sortedEvt.noABHit[noABHitInd2].energy+sortedEvt.noABHit[noABHitInd3].energy)*(sortedEvt.noABHit[noABHitInd2].energy+sortedEvt.noABHit[noABHitInd3].energy))*quad)/keVPerBin);
+                        const int eGammaSum = (int)(recalEnergy(sortedEvt.noABHit[noABHitInd2].energy+sortedEvt.noABHit[noABHitInd3].energy,offset,gain,quad)/keVPerBin);
                         //int eGammaSum = (int)(correctSumE(hit2E,hit3E,tDiffSum)/keVPerBin);
                         fillSp(i,SP_SUMIN_CFD,eGammaSum); //fill 180 degree sum histogram
                         fillSp(i,SP_SUMOUT_CFD,eSumGamma2); //fill 180 degree projection histogram
@@ -580,27 +576,27 @@ int main(int argc, char **argv){
           printf("  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits).\n");
           return 0;
         }
-        if(argc >= (11 + 2*numEGates)){
+        if(argc > (10 + 2*numEGates + numPctToSort)){
           offset = atof(argv[currentArg++]);
           gain = atof(argv[currentArg++]);
           quad = atof(argv[currentArg++]);
-        }
-        if(argc >= (25 + 2*numEGates)){
-          //manually specified timing gates
-          coincGateMin = atof(argv[currentArg++]);
-          coincGateMax = atof(argv[currentArg++]);
-          coincGate1CFDFailMin = atof(argv[currentArg++]);
-          coincGate1CFDFailMax = atof(argv[currentArg++]);
-          coincGate2CFDFailMin = atof(argv[currentArg++]);
-          coincGate2CFDFailMax = atof(argv[currentArg++]);
-          sumGateMin = atof(argv[currentArg++]);
-          sumGateMax = atof(argv[currentArg++]);
-          tRandGateMin = atof(argv[currentArg++]);
-          tRandGateMax = atof(argv[currentArg++]);
-          leCoincGateMin = atof(argv[currentArg++]);
-          leCoincGateMax = atof(argv[currentArg++]);
-          leTRandGateMin = atof(argv[currentArg++]);
-          leTRandGateMax = atof(argv[currentArg++]);
+          if(argc > (24 + 2*numEGates + numPctToSort)){
+            //manually specified timing gates
+            coincGateMin = atof(argv[currentArg++]);
+            coincGateMax = atof(argv[currentArg++]);
+            coincGate1CFDFailMin = atof(argv[currentArg++]);
+            coincGate1CFDFailMax = atof(argv[currentArg++]);
+            coincGate2CFDFailMin = atof(argv[currentArg++]);
+            coincGate2CFDFailMax = atof(argv[currentArg++]);
+            sumGateMin = atof(argv[currentArg++]);
+            sumGateMax = atof(argv[currentArg++]);
+            tRandGateMin = atof(argv[currentArg++]);
+            tRandGateMax = atof(argv[currentArg++]);
+            leCoincGateMin = atof(argv[currentArg++]);
+            leCoincGateMax = atof(argv[currentArg++]);
+            leTRandGateMin = atof(argv[currentArg++]);
+            leTRandGateMax = atof(argv[currentArg++]);
+          }
         }
       }
 
@@ -688,7 +684,7 @@ int main(int argc, char **argv){
     }else if(discardPileup == 2){
       printf("Only taking pileup hits.\n");
     }
-    if(argc == 11){
+    if(argc > (10 + 2*numEGates + numPctToSort)){
       printf("Recalibrating with offset = %f, gain = %f, quad = %.15f\n",offset,gain,quad);
     }
 

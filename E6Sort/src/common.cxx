@@ -116,6 +116,10 @@ bool gate1D(const double value, const double min, const double max){
     return false;
 }
 
+Double_t recalEnergy(const double origE, const double offset, const double gain, const double quad){
+  return offset + origE*gain + origE*origE*quad;
+}
+
 
 int getHPGeRing(const float theta){
   if((theta < 0.0f)||(theta > 180.0f)){

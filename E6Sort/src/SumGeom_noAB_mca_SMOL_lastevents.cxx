@@ -2,9 +2,9 @@
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define SumGeom_ABgate_mca_SMOL_lastevents_cxx
+#define SumGeom_noAB_mca_SMOL_lastevents_cxx
 #include "common.cxx"
-#include "SumGeom_ABgate_mca_SMOL_lastevents.h"
+#include "SumGeom_noAB_mca_SMOL_lastevents.h"
 
 using namespace std;
 
@@ -121,92 +121,33 @@ void SortData(const char *sfile,
       }
     }
 
-    //construct addback energies and times
-    memset(addbackE,0,sizeof(addbackE));
-    memset(maxABHitE,0,sizeof(maxABHitE));
-    memset(addbackNumCFDFail,0,sizeof(addbackNumCFDFail));
-    for(int ABpos = 0; ABpos < NGRIFPOS; ABpos++){
-      addbackT[ABpos] = -1.0; //default value
-      addbackTS[ABpos] = 255U; //default value
-    }
-    for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
-      
-      if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
-        continue; //skip pileup hit
-      }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
-        continue; //skip non-pileup hit
-      }
-
-      int ABHitPos = (sortedEvt.noABHit[noABHitInd].core & 63U)/4;
-
-      if(ABHitPos < NGRIFPOS){
-
-        double ABhitE = recalEnergy(sortedEvt.noABHit[noABHitInd].energy,offset,gain,quad);
-
-        //check timing criteria
-        if(addbackT[ABHitPos] >= 0.0){
-          //there are hits in this clover
-          if(fabs(((double)sortedEvt.noABHit[noABHitInd].tsDiff) - ((double)addbackTS[ABHitPos]))*10.0 > ADDBACK_TIMING_GATE){
-            //hit not in time coincidence with other hits
-            if(ABhitE > maxABHitE[ABHitPos]){
-              //higher energy, not time coincident
-              //make this hit the new hit
-              addbackT[ABHitPos] = noABHitTime(&sortedEvt,noABHitInd);
-              addbackTS[ABHitPos] = sortedEvt.noABHit[noABHitInd].tsDiff;
-              if(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)){
-                addbackNumCFDFail[ABHitPos]=1;
-              }
-              maxABHitE[ABHitPos] = ABhitE;
-              addbackE[ABHitPos] = ABhitE;
-              //got to the next hit
-              continue;
-            }else{
-              //lower energy, not time coincident
-              //skip this hit
-              continue;
-            }
-          }
-        }
-        
-        //only get here if there are no hits in the clover, or if there
-        //is a time coincident hit
-        if(ABhitE > maxABHitE[ABHitPos]){
-          addbackT[ABHitPos] = noABHitTime(&sortedEvt,noABHitInd);
-          addbackTS[ABHitPos] = sortedEvt.noABHit[noABHitInd].tsDiff;
-          if(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)1 << 6)){
-            addbackNumCFDFail[ABHitPos]=1;
-          }
-          maxABHitE[ABHitPos] = ABhitE;
-        }
-        addbackE[ABHitPos] += ABhitE; 
-      }
-
-    }
-
-    //'randomly' sample an addback position to compare to the sum hits
+    //'randomly' sample a single-crystal position to compare to the sum hits
     //while taking into account the efficiency at each clover
-    //we do this by taking the first addback hit of an event, then using
+    //we do this by taking the first hit of an event, then using
     //it to compare against hits in the next event
 
-    if(prevEvtABPos == 255U){
-      for(uint8_t ABpos = 0; ABpos < NGRIFPOS; ABpos++){
+    if(prevEvtGatePos == 255U){
+      for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
 
-        if(addbackT[ABpos] < 0.0){
-          //no addback hit in this clover
-          continue;
-        }else if(addbackE[ABpos] >= E_THRESHOLD){ //ignore threshold effects for low energy gammas (we assume any energy gates set are above threshold for all detectors)
-          //flag this addback position
-          prevEvtABPos = ABpos;
-          ABHitEvtNum = jentry;
-          break;
+        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+          continue; //skip pileup hit
+        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+          continue; //skip non-pileup hit
+        }
+
+        const double hit1E = recalEnergy(sortedEvt.noABHit[noABHitInd].energy,offset,gain,quad);
+        if((hit1E/keVPerBin) >= E_THRESHOLD){ //ignore threshold effects for low energy gammas (we assume any sum peaks being analyzed consist of gammas above threshold for all detectors)
+          //flag this position
+          prevEvtGatePos = sortedEvt.noABHit[noABHitInd].core & 63U;
+          gateEvtNum = jentry;
         }
 
       }
     }
 
-    //look for coincidences with addback hits
-    if(jentry != ABHitEvtNum){ //event mixing
-      if(prevEvtABPos != 255U){
+    //look for 'coincidences' with gate hit
+    if(jentry != gateEvtNum){ //event mixing
+      if(prevEvtGatePos != 255U){
 
         if(prevEvtSumHit1Pos == 255U){
           for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
@@ -268,20 +209,19 @@ void SortData(const char *sfile,
         //if all 3 hits have been flagged, evaluate what type
         //of summing/correction they contribute to 
         if(prevEvtSumHit2Pos != 255U){
-          //now check whether the 180 degree coindident hit conflicts with the original addback gate
+          //now check whether the 180 degree coindident hit conflicts with the original gate
           //and flag it if so
-          const int ABpos2 = (prevEvtSumHit1Pos)/4;
-          const int ABpos3 = (prevEvtSumHit2Pos)/4;
-          if((ABpos3 != prevEvtABPos)&&(ABpos2 != prevEvtABPos)){
+          if((prevEvtSumHit1Pos != prevEvtGatePos)&&(prevEvtSumHit2Pos != prevEvtGatePos)){
             //in this case both a real sum peak and a 180 correction would be visible
             //since neither of the 180 degree gammas is in the clover where the coincident hit occured
+            //printf("case 1\n");
             for(uint8_t i=0; i<numPctToSort; i++){
               if(sortingSubset & (1U << i)){
                 numEvtCoinc[i]++; //real sum peak
                 numEvtCoincSum[i]++; //180 sum coincidence
               }
             }
-          }else if(ABpos2 != prevEvtABPos){
+          }else if(prevEvtSumHit2Pos != prevEvtGatePos){
             //in this case a real sum peak would be visible, but not a 180 degree correction
             //since only one of the 180 degree gammas is in the clover where the coincident hit occured
             for(uint8_t i=0; i<numPctToSort; i++){
@@ -292,17 +232,17 @@ void SortData(const char *sfile,
           }
 
           //reset flags
-          prevEvtABPos = 255U;
+          prevEvtGatePos = 255U;
           prevEvtSumHit1Pos = 255U;
           prevEvtSumHit2Pos = 255U;
-        }else if(jentry > (ABHitEvtNum+EVT_MIX_SEARCH_DEPTH)){
+        }else if(jentry > (gateEvtNum+EVT_MIX_SEARCH_DEPTH)){
           //reached the end of the event mixing search
           //but the 3rd hit was not seen
           //check whether the 2nd hit contributes to summing
-
+          //printf("case 2\n");
           if(prevEvtSumHit1Pos != 255U){
             const int ABpos2 = (prevEvtSumHit1Pos)/4;
-            if(ABpos2 != prevEvtABPos){
+            if(prevEvtSumHit1Pos != prevEvtGatePos){
               //in this case a real sum peak would be visible, but not a 180 degree correction
               //since the only other gamma isn't in the clover where the coincident hit occured
               //and 180 degree coincident gammas apparently don't exist
@@ -315,7 +255,7 @@ void SortData(const char *sfile,
           }
 
           //reset flags
-          prevEvtABPos = 255U;
+          prevEvtGatePos = 255U;
           prevEvtSumHit1Pos = 255U;
           prevEvtSumHit2Pos = 255U;
         }
@@ -351,11 +291,11 @@ int main(int argc, char **argv){
   double quad = 0.0;
   uint8_t forwardPos = 1;
   sortingSubset = 0;
-  printf("Starting SumGeom_ABgate_mca_SMOL_lastevents\n");
+  printf("Starting SumGeom_noAB_mca_SMOL_lastevents\n");
 
   if(argc < 5){
-    cout << "Determines the geometrical effect on the 180 degree summing correction, when using an addback gate." << endl;
-    cout << "Arguments: SumGeom_ABgate_mca_SMOL_lastevents smol_file_list output_file forward_pos num_sorts percent_of_events_1 (percent_of_events_2 ...) keV_per_bin discard_pileup offset gain quad" << endl;
+    cout << "Determines the geometrical effect on the 180 degree summing correction, when using a single-crystal (non-addback) gate." << endl;
+    cout << "Arguments: SumGeom_noAB_mca_SMOL_lastevents smol_file_list output_file forward_pos num_sorts percent_of_events_1 (percent_of_events_2 ...) keV_per_bin discard_pileup offset gain quad" << endl;
     cout << "  *smol_file* must be a list of SMOL trees (extension .list, one filepath per line)." << endl;
     cout << "  *output_file* is a text file that the geometric correction will be written to." << endl;
     cout << "  *percent_of_events_X* specifies the percentage of events at the end of the file list to sort. The intention when writing this was to sort only events at the end of a decay curve." << endl;
@@ -421,7 +361,7 @@ int main(int argc, char **argv){
   numSinglesHits = 0;
   numCoincPairs = 0;
   num180DegCoincPairs = 0;
-  prevEvtABPos = 255U;
+  prevEvtGatePos = 255U;
   prevEvtSumHit1Pos = 255U;
   prevEvtSumHit2Pos = 255U;
 
@@ -550,6 +490,7 @@ int main(int argc, char **argv){
   }
   printf("For reference:\n");
   printf(" 1 clover missing: %f\n",15.0/14.0);
+  printf(" 1 crystal missing: %f\n",63.0/62.0);
   printf("Total hits: %lu\n",numSinglesHits);
   printf("Total same-event hit pairs: %lu\n",numCoincPairs);
   printf("Total 180 degree same-event hit pairs: %lu\n",num180DegCoincPairs);
@@ -574,6 +515,7 @@ int main(int argc, char **argv){
     }
     fprintf(out,"For reference:\n");
     fprintf(out," 1 clover missing: %f\n",15.0/14.0);
+    fprintf(out," 1 crystal missing: %f\n",63.0/62.0);
     fprintf(out,"Total hits: %lu\n",numSinglesHits);
     fprintf(out,"Total same-event hit pairs: %lu\n",numCoincPairs);
     fprintf(out,"Total 180 degree same-event hit pairs: %lu\n",num180DegCoincPairs);

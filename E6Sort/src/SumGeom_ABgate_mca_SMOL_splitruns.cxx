@@ -2,9 +2,9 @@
 //timing windows are defined in common.h
 //PID gates in common.cxx
 
-#define SumGeom_ABgate_mca_SMOL_lastevents_cxx
+#define SumGeom_ABgate_mca_SMOL_splitruns_cxx
 #include "common.cxx"
-#include "SumGeom_ABgate_mca_SMOL_lastevents.h"
+#include "SumGeom_ABgate_mca_SMOL_splitruns.h"
 
 using namespace std;
 
@@ -33,12 +33,6 @@ void SortData(const char *sfile,
   fread(&sentries,sizeof(uint64_t),1,inp);
   uint64_t smolVersion = (uint64_t)(sentries >> 48);
   sentries &= 0xFFFFFFFFFFFF; // only first 48 bits specify number of events
-  if((totalEntriesRead + sentries) < (totalEntriesInFileList - maxEvtsToSort)){
-    //nothing to sort in this file, move on to the next one
-    printf("Skipping file since no events will be sorted.\n");
-    totalEntriesRead += sentries;
-    return;
-  }
 
   if(smolVersion > 0){
     fread(&pileupCtrs,sizeof(pileupCtrs),1,inp);
@@ -55,19 +49,14 @@ void SortData(const char *sfile,
     }
   }
 
-  uint64_t startEntry = 0;
-  if(totalEntriesRead < (totalEntriesInFileList - maxEvtsToSort)){
-    startEntry = (totalEntriesInFileList - maxEvtsToSort) - totalEntriesRead;
-  }
-
   sorted_evt sortedEvt;
 
   //allow decimation of sorted events (for debugging/tuning)
-  uint64_t increment = 1;
+  Long64_t increment = 1;
   if(increment == 1){
-    printf("\nSorting events (skipping %lu)...\n",startEntry);
+    printf("\nSorting events...\n");
   }else if(increment > 0){
-    printf("\nSorting every %i events (skipping %lu)...\n",increment,startEntry);
+    printf("\nSorting every %i events...\n",increment);
   }else{
     increment = 1;
   }
@@ -80,18 +69,10 @@ void SortData(const char *sfile,
       exit(-1);
     }
 
-    for(uint8_t i=0; i<numPctToSort; i++){
-      if(!(sortingSubset & (1U << i))){
-        if((totalEntriesInFileList - totalEntriesRead) <= evtsToSort[i]){
-          sortingSubset |= (1U << i); //flag the subset of data to be sorted
-        }
-      }
-    }
     totalEntriesRead++;
-    
-
-    if(jentry < startEntry){
-      continue; //don't sort event
+    if(totalEntriesRead >= (sortingSubset+1)*subsetEvtsToSort){
+      printf("%lu total events sorted, subset %u completed.\n",totalEntriesRead,sortingSubset+1);
+      sortingSubset++;
     }
 
     //count the number of singles and 180 coincident hit pairs
@@ -275,20 +256,12 @@ void SortData(const char *sfile,
           if((ABpos3 != prevEvtABPos)&&(ABpos2 != prevEvtABPos)){
             //in this case both a real sum peak and a 180 correction would be visible
             //since neither of the 180 degree gammas is in the clover where the coincident hit occured
-            for(uint8_t i=0; i<numPctToSort; i++){
-              if(sortingSubset & (1U << i)){
-                numEvtCoinc[i]++; //real sum peak
-                numEvtCoincSum[i]++; //180 sum coincidence
-              }
-            }
+            numEvtCoinc[sortingSubset]++; //real sum peak
+            numEvtCoincSum[sortingSubset]++; //180 sum coincidence
           }else if(ABpos2 != prevEvtABPos){
             //in this case a real sum peak would be visible, but not a 180 degree correction
             //since only one of the 180 degree gammas is in the clover where the coincident hit occured
-            for(uint8_t i=0; i<numPctToSort; i++){
-              if(sortingSubset & (1U << i)){
-                numEvtCoinc[i]++; //real sum peak
-              }
-            }
+            numEvtCoinc[sortingSubset]++; //real sum peak
           }
 
           //reset flags
@@ -306,11 +279,7 @@ void SortData(const char *sfile,
               //in this case a real sum peak would be visible, but not a 180 degree correction
               //since the only other gamma isn't in the clover where the coincident hit occured
               //and 180 degree coincident gammas apparently don't exist
-              for(uint8_t i=0; i<numPctToSort; i++){
-                if(sortingSubset & (1U << i)){
-                  numEvtCoinc[i]++; //real sum peak
-                }
-              }
+              numEvtCoinc[sortingSubset]++; //real sum peak
             }
           }
 
@@ -327,11 +296,11 @@ void SortData(const char *sfile,
     
 
     if (jentry % 90713 == 0)
-      cout << setiosflags(ios::fixed) << "Entry " << (jentry-startEntry) << " of " << (sentries-startEntry) << ", " << 100 * (jentry-startEntry) / (sentries-startEntry) << "% complete" << "\r" << flush;
+      cout << setiosflags(ios::fixed) << "Entry " << (jentry) << " of " << (sentries) << ", " << 100 * (jentry) / (sentries) << "% complete" << "\r" << flush;
 
   } // analysis tree
 
-  cout << "Entry " << (sentries-startEntry) << " of " << (sentries-startEntry) << ", 100% complete" << endl;
+  cout << "Entry " << (sentries) << " of " << (sentries) << ", 100% complete" << endl;
   
   fclose(inp);
   
@@ -343,22 +312,20 @@ int main(int argc, char **argv){
   const char *outfile;
   uint8_t discardPileup = 0;
   double keVPerBin = 1.0;
-  double lastEvtsPercent = 0.0;
-  memset(evtsToSort,0,sizeof(evtsToSort));
-  maxEvtsToSort = 0;
+  subsetEvtsToSort = 0;
   double offset = 0.0;
   double gain = 1.0;
   double quad = 0.0;
   uint8_t forwardPos = 1;
   sortingSubset = 0;
-  printf("Starting SumGeom_ABgate_mca_SMOL_lastevents\n");
+  printf("Starting SumGeom_ABgate_mca_SMOL_splitruns\n");
 
   if(argc < 5){
     cout << "Determines the geometrical effect on the 180 degree summing correction, when using an addback gate." << endl;
-    cout << "Arguments: SumGeom_ABgate_mca_SMOL_lastevents smol_file_list output_file forward_pos num_sorts percent_of_events_1 (percent_of_events_2 ...) keV_per_bin discard_pileup offset gain quad" << endl;
+    cout << "Arguments: SumGeom_ABgate_mca_SMOL_splitruns smol_file_list output_file forward_pos num_splits keV_per_bin discard_pileup offset gain quad" << endl;
     cout << "  *smol_file* must be a list of SMOL trees (extension .list, one filepath per line)." << endl;
     cout << "  *output_file* is a text file that the geometric correction will be written to." << endl;
-    cout << "  *percent_of_events_X* specifies the percentage of events at the end of the file list to sort. The intention when writing this was to sort only events at the end of a decay curve." << endl;
+    cout << "  *num_splits* describes how many subsets of the data to sort. Spectra will be written separately for each subset." << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
     cout << "  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits)." << endl;
     cout << "  *offset*, *gain*, and *quad* are parameters to (re)calibrate the SMOL tree data by. If not specified, these will default to values of 0, 1, and 0 (ie. no change in calibration)." << endl;
@@ -368,45 +335,27 @@ int main(int argc, char **argv){
     outfile = argv[2];
     forwardPos = (uint8_t)atoi(argv[3]);
     uint8_t currentArg = 4;
-    numPctToSort = (uint8_t)(atoi(argv[currentArg++]));
-    //printf("Number of subsets to sort: %u.\n",numPctToSort);
-    if((numPctToSort > 0)&&(numPctToSort <= MAX_NUM_PCTTOSORT)){
-      //valid number of subsets of data to sort
-      if(argc < (5 + numPctToSort)){
-        printf("ERROR: not enough arguments for the number of sorts specified (need %u).\n",(5 + numPctToSort));
-        return 0;
-      }
-      for(uint8_t i=0; i<numPctToSort; i++){
-        pctToSort[i] = atof(argv[currentArg++]);
-        //printf("%f\n",pctToSort[i]);
-      }
-    }else{
-      printf("ERROR: invalid number of sorts specified (%u).\n",numPctToSort);
+    numSubsets = (uint32_t)(atoi(argv[currentArg++]));
+    if(numSubsets > MAX_NUM_SUBSETS){
+      printf("ERROR: number of subsets to sort exceeds the maximum (%i)!\n",MAX_NUM_SUBSETS);
       return 0;
     }
     //printf("Output filepath: %s.\n",argv[currentArg-1]);
-    if(argc > (5 + numPctToSort)){
+    if(argc > 5){
       keVPerBin = atof(argv[currentArg++]);
-      if(argc > (6 + numPctToSort)){
+      if(argc > 6){
         discardPileup = atoi(argv[currentArg++]);
         if(discardPileup > 2){
           printf("ERROR: Invalid value for discard_pileup (%s)!\n",argv[currentArg-1]);
           printf("  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits).\n");
           return 0;
         }
-        if(argc >= (10 + numPctToSort)){
+        if(argc >= 10){
           offset = atof(argv[currentArg++]);
           gain = atof(argv[currentArg++]);
           quad = atof(argv[currentArg++]);
         }
       }
-    }
-  }
-
-  for(uint8_t i=0; i<numPctToSort; i++){
-    if((pctToSort[i] <= 0.0)||(pctToSort[i] > 100.0)){
-      printf("Invalid event percentage to sort (%f)!\nThe event percentage must be greater than > 0 and <= 100.\n",pctToSort[i]);
-      return 0;
     }
   }
 
@@ -442,21 +391,14 @@ int main(int argc, char **argv){
       printf("ERROR: invalid GRIFFIN position!\n");
       return 0;
     }
-    printf("Percentage of events to sort: [");
-    for(uint8_t i=0; i<numPctToSort; i++){
-      if(i==0){
-        printf("%0.2f",pctToSort[i]);
-      }else{
-        printf("], [%0.2f",pctToSort[i]);
-      }
-    }
-    printf("]\n%0.2f keV per bin\n", keVPerBin);
+    printf("Subsets to sort: %u\n", numSubsets);
+    printf("%0.2f keV per bin\n", keVPerBin);
     if(discardPileup == 1){
       printf("Discarding pileup hits.\n");
     }else if(discardPileup == 2){
       printf("Only taking pileup hits.\n");
     }
-    if(argc >= (10 + numPctToSort)){
+    if(argc >= 10){
       printf("Recalibrating with offset = %f, gain = %f, quad = %.15f\n",offset,gain,quad);
     }
 
@@ -495,26 +437,8 @@ int main(int argc, char **argv){
           totalEntriesInFileList += getNumEntriesInFile(str);
         }
       }
-      for(uint8_t i=0; i<numPctToSort; i++){
-        if(pctToSort[i] >= 100.0){
-          evtsToSort[i] = totalEntriesInFileList;
-        }else{
-          evtsToSort[i] = (uint64_t)(totalEntriesInFileList*pctToSort[i]/100.0);
-        }
-        if(evtsToSort[i] > maxEvtsToSort){
-          maxEvtsToSort = evtsToSort[i];
-        }
-      }
-      
-      printf("%lu total events found.\nWill sort: [",totalEntriesInFileList);
-      for(uint8_t i=0; i<numPctToSort; i++){
-        if(i==0){
-          printf("%lu",evtsToSort[i]);
-        }else{
-          printf("], [%lu",evtsToSort[i]);
-        }
-      }
-      printf("] events.\n");
+      subsetEvtsToSort = (uint64_t)ceil((1.0*totalEntriesInFileList)/(1.0*numSubsets));
+      printf("%lu total events found.\nWill sort %lu events per subset.\n",totalEntriesInFileList,subsetEvtsToSort);
     }
 
 
@@ -535,18 +459,8 @@ int main(int argc, char **argv){
     return 0;
   }
 
-  printf("\nSorted a total of %lu events, keeping the last [",totalEntriesRead);
-  for(uint8_t i=0; i<numPctToSort; i++){
-    if(i==0){
-      printf("%lu (%f %%)",evtsToSort[i],100.0*(evtsToSort[i]/(1.0*totalEntriesRead)));
-    }else{
-      printf("], [%lu (%f %%)",evtsToSort[i],100.0*(evtsToSort[i]/(1.0*totalEntriesRead)));
-    }
-  }
-  printf("]\n\n");
-
-  for(uint8_t i=0; i<numPctToSort; i++){
-    printf("Sort %: %6.2f, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",pctToSort[i],numEvtCoinc[i],numEvtCoincSum[i],((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i])));
+  for(uint32_t i=0; i<numSubsets; i++){
+    printf("Subset: %i, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",i+1,numEvtCoinc[i],numEvtCoincSum[i],((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i])));
   }
   printf("For reference:\n");
   printf(" 1 clover missing: %f\n",15.0/14.0);
@@ -559,18 +473,8 @@ int main(int argc, char **argv){
     printf("ERROR: Cannot open the output file: %s\n",outfile);
     return 0;
   }else{
-    fprintf(out,"Sorted a total of %lu events, keeping the last [",totalEntriesRead);
-    for(uint8_t i=0; i<numPctToSort; i++){
-      if(i==0){
-        fprintf(out,"%lu (%f %%)",evtsToSort[i],100.0*(evtsToSort[i]/(1.0*totalEntriesRead)));
-      }else{
-        fprintf(out,"], [%lu (%f %%)",evtsToSort[i],100.0*(evtsToSort[i]/(1.0*totalEntriesRead)));
-      }
-    }
-    fprintf(out,"]\n\n");
-
-    for(uint8_t i=0; i<numPctToSort; i++){
-      fprintf(out,"Sort %: %6.2f, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",pctToSort[i],numEvtCoinc[i],numEvtCoincSum[i],((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i])));
+    for(uint32_t i=0; i<numSubsets; i++){
+      fprintf(out,"Subset: %i, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",i+1,numEvtCoinc[i],numEvtCoincSum[i],((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i])));
     }
     fprintf(out,"For reference:\n");
     fprintf(out," 1 clover missing: %f\n",15.0/14.0);
