@@ -22,10 +22,14 @@ double addbackT[NGRIFPOS];
 uint8_t addbackTS[NGRIFPOS];
 uint8_t addbackNumCFDFail[NGRIFPOS];
 
-uint64_t ABHitEvtNum, sumHit1EvtNum;
-uint8_t prevEvtABPos, prevEvtSumHit1Pos, prevEvtSumHit2Pos;
+uint64_t gateABHitEvtNum, gateSumHit1EvtNum;
+uint8_t prevEvtGateABPos, prevEvtGatedSumHit1Pos, prevEvtGatedSumHit2Pos;
+uint64_t sumHit1EvtNum;
+uint8_t prevEvtSumHit1Pos, prevEvtSumHit2Pos;
 
 //counters
+uint64_t numEvtGatedCoinc[MAX_NUM_SUBSETS];
+uint64_t numEvtGatedCoincSum[MAX_NUM_SUBSETS];
 uint64_t numEvtCoinc[MAX_NUM_SUBSETS];
 uint64_t numEvtCoincSum[MAX_NUM_SUBSETS];
 uint64_t numSinglesHits, numCoincPairs, num180DegCoincPairs;

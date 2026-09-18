@@ -25,7 +25,7 @@ void WriteData(const char* outName){
 
 }
 
-uint64_t SortData(char const *sfile, const double keVPerBin){
+uint64_t SortData(char const *sfile, const double keVPerBin, const uint8_t discardPileup){
 
   FILE *inp = fopen(sfile, "rb");
   printf("File %s opened\n", sfile);
@@ -72,6 +72,13 @@ uint64_t SortData(char const *sfile, const double keVPerBin){
     }
 
     for(int noABHitInd = 0; noABHitInd < sortedEvt.header.numNoABHits; noABHitInd++){
+
+      if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7))){
+        continue; //skip pileup hit
+      }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd].core & ((uint8_t)(1) << 7)))){
+        continue; //skip non-pileup hit
+      }
+
       if(sortedEvt.noABHit[noABHitInd].energy > MIN_HPGE_EAB){
         int eGamma = (int)(sortedEvt.noABHit[noABHitInd].energy/keVPerBin);
         if(eGamma>=0 && eGamma<S32K){
@@ -118,19 +125,29 @@ int main(int argc, char **argv){
   const char *sfile;
   const char *outfile;
   double keVPerBin = 1.0;
+  uint8_t discardPileup = 0;
   printf("Starting EGamma_noAB_mca_SMOL\n");
 
-  if((argc != 3)&&(argc != 4)){
+  if((argc < 3)||(argc > 5)){
     cout << "Generates TIGRESS mca spectra for PID and time separated data." << endl;
-    cout << "Arguments: EGamma_noAB_mca_SMOL smol_file output_dmca_file keV_per_bin" << endl;
+    cout << "Arguments: EGamma_noAB_mca_SMOL smol_file output_dmca_file keV_per_bin discard_pileup" << endl;
     cout << "  *smol_file* can be a single SMOL tree (extension .smol), or a list of SMOL trees (extension .list, one filepath per line)." << endl;
     cout << "  *keV_per_bin* defaults to 1 if not specified." << endl;
+    cout << "  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits)." << endl;
     return 0;
   }else{
     sfile = argv[1];
     outfile = argv[2];
     if(argc > 3){
       keVPerBin = atof(argv[3]);
+      if(argc > 4){
+        discardPileup = atoi(argv[4]);
+        if(discardPileup > 2){
+          cout << "ERROR: Invalid value for discard_pileup!" << endl;
+          cout << "  *discard_pileup* can be either 0 (false, default if not specified), 1 (true), or 2 (only use pileup hits)." << endl;
+          return 0;
+        }
+      }
     }
   }
 
@@ -146,10 +163,16 @@ int main(int argc, char **argv){
     return 0;
   }
 
+  if(discardPileup == 1){
+    printf("Discarding pileup hits.\n");
+  }else if(discardPileup == 2){
+    printf("Only taking pileup hits.\n");
+  }
+
   uint64_t numSepEvts = 0U;
   if(strcmp(dot + 1, "smol") == 0){
     printf("SMOL tree: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, outfile, keVPerBin);
-    numSepEvts += SortData(sfile, keVPerBin);
+    numSepEvts += SortData(sfile, keVPerBin, discardPileup);
   }else if(strcmp(dot + 1, "list") == 0){
     printf("SMOL tree list: %s\nOutput file: %s\n%0.2f keV per bin\n", sfile, outfile, keVPerBin);
     
@@ -163,7 +186,7 @@ int main(int argc, char **argv){
       while(!(feof(listfile))){//go until the end of file is reached
         if(fgets(str,256,listfile)!=NULL){ //get an entire line
           str[strcspn(str, "\r\n")] = 0;//strips newline characters from the string
-          numSepEvts += SortData(str, keVPerBin);
+          numSepEvts += SortData(str, keVPerBin, discardPileup);
         }
       }
     }

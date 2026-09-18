@@ -169,7 +169,7 @@ void SortData(const char *sfile,
     //we do this by taking the first addback hit of an event, then using
     //it to compare against hits in the next event
 
-    if(prevEvtABPos == 255U){
+    if(prevEvtGateABPos == 255U){
       for(uint8_t ABpos = 0; ABpos < NGRIFPOS; ABpos++){
 
         if(addbackT[ABpos] < 0.0){
@@ -177,8 +177,8 @@ void SortData(const char *sfile,
           continue;
         }else if(addbackE[ABpos] >= E_THRESHOLD){ //ignore threshold effects for low energy gammas (we assume any energy gates set are above threshold for all detectors)
           //flag this addback position
-          prevEvtABPos = ABpos;
-          ABHitEvtNum = jentry;
+          prevEvtGateABPos = ABpos;
+          gateABHitEvtNum = jentry;
           break;
         }
 
@@ -186,10 +186,10 @@ void SortData(const char *sfile,
     }
 
     //look for coincidences with addback hits
-    if(jentry != ABHitEvtNum){ //event mixing
-      if(prevEvtABPos != 255U){
+    if(jentry != gateABHitEvtNum){ //event mixing
+      if(prevEvtGateABPos != 255U){
 
-        if(prevEvtSumHit1Pos == 255U){
+        if(prevEvtGatedSumHit1Pos == 255U){
           for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
 
             if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
@@ -201,16 +201,16 @@ void SortData(const char *sfile,
             const double hit2E = recalEnergy(sortedEvt.noABHit[noABHitInd2].energy,offset,gain,quad);
             if((hit2E/keVPerBin) >= E_THRESHOLD){ //ignore threshold effects for low energy gammas (we assume any sum peaks being analyzed consist of gammas above threshold for all detectors)
               //flag 2nd hit
-              prevEvtSumHit1Pos = sortedEvt.noABHit[noABHitInd2].core & 63U;
-              sumHit1EvtNum = jentry;
-              //printf("flag sum hit 1 pos %u\n",prevEvtSumHit1Pos);
+              prevEvtGatedSumHit1Pos = sortedEvt.noABHit[noABHitInd2].core & 63U;
+              gateSumHit1EvtNum = jentry;
+              //printf("flag gated sum hit 1 pos %u\n",prevEvtGatedSumHit1Pos);
               break;
             }
           }
         }
 
-        if(jentry != sumHit1EvtNum){
-          if(prevEvtSumHit1Pos != 255U){
+        if(jentry != gateSumHit1EvtNum){
+          if(prevEvtGatedSumHit1Pos != 255U){
             //evaluate 180 degree summing conditions
             //only look at gammas that have real coincidences, since some positions
             //may not contain any gammas in coincidence with other and therefore
@@ -226,15 +226,15 @@ void SortData(const char *sfile,
                   continue; //skip non-pileup hit
                 }
 
-                if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][prevEvtSumHit1Pos] != 0){
+                if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][prevEvtGatedSumHit1Pos] != 0){
                   //2nd hit and 3rd hit are a unique pair that are 180 degrees apart
                   //(assume that the 2nd hit is the first of the pair, and that they are in coincidence)
 
                   const double hit3E = recalEnergy(sortedEvt.noABHit[noABHitInd3].energy,offset,gain,quad);
                   if((hit3E/keVPerBin) >= E_THRESHOLD){ //ignore threshold effects for low energy gammas (we assume any sum peaks being analyzed consist of gammas above threshold for all detectors)
                     //flag 3rd hit
-                    prevEvtSumHit2Pos = sortedEvt.noABHit[noABHitInd3].core & 63U;
-                    //printf("flag sum hit 2 pos %u\n",prevEvtSumHit2Pos);
+                    prevEvtGatedSumHit2Pos = sortedEvt.noABHit[noABHitInd3].core & 63U;
+                    //printf("flag gated sum hit 2 pos %u\n",prevEvtGatedSumHit2Pos);
                     break;
                   }
                   
@@ -248,50 +248,129 @@ void SortData(const char *sfile,
 
         //if all 3 hits have been flagged, evaluate what type
         //of summing/correction they contribute to 
-        if(prevEvtSumHit2Pos != 255U){
+        if(prevEvtGatedSumHit2Pos != 255U){
           //now check whether the 180 degree coindident hit conflicts with the original addback gate
           //and flag it if so
-          const int ABpos2 = (prevEvtSumHit1Pos)/4;
-          const int ABpos3 = (prevEvtSumHit2Pos)/4;
-          if((ABpos3 != prevEvtABPos)&&(ABpos2 != prevEvtABPos)){
+          const int ABpos2 = (prevEvtGatedSumHit1Pos)/4;
+          const int ABpos3 = (prevEvtGatedSumHit2Pos)/4;
+          if((ABpos3 != prevEvtGateABPos)&&(ABpos2 != prevEvtGateABPos)){
             //in this case both a real sum peak and a 180 correction would be visible
             //since neither of the 180 degree gammas is in the clover where the coincident hit occured
-            numEvtCoinc[sortingSubset]++; //real sum peak
-            numEvtCoincSum[sortingSubset]++; //180 sum coincidence
-          }else if(ABpos2 != prevEvtABPos){
+            numEvtGatedCoinc[sortingSubset]++; //real sum peak
+            numEvtGatedCoincSum[sortingSubset]++; //180 sum coincidence
+          }else if(ABpos2 != prevEvtGateABPos){
             //in this case a real sum peak would be visible, but not a 180 degree correction
             //since only one of the 180 degree gammas is in the clover where the coincident hit occured
-            numEvtCoinc[sortingSubset]++; //real sum peak
+            numEvtGatedCoinc[sortingSubset]++; //real sum peak
           }
 
           //reset flags
-          prevEvtABPos = 255U;
-          prevEvtSumHit1Pos = 255U;
-          prevEvtSumHit2Pos = 255U;
-        }else if(jentry > (ABHitEvtNum+EVT_MIX_SEARCH_DEPTH)){
+          prevEvtGateABPos = 255U;
+          prevEvtGatedSumHit1Pos = 255U;
+          prevEvtGatedSumHit2Pos = 255U;
+        }else if(jentry > (gateABHitEvtNum+EVT_MIX_SEARCH_DEPTH)){
           //reached the end of the event mixing search
           //but the 3rd hit was not seen
           //check whether the 2nd hit contributes to summing
 
-          if(prevEvtSumHit1Pos != 255U){
-            const int ABpos2 = (prevEvtSumHit1Pos)/4;
-            if(ABpos2 != prevEvtABPos){
+          if(prevEvtGatedSumHit1Pos != 255U){
+            const int ABpos2 = (prevEvtGatedSumHit1Pos)/4;
+            if(ABpos2 != prevEvtGateABPos){
               //in this case a real sum peak would be visible, but not a 180 degree correction
               //since the only other gamma isn't in the clover where the coincident hit occured
               //and 180 degree coincident gammas apparently don't exist
-              numEvtCoinc[sortingSubset]++; //real sum peak
+              numEvtGatedCoinc[sortingSubset]++; //real sum peak
             }
           }
 
           //reset flags
-          prevEvtABPos = 255U;
-          prevEvtSumHit1Pos = 255U;
-          prevEvtSumHit2Pos = 255U;
+          prevEvtGateABPos = 255U;
+          prevEvtGatedSumHit1Pos = 255U;
+          prevEvtGatedSumHit2Pos = 255U;
         }
         
       }
     }
 
+    //also look for sum hits without the addback gate condition
+    if(prevEvtSumHit1Pos == 255U){
+      for(int noABHitInd2 = 0; noABHitInd2 < sortedEvt.header.numNoABHits; noABHitInd2++){
+
+        if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7))){
+          continue; //skip pileup hit
+        }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd2].core & ((uint8_t)(1) << 7)))){
+          continue; //skip non-pileup hit
+        }
+
+        const double hit2E = recalEnergy(sortedEvt.noABHit[noABHitInd2].energy,offset,gain,quad);
+        if((hit2E/keVPerBin) >= E_THRESHOLD){ //ignore threshold effects for low energy gammas (we assume any sum peaks being analyzed consist of gammas above threshold for all detectors)
+          //flag 2nd hit
+          prevEvtSumHit1Pos = sortedEvt.noABHit[noABHitInd2].core & 63U;
+          sumHit1EvtNum = jentry;
+          //printf("flag sum hit 1 pos %u\n",prevEvtSumHit1Pos);
+          break;
+        }
+      }
+    }
+
+    if(prevEvtSumHit1Pos != 255U){
+      if(jentry != sumHit1EvtNum){
+        //evaluate 180 degree summing conditions
+        //only look at gammas that have real coincidences, since some positions
+        //may not contain any gammas in coincidence with other and therefore
+        //wont be available for the 180 degree coincidence summing correction,
+        //but will still contain real sum peaks
+        //(eg. if the corresponding GRIF-16 has a clock de-sync)
+        if(sortedEvt.header.numNoABHits > 1){ //enforce coincidence condition
+          for(int noABHitInd3 = 0; noABHitInd3 < sortedEvt.header.numNoABHits; noABHitInd3++){
+            
+            if((discardPileup == 1) && (sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7))){
+              continue; //skip pileup hit
+            }else if((discardPileup == 2) && (!(sortedEvt.noABHit[noABHitInd3].core & ((uint8_t)(1) << 7)))){
+              continue; //skip non-pileup hit
+            }
+
+            if(hitMap180deg[sortedEvt.noABHit[noABHitInd3].core & 63U][prevEvtSumHit1Pos] != 0){
+              //2nd hit and 3rd hit are a unique pair that are 180 degrees apart
+              //(assume that the 2nd hit is the first of the pair, and that they are in coincidence)
+
+              const double hit3E = recalEnergy(sortedEvt.noABHit[noABHitInd3].energy,offset,gain,quad);
+              if((hit3E/keVPerBin) >= E_THRESHOLD){ //ignore threshold effects for low energy gammas (we assume any sum peaks being analyzed consist of gammas above threshold for all detectors)
+                //flag 3rd hit
+                prevEvtSumHit2Pos = sortedEvt.noABHit[noABHitInd3].core & 63U;
+                //printf("flag sum hit 2 pos %u\n",prevEvtSumHit2Pos);
+                break;
+              }
+              
+            }
+            //}
+          }
+        }
+        
+      }
+    }
+
+    //if all ungated hits have been flagged, evaluate what type
+    //of summing/correction they contribute to 
+    if(prevEvtSumHit2Pos != 255U){
+      //in this case both a real sum peak and a 180 correction would be visible
+      //since a 180 degree coincidence was observed, this means that a 180 degree
+      //detector pair is available
+      numEvtCoinc[sortingSubset]++; //real sum peak
+      numEvtCoincSum[sortingSubset]++; //180 sum coincidence
+      //reset flags
+      prevEvtSumHit1Pos = 255U;
+      prevEvtSumHit2Pos = 255U;
+    }else if((prevEvtSumHit1Pos != 255U)&&(jentry > (sumHit1EvtNum+EVT_MIX_SEARCH_DEPTH))){
+      //in this case a real sum peak would be visible, but not a 180 degree correction
+      //since 180 degree coincident gammas apparently don't exist, maybe
+      //due to a missing detector
+      numEvtCoinc[sortingSubset]++; //real sum peak
+
+      //reset flags
+      prevEvtSumHit1Pos = 255U;
+      prevEvtSumHit2Pos = 255U;
+    }
     
     
 
@@ -365,12 +444,16 @@ int main(int argc, char **argv){
   }
 
   //initialize counters
+  memset(numEvtGatedCoinc,0,sizeof(numEvtGatedCoinc));
+  memset(numEvtGatedCoincSum,0,sizeof(numEvtGatedCoincSum));
   memset(numEvtCoinc,0,sizeof(numEvtCoinc));
   memset(numEvtCoincSum,0,sizeof(numEvtCoincSum));
   numSinglesHits = 0;
   numCoincPairs = 0;
   num180DegCoincPairs = 0;
-  prevEvtABPos = 255U;
+  prevEvtGateABPos = 255U;
+  prevEvtGatedSumHit1Pos = 255U;
+  prevEvtGatedSumHit2Pos = 255U;
   prevEvtSumHit1Pos = 255U;
   prevEvtSumHit2Pos = 255U;
 
@@ -459,11 +542,20 @@ int main(int argc, char **argv){
     return 0;
   }
 
+  printf("Using AB gate:");
   for(uint32_t i=0; i<numSubsets; i++){
-    printf("Subset: %i, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",i+1,numEvtCoinc[i],numEvtCoincSum[i],((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i])));
+    printf(" Subset: %i, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",i+1,numEvtGatedCoinc[i],numEvtGatedCoincSum[i],((double)(numEvtGatedCoinc[i]))/((double)(numEvtGatedCoincSum[i])));
   }
   printf("For reference:\n");
   printf(" 1 clover missing: %f\n",15.0/14.0);
+  printf("In singles:");
+  for(uint32_t i=0; i<numSubsets; i++){
+    printf(" Subset: %i, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",i+1,numEvtCoinc[i],numEvtCoincSum[i],((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i])));
+  }
+  printf("Gated / singles:\n");
+  for(uint32_t i=0; i<numSubsets; i++){
+    printf(" Subset: %i, Ratio: %f\n",i+1,(((double)(numEvtGatedCoinc[i]))/((double)(numEvtGatedCoincSum[i]))) / (((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i]))) );
+  }
   printf("Total hits: %lu\n",numSinglesHits);
   printf("Total same-event hit pairs: %lu\n",numCoincPairs);
   printf("Total 180 degree same-event hit pairs: %lu\n",num180DegCoincPairs);
@@ -473,11 +565,20 @@ int main(int argc, char **argv){
     printf("ERROR: Cannot open the output file: %s\n",outfile);
     return 0;
   }else{
+    fprintf(out,"Using AB gate:");
     for(uint32_t i=0; i<numSubsets; i++){
-      fprintf(out,"Subset: %i, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",i+1,numEvtCoinc[i],numEvtCoincSum[i],((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i])));
+      fprintf(out," Subset: %i, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",i+1,numEvtGatedCoinc[i],numEvtGatedCoincSum[i],((double)(numEvtGatedCoinc[i]))/((double)(numEvtGatedCoincSum[i])));
     }
     fprintf(out,"For reference:\n");
     fprintf(out," 1 clover missing: %f\n",15.0/14.0);
+    fprintf(out,"In singles:");
+    for(uint32_t i=0; i<numSubsets; i++){
+      fprintf(out," Subset: %i, Real geometric summing: %10lu, 180 degree summing: %10lu, ratio: %f\n",i+1,numEvtCoinc[i],numEvtCoincSum[i],((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i])));
+    }
+    fprintf(out,"Gated / singles:\n");
+    for(uint32_t i=0; i<numSubsets; i++){
+      fprintf(out," Subset: %i, Ratio: %f\n",i+1,(((double)(numEvtGatedCoinc[i]))/((double)(numEvtGatedCoincSum[i]))) / (((double)(numEvtCoinc[i]))/((double)(numEvtCoincSum[i]))) );
+    }
     fprintf(out,"Total hits: %lu\n",numSinglesHits);
     fprintf(out,"Total same-event hit pairs: %lu\n",numCoincPairs);
     fprintf(out,"Total 180 degree same-event hit pairs: %lu\n",num180DegCoincPairs);
